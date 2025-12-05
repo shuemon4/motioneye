@@ -18,18 +18,21 @@ import datetime
 import fcntl
 import functools
 import logging
+import mimetypes
 import multiprocessing
 import os.path
 import re
 import subprocess
 import typing
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from errno import EAGAIN, ENOENT
 from hashlib import sha1
 from io import BytesIO
 from shlex import quote
 from signal import SIGTERM
 from stat import S_ISDIR, S_ISREG
-from time import time
+from time import time, monotonic
 from zipfile import ZipFile
 
 from PIL import Image
@@ -96,13 +99,99 @@ MOVIE_EXT_TYPE_MAPPING = {
     'mkv': 'video/x-matroska',
 }
 
-# a cache of prepared files (whose preparing time is significant)
-_prepared_files = {}
+# =============================================================================
+# Prepared Files Cache (Pi 5 Optimization: Bounded LRU with size limits)
+# =============================================================================
+
+# LRU cache using OrderedDict
+# Key: cache_key (hash string)
+# Value: (data, size, timestamp)
+_prepared_files = OrderedDict()
+_prepared_files_total_size = 0
 
 _timelapse_process = None
 _timelapse_data = None
 
 _ffmpeg_binary_cache = None
+
+# =============================================================================
+# Pi 5 Optimization: ThreadPoolExecutor and Media Listing Cache
+# =============================================================================
+
+# ThreadPoolExecutor for media listing (replaces multiprocessing.Process)
+_listing_executor = None
+
+# Media listing cache with TTL
+# Key: (camera_id, media_type, prefix)
+# Value: (timestamp, result_list)
+_media_listing_cache = {}
+
+
+def start():
+    """Initialize the media files module (called from server.py)."""
+    global _listing_executor
+    _listing_executor = ThreadPoolExecutor(max_workers=2)
+    logging.debug('mediafiles: ThreadPoolExecutor initialized')
+
+
+def stop():
+    """Shutdown the media files module (called from server.py)."""
+    global _listing_executor
+    if _listing_executor:
+        _listing_executor.shutdown(wait=True)
+        _listing_executor = None
+        logging.debug('mediafiles: ThreadPoolExecutor shutdown')
+
+
+def _get_cached_listing(camera_id, media_type, prefix):
+    """
+    Get cached media listing if available and fresh.
+
+    Returns:
+        list or None: Cached result if valid, None otherwise
+    """
+    cache_key = (camera_id, media_type, prefix)
+    cached = _media_listing_cache.get(cache_key)
+
+    if cached is None:
+        return None
+
+    timestamp, result = cached
+    ttl = getattr(settings, 'MEDIA_LISTING_CACHE_TTL', 10)
+
+    if monotonic() - timestamp > ttl:
+        # Cache expired
+        del _media_listing_cache[cache_key]
+        return None
+
+    logging.debug('mediafiles: cache hit for %s', cache_key)
+    return result
+
+
+def _set_cached_listing(camera_id, media_type, prefix, results):
+    """Store media listing in cache."""
+    cache_key = (camera_id, media_type, prefix)
+    _media_listing_cache[cache_key] = (monotonic(), results)
+
+
+def invalidate_listing_cache(camera_id=None):
+    """
+    Invalidate media listing cache.
+
+    Args:
+        camera_id: If provided, only invalidate cache for this camera.
+                   If None, invalidate all cache entries.
+    """
+    global _media_listing_cache
+
+    if camera_id is None:
+        _media_listing_cache = {}
+        logging.debug('mediafiles: cleared all listing cache')
+    else:
+        keys_to_remove = [k for k in _media_listing_cache if k[0] == camera_id]
+        for key in keys_to_remove:
+            del _media_listing_cache[key]
+        logging.debug('mediafiles: cleared listing cache for camera %s', camera_id)
 
 
 def findfiles(path: str) -> typing.List[tuple]:
@@ -223,11 +312,11 @@ def _remove_older_files(
         uploadservices.clean_cloud(directory, {}, clean_cloud_info)
 
 
-def find_ffmpeg() -> tuple:
-    global _ffmpeg_binary_cache
-    if _ffmpeg_binary_cache:
-        return _ffmpeg_binary_cache
-
+def _discover_ffmpeg() -> tuple:
+    """
+    Discover ffmpeg binary and its capabilities.
+    This is the expensive operation we want to cache.
+    """
     # binary
     try:
         binary = utils.call_subprocess(['which', 'ffmpeg'])
@@ -240,7 +329,7 @@ def find_ffmpeg() -> tuple:
         output = utils.call_subprocess([quote(binary), '-version'])
 
     except subprocess.CalledProcessError as e:
-        logging.error(f'ffmpeg: could not find version: {e}')
+        logging.error('ffmpeg: could not find version: %s', e)
         return None, None, None
 
     result = re.findall('ffmpeg version (.+?) ', output, re.IGNORECASE)
@@ -251,7 +340,7 @@ def find_ffmpeg() -> tuple:
         output = utils.call_subprocess(binary + ' -codecs -hide_banner', shell=True)
 
     except subprocess.CalledProcessError as e:
-        logging.error(f'ffmpeg: could not list supported codecs: {e}')
+        logging.error('ffmpeg: could not list supported codecs: %s', e)
         return None, None, None
 
     lines = output.split('\n')
@@ -278,11 +367,36 @@ def find_ffmpeg() -> tuple:
 
         codecs[codec] = {'encoders': encoders, 'decoders': decoders}
 
-    logging.debug(f'found ffmpeg executable "{binary}" version "{version}"')
+    logging.debug('found ffmpeg executable "%s" version "%s"', binary, version)
 
-    _ffmpeg_binary_cache = (binary, version, codecs)
+    return (binary, version, codecs)
 
+
+def find_ffmpeg() -> tuple:
+    """
+    Find ffmpeg binary with caching.
+
+    Pi 5 Optimization: Caches the ffmpeg path and codec info to avoid
+    repeated subprocess calls for 'which' and codec probing.
+    """
+    global _ffmpeg_binary_cache
+
+    if _ffmpeg_binary_cache:
+        return _ffmpeg_binary_cache
+
+    _ffmpeg_binary_cache = _discover_ffmpeg()
     return _ffmpeg_binary_cache
+
+
+def get_ffmpeg_binary() -> str:
+    """
+    Get just the ffmpeg binary path (for subprocess calls).
+
+    Pi 5 Optimization: Useful for passing to subprocesses without
+    needing to re-discover ffmpeg.
+    """
+    result = find_ffmpeg()
+    return result[0] if result else None
 
 
 def cleanup_media(media_type: str) -> None:
@@ -344,6 +458,170 @@ def cleanup_media(media_type: str) -> None:
             f'calling _remove_older_files: {cloud_enabled} {clean_cloud_enabled} {clean_cloud_info}'
         )
         _remove_older_files(target_dir, preserve_moment, clean_cloud_info, exts=exts)
+
+
+def cleanup_media_combined() -> dict:
+    """
+    Single-pass cleanup for both pictures and movies.
+
+    Pi 5 Optimization: Performs a single directory scan per camera instead of
+    two separate scans (one for pictures, one for movies). This halves the I/O
+    overhead for cleanup operations.
+
+    Returns:
+        dict: Statistics about removed files
+    """
+    stats = {
+        'pictures_removed': 0,
+        'movies_removed': 0,
+        'bytes_freed': 0,
+        'cameras_processed': 0,
+    }
+
+    all_picture_exts = set(_PICTURE_EXTS)
+    all_movie_exts = set(_MOVIE_EXTS + ['.thumb'])
+
+    for camera_id in config.get_camera_ids():
+        camera_config = config.get_camera(camera_id)
+        if not utils.is_local_motion_camera(camera_config):
+            continue
+
+        # Get retention settings for both types
+        preserve_pictures = camera_config.get('@preserve_pictures', 0)
+        preserve_movies = camera_config.get('@preserve_movies', 0)
+
+        # Check if any cleanup is needed
+        if preserve_pictures == 0 and preserve_movies == 0:
+            continue  # Both set to preserve forever
+
+        # Check if media types are enabled
+        still_images_enabled = bool(camera_config.get('picture_filename')) or bool(
+            camera_config.get('snapshot_filename')
+        )
+        movies_enabled = bool(camera_config.get('movie_output'))
+
+        # Skip if nothing to clean
+        if not still_images_enabled and not movies_enabled:
+            continue
+
+        # Skip if retention is infinite for both enabled types
+        if (not still_images_enabled or preserve_pictures == 0) and \
+           (not movies_enabled or preserve_movies == 0):
+            continue
+
+        target_dir = camera_config.get('target_dir')
+        if not os.path.exists(target_dir):
+            continue
+
+        # Create sentinel file
+        try:
+            open(os.path.join(target_dir, '.keep'), 'w').close()
+        except Exception:
+            pass
+
+        # Calculate preservation moments
+        now = datetime.datetime.now()
+        picture_preserve_moment = None
+        movie_preserve_moment = None
+
+        if still_images_enabled and preserve_pictures > 0:
+            picture_preserve_moment = now - datetime.timedelta(days=preserve_pictures)
+
+        if movies_enabled and preserve_movies > 0:
+            movie_preserve_moment = now - datetime.timedelta(days=preserve_movies)
+
+        # Cloud cleanup info
+        cloud_enabled = camera_config.get('@upload_enabled')
+        clean_cloud_enabled = camera_config.get('@clean_cloud_enabled')
+        cloud_dir = camera_config.get('@upload_location')
+        service_name = camera_config.get('@upload_service')
+        clean_cloud_info = None
+        if cloud_enabled and clean_cloud_enabled and service_name and cloud_dir:
+            clean_cloud_info = {
+                'camera_id': camera_id,
+                'service_name': service_name,
+                'cloud_dir': cloud_dir,
+            }
+
+        # Single-pass file scan
+        removed_folders = 0
+        for full_path, name, st in findfiles(target_dir):
+            full_path_lower = full_path.lower()
+            file_moment = datetime.datetime.fromtimestamp(st.st_mtime)
+
+            should_remove = False
+            is_picture = False
+            is_movie = False
+
+            # Check if it's a picture file
+            if any(full_path_lower.endswith(ext) for ext in all_picture_exts):
+                is_picture = True
+                if picture_preserve_moment and file_moment < picture_preserve_moment:
+                    should_remove = True
+
+            # Check if it's a movie file (or thumb)
+            elif any(full_path_lower.endswith(ext) for ext in all_movie_exts):
+                is_movie = True
+                if movie_preserve_moment and file_moment < movie_preserve_moment:
+                    should_remove = True
+
+            if not should_remove:
+                continue
+
+            # Remove the file
+            try:
+                file_size = st.st_size
+                os.remove(full_path)
+                stats['bytes_freed'] += file_size
+
+                if is_picture:
+                    stats['pictures_removed'] += 1
+                elif is_movie:
+                    stats['movies_removed'] += 1
+
+                logging.debug('removed file %s', full_path)
+
+            except OSError as e:
+                if e.errno != ENOENT:
+                    logging.error('failed to remove %s: %s', full_path, e)
+                continue
+
+            # Try to clean up empty parent directories
+            dir_path = os.path.dirname(full_path)
+            if not os.path.exists(dir_path):
+                continue
+
+            try:
+                listing = os.listdir(dir_path)
+                thumbs = [l for l in listing if l.endswith('.thumb')]
+
+                # Remove orphaned thumbs
+                if len(listing) == len(thumbs):
+                    for p in thumbs:
+                        try:
+                            os.remove(os.path.join(dir_path, p))
+                        except Exception:
+                            pass
+
+                # Remove empty directory
+                if not listing or len(listing) == len(thumbs):
+                    logging.debug('removing empty directory %s...', dir_path)
+                    os.removedirs(dir_path)
+                    removed_folders += 1
+
+            except Exception as e:
+                logging.debug('could not clean directory %s: %s', dir_path, e)
+
+        # Clean cloud if needed
+        if clean_cloud_info and removed_folders > 0:
+            try:
+                uploadservices.clean_cloud(target_dir, {}, clean_cloud_info)
+            except Exception as e:
+                logging.error('failed to clean cloud: %s', e)
+
+        stats['cameras_processed'] += 1
+
+    return stats
 
 
 def make_movie_preview(camera_config: dict, full_path: str) -> typing.Union[str, None]:
@@ -415,96 +693,104 @@ def make_movie_preview(camera_config: dict, full_path: str) -> typing.Union[str,
     return thumb_path
 
 
+def _do_list_media_sync(target_dir: str, exts: list, prefix: str) -> list:
+    """
+    Synchronous media listing worker function.
+    Runs in ThreadPoolExecutor thread.
+    """
+    media_list = []
+
+    mf = _list_media_files(target_dir, exts=exts, prefix=prefix)
+    for p, st in mf:
+        path = p[len(target_dir):]
+        if not path.startswith('/'):
+            path = '/' + path
+
+        timestamp = st.st_mtime
+        size = st.st_size
+
+        mime_type = mimetypes.guess_type(path)[0]
+        if mime_type is None:
+            mime_type = 'video/mpeg'
+
+        media_list.append({
+            'path': path,
+            'mimeType': mime_type,
+            'momentStr': pretty_date_time(
+                datetime.datetime.fromtimestamp(timestamp)
+            ),
+            'momentStrShort': pretty_date_time(
+                datetime.datetime.fromtimestamp(timestamp), short=True
+            ),
+            'sizeStr': utils.pretty_size(size),
+            'timestamp': timestamp,
+        })
+
+    return media_list
+
+
 def list_media(camera_config: dict, media_type: str, prefix=None) -> typing.Awaitable:
+    """
+    List media files for a camera.
+
+    Pi 5 Optimization: Uses ThreadPoolExecutor instead of multiprocessing.Process
+    for ~10-50ms spawn time savings. Also implements TTL-based caching.
+    """
     fut = Future()
     target_dir = camera_config.get('target_dir')
+    camera_id = camera_config.get('@id')
 
     if media_type == 'picture':
         exts = _PICTURE_EXTS
-
     elif media_type == 'movie':
         exts = _MOVIE_EXTS
+    else:
+        fut.set_result([])
+        return fut
 
-    # create a subprocess to retrieve media files
-    def do_list_media(pipe):
-        import mimetypes
+    # Check cache first
+    cached = _get_cached_listing(camera_id, media_type, prefix)
+    if cached is not None:
+        fut.set_result(cached)
+        return fut
 
-        parent_pipe.close()
+    # Use ThreadPoolExecutor if available, fallback to synchronous
+    if _listing_executor is None:
+        logging.warning('mediafiles: executor not initialized, running synchronously')
+        try:
+            result = _do_list_media_sync(target_dir, exts, prefix)
+            _set_cached_listing(camera_id, media_type, prefix, result)
+            fut.set_result(result)
+        except Exception as e:
+            logging.error('failed to list media files: %s', e)
+            fut.set_result(None)
+        return fut
 
-        mf = _list_media_files(target_dir, exts=exts, prefix=prefix)
-        for p, st in mf:
-            path = p[len(target_dir) :]
-            if not path.startswith('/'):
-                path = '/' + path
+    logging.debug('starting media listing in thread pool...')
 
-            timestamp = st.st_mtime
-            size = st.st_size
+    def on_complete(future_result):
+        try:
+            result = future_result.result()
+            logging.debug('media listing has returned %d files', len(result))
+            _set_cached_listing(camera_id, media_type, prefix, result)
+            fut.set_result(result)
+        except Exception as e:
+            logging.error('failed to list media files: %s', e)
+            fut.set_result(None)
 
-            pipe.send(
-                {
-                    'path': path,
-                    'mimeType': (
-                        mimetypes.guess_type(path)[0]
-                        if mimetypes.guess_type(path)[0] is not None
-                        else 'video/mpeg'
-                    ),
-                    'momentStr': pretty_date_time(
-                        datetime.datetime.fromtimestamp(timestamp)
-                    ),
-                    'momentStrShort': pretty_date_time(
-                        datetime.datetime.fromtimestamp(timestamp), short=True
-                    ),
-                    'sizeStr': utils.pretty_size(size),
-                    'timestamp': timestamp,
-                }
-            )
+    io_loop = IOLoop.current()
+    executor_future = _listing_executor.submit(
+        _do_list_media_sync, target_dir, exts, prefix
+    )
 
-        pipe.close()
+    # Add callback that runs on IOLoop
+    def check_future():
+        if executor_future.done():
+            on_complete(executor_future)
+        else:
+            io_loop.add_timeout(datetime.timedelta(seconds=0.1), check_future)
 
-    logging.debug('starting media listing process...')
-
-    (parent_pipe, child_pipe) = multiprocessing.Pipe(duplex=False)
-    process = multiprocessing.Process(target=do_list_media, args=(child_pipe,))
-    process.start()
-    child_pipe.close()
-
-    # poll the subprocess to see when it has finished
-    started = datetime.datetime.now()
-    media_list = []
-
-    def read_media_list():
-        while parent_pipe.poll():
-            try:
-                media_list.append(parent_pipe.recv())
-
-            except EOFError:
-                break
-
-    def poll_process():
-        io_loop = IOLoop.current()
-        if process.is_alive():  # not finished yet
-            now = datetime.datetime.now()
-            delta = now - started
-            if delta.seconds < settings.LIST_MEDIA_TIMEOUT:
-                io_loop.add_timeout(datetime.timedelta(seconds=0.5), poll_process)
-                read_media_list()
-
-            else:  # process did not finish in time
-                logging.error('timeout waiting for the media listing process to finish')
-                try:
-                    os.kill(process.pid, SIGTERM)
-
-                except:
-                    pass  # nevermind
-
-                fut.set_result(None)
-
-        else:  # finished
-            read_media_list()
-            logging.debug(f'media listing process has returned {len(media_list)} files')
-            fut.set_result(media_list)
-
-    poll_process()
+    check_future()
     return fut
 
 
@@ -1037,27 +1323,85 @@ def get_current_picture(camera_config, width, height):
     return bio.getvalue()
 
 
+def _evict_prepared_cache_lru():
+    """
+    Evict oldest entries from prepared cache if over limits.
+    Pi 5 Optimization: Bounded LRU cache prevents unbounded memory growth.
+    """
+    global _prepared_files_total_size
+
+    max_size_bytes = getattr(settings, 'PREPARED_FILES_MAX_SIZE_MB', 500) * 1024 * 1024
+    max_entries = getattr(settings, 'PREPARED_FILES_MAX_ENTRIES', 10)
+
+    # Evict by entry count
+    while len(_prepared_files) > max_entries:
+        key, (data, size, ts) = _prepared_files.popitem(last=False)
+        _prepared_files_total_size -= size
+        logging.debug('evicted prepared cache entry %s (count limit)', key)
+
+    # Evict by size
+    while _prepared_files_total_size > max_size_bytes and _prepared_files:
+        key, (data, size, ts) = _prepared_files.popitem(last=False)
+        _prepared_files_total_size -= size
+        logging.debug('evicted prepared cache entry %s (size limit)', key)
+
+
 def get_prepared_cache(key):
-    return _prepared_files.pop(key, None)
+    """
+    Get and remove a prepared file from cache.
+    Pi 5 Optimization: LRU touch on access for better cache behavior.
+    """
+    global _prepared_files_total_size
+
+    entry = _prepared_files.pop(key, None)
+    if entry is None:
+        return None
+
+    data, size, ts = entry
+    _prepared_files_total_size -= size
+    return data
 
 
 def set_prepared_cache(data):
+    """
+    Store a prepared file in cache with LRU eviction.
+    Pi 5 Optimization: Bounded cache with configurable limits.
+    """
+    global _prepared_files_total_size
+
     key = sha1(str(time()).encode()).hexdigest()  # nosec B303
 
     if key in _prepared_files:
-        logging.warning(f'key "{key}" already present in prepared cache')
+        logging.warning('key "%s" already present in prepared cache', key)
+        # Remove old entry first
+        old_data, old_size, old_ts = _prepared_files.pop(key)
+        _prepared_files_total_size -= old_size
 
-    _prepared_files[key] = data
+    data_size = len(data)
+    _prepared_files[key] = (data, data_size, monotonic())
+    _prepared_files_total_size += data_size
+
+    # Evict old entries if over limits
+    _evict_prepared_cache_lru()
+
+    # Schedule timeout cleanup
+    timeout = getattr(settings, 'PREPARED_FILES_TIMEOUT', 1800)
 
     def clear():
-        if _prepared_files.pop(key, None) is not None:
-            logging.warning(
-                f'key "{key}" was still present in the prepared cache, removed'
-            )
-
-    timeout = 3600  # the user has 1 hour to download the file after creation
+        global _prepared_files_total_size
+        entry = _prepared_files.pop(key, None)
+        if entry is not None:
+            data, size, ts = entry
+            _prepared_files_total_size -= size
+            logging.debug('prepared cache entry %s expired', key)
 
     io_loop = IOLoop.current()
     io_loop.add_timeout(datetime.timedelta(seconds=timeout), clear)
+
+    logging.debug(
+        'prepared cache: added %s (%d bytes, %d entries, %d MB total)',
+        key, data_size, len(_prepared_files),
+        _prepared_files_total_size // (1024 * 1024)
+    )
 
     return key

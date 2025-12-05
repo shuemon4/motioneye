@@ -37,6 +37,10 @@ _POOL_SIZE = 1
 _tasks = []
 _pool = None
 
+# Debounced save state (Pi 5 optimization - reduces SD card writes)
+_dirty = False
+_last_save_time = 0
+
 
 def start():
     global _pool
@@ -57,6 +61,8 @@ def start():
 def stop():
     global _pool
 
+    # Flush any pending saves before stopping
+    _flush_if_dirty(force=True)
     _pool = None
 
 
@@ -84,7 +90,7 @@ def add(when, func, tag=None, callback=None, **params):
     logging.debug('adding task "%s" in %d seconds' % (tag or func.__name__, when - now))
     _tasks.insert(i, (when, func, tag, callback, params))
 
-    _save()
+    _mark_dirty()
 
 
 def _check_tasks():
@@ -104,7 +110,69 @@ def _check_tasks():
         changed = True
 
     if changed:
-        _save()
+        _mark_dirty()
+
+    # Periodically flush dirty state to disk
+    _flush_if_dirty()
+
+
+def _mark_dirty():
+    """Mark task state as dirty (needs saving)."""
+    global _dirty
+    _dirty = True
+
+
+def _flush_if_dirty(force=False):
+    """
+    Flush task state to disk if dirty and enough time has passed.
+
+    Args:
+        force: If True, flush immediately regardless of interval (used on shutdown)
+    """
+    global _dirty, _last_save_time
+
+    if not _dirty:
+        return
+
+    # Check if we should save based on settings
+    if settings.TASK_SAVE_ON_SHUTDOWN_ONLY and not force:
+        return
+
+    now = time.monotonic()
+    interval = getattr(settings, 'TASK_SAVE_INTERVAL', 30)
+
+    if not force and (now - _last_save_time) < interval:
+        return
+
+    # Perform the actual save
+    _do_save()
+    _dirty = False
+    _last_save_time = now
+
+
+def _do_save():
+    """Actually write tasks to disk."""
+    file_path = os.path.join(settings.CONF_PATH, _STATE_FILE_NAME)
+
+    logging.debug('saving tasks to "%s"...', file_path)
+
+    try:
+        f = open(file_path, 'wb')
+
+    except Exception as e:
+        logging.error('could not open tasks file "%s": %s', file_path, e)
+        return
+
+    try:
+        # don't save tasks that have a callback
+        tasks = [t for t in _tasks if not t[3]]
+        pickle.dump(tasks, f)
+
+    except Exception as e:
+        logging.error('could not save tasks to file "%s": %s', file_path, e)
+
+    finally:
+        f.close()
 
 
 def _load():
@@ -133,28 +201,3 @@ def _load():
 
         finally:
             f.close()
-
-
-def _save():
-    file_path = os.path.join(settings.CONF_PATH, _STATE_FILE_NAME)
-
-    logging.debug('saving tasks to "%s"...' % file_path)
-
-    try:
-        f = open(file_path, 'wb')
-
-    except Exception as e:
-        logging.error(f'could not open tasks file "{file_path}": {e}')
-
-        return
-
-    try:
-        # don't save tasks that have a callback
-        tasks = [t for t in _tasks if not t[3]]
-        pickle.dump(tasks, f)
-
-    except Exception as e:
-        logging.error(f'could not save tasks to file "{file_path}": {e}')
-
-    finally:
-        f.close()

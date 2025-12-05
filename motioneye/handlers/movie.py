@@ -20,7 +20,7 @@ import os
 
 from tornado.web import HTTPError
 
-from motioneye import config, mediafiles, remote, settings, utils
+from motioneye import config, mediafiles, remote, settings, static_cache, utils
 from motioneye.handlers.base import BaseHandler
 
 __all__ = ('MovieHandler',)
@@ -125,9 +125,7 @@ class MovieHandler(BaseHandler):
 
             else:
                 self.set_header('Content-Type', 'image/svg+xml')
-                content = open(
-                    os.path.join(settings.STATIC_PATH, 'img', 'no-preview.svg')
-                ).read()
+                content = static_cache.get_static_or_read('img/no-preview.svg')
 
             return self.finish(content)
 
@@ -146,9 +144,7 @@ class MovieHandler(BaseHandler):
 
             else:
                 self.set_header('Content-Type', 'image/svg+xml')
-                content = open(
-                    os.path.join(settings.STATIC_PATH, 'img', 'no-preview.svg')
-                ).read()
+                content = static_cache.get_static_or_read('img/no-preview.svg')
 
             return self.finish(content)
 

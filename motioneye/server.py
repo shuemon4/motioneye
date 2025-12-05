@@ -415,7 +415,7 @@ def make_app(debug: bool = False) -> Application:
 
 def run():
     import motioneye
-    from motioneye import cleanup, mjpgclient, motionctl, tasks, wsswitch
+    from motioneye import cleanup, mediafiles, mjpgclient, motionctl, static_cache, tasks, wsswitch
     from motioneye.controls import smbctl
 
     configure_signals()
@@ -423,6 +423,14 @@ def run():
 
     test_requirements()
     make_media_folders()
+
+    # Load static files into memory cache (Pi 5 optimization)
+    static_cache.load_static_files()
+    logging.debug('static cache initialized')
+
+    # Initialize media files module (Pi 5 optimization - ThreadPoolExecutor)
+    mediafiles.start()
+    logging.debug('mediafiles executor initialized')
 
     if settings.SMB_SHARES:
         stop, start = smbctl.update_mounts()  # @UnusedVariable
@@ -470,6 +478,10 @@ def run():
     logging.info(_('servilo haltis'))
     tasks.stop()
     logging.info(_('taskoj haltis'))
+
+    # Shutdown mediafiles executor (Pi 5 optimization)
+    mediafiles.stop()
+    logging.debug('mediafiles executor stopped')
 
     if cleanup.running():
         cleanup.stop()

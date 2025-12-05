@@ -70,7 +70,7 @@ MOTION_CONTROL_LOCALHOST = True
 MOTION_CONTROL_PORT = 7999
 
 # interval in seconds at which motionEye checks if motion is running
-MOTION_CHECK_INTERVAL = 10
+MOTION_CHECK_INTERVAL = 30  # Pi 5 optimized (was 10)
 
 # whether to restart the motion daemon when an error occurs while communicating with it
 MOTION_RESTART_ON_ERRORS = False
@@ -86,11 +86,11 @@ CLEANUP_INTERVAL = 43200
 REMOTE_REQUEST_TIMEOUT = 10
 
 # timeout in seconds to wait for mjpg data from the motion daemon
-MJPG_CLIENT_TIMEOUT = 10
+MJPG_CLIENT_TIMEOUT = 20  # Pi 5 optimized (was 10)
 
 # timeout in seconds after which an idle mjpg client is removed
 # (set to 0 to disable)
-MJPG_CLIENT_IDLE_TIMEOUT = 10
+MJPG_CLIENT_IDLE_TIMEOUT = 60  # Pi 5 optimized (was 10)
 
 # enable SMB shares (requires motionEye to run as root)
 SMB_SHARES = False
@@ -130,6 +130,29 @@ ZIP_TIMEOUT = 500
 
 # timeout in seconds to wait for timelapse creation
 TIMELAPSE_TIMEOUT = 500
+
+# =============================================================================
+# Pi 5 Optimization Settings
+# =============================================================================
+
+# Task save debouncing - reduces SD card writes
+TASK_SAVE_INTERVAL = 30  # seconds between disk writes
+TASK_SAVE_ON_SHUTDOWN_ONLY = False  # if True, only save tasks on shutdown
+
+# Prepared files cache limits - prevents unbounded memory growth
+PREPARED_FILES_TIMEOUT = 1800  # 30 minutes (was 1 hour)
+PREPARED_FILES_MAX_SIZE_MB = 500  # maximum total cache size
+PREPARED_FILES_MAX_ENTRIES = 10  # maximum number of cached items
+
+# Media listing cache TTL - reduces repeated directory scans
+MEDIA_LISTING_CACHE_TTL = 10  # seconds to cache media listings
+
+# Maximum files to return in a single listing (for pagination support)
+MEDIA_LISTING_MAX_FILES = 1000
+
+# =============================================================================
+# End Pi 5 Optimization Settings
+# =============================================================================
 
 # enable adding and removing cameras from UI
 ADD_REMOVE_CAMERAS = True

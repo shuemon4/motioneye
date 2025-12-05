@@ -84,9 +84,15 @@ def _do_cleanup():
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
     try:
-        mediafiles.cleanup_media('picture')
-        mediafiles.cleanup_media('movie')
-        logging.debug('cleanup done')
+        # Pi 5 Optimization: Use single-pass cleanup for both pictures and movies
+        # This halves the I/O overhead by doing one directory scan instead of two
+        stats = mediafiles.cleanup_media_combined()
+        logging.debug(
+            'cleanup done: %d pictures, %d movies removed, %d bytes freed',
+            stats['pictures_removed'],
+            stats['movies_removed'],
+            stats['bytes_freed']
+        )
 
     except Exception as e:
-        logging.error(f'failed to cleanup media files: {str(e)}', exc_info=True)
+        logging.error('failed to cleanup media files: %s', str(e), exc_info=True)
