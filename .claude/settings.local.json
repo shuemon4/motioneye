@@ -4,7 +4,9 @@
       "Bash(wc:*)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(ssh:*)",
+      "Bash(scp:*)"
     ],
     "deny": [],
     "ask": []

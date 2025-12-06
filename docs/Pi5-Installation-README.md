@@ -1,0 +1,47 @@
+What is motionEye?
+motionEye is an online interface for the software motion, a video surveillance program with motion detection.
+
+Check out the wiki for more details. Changelog is available on the releases page.
+
+From version 0.43, motionEye is multilingual:
+
+
+
+You can contribute to translations on Weblate.
+
+Installation
+Install Python 3.7 or later and build dependencies
+
+Here the commands for APT-based Linux distributions are given.
+
+Thanks to pre-compiled wheels from PyPI, installing motionEye usually does not require anything but Python 3 and cURL with the ability to do HTTPS network requests:
+
+sudo apt update
+sudo apt --no-install-recommends install ca-certificates curl python3
+On ARMv6/ARMv7 (32-bit), RISC-V, and other rare CPU architectures additional build dependencies may be required to compile the Pillow and PycURL modules:
+
+sudo apt --no-install-recommends install python3-dev gcc libjpeg62-turbo-dev libcurl4-openssl-dev libssl-dev
+Install the Python package manager pip
+
+curl -sSfO 'https://bootstrap.pypa.io/get-pip.py'
+sudo python3 get-pip.py
+rm get-pip.py
+On recent distro versions, like Debian 12/Bookworm, Ubuntu 23.04/Lunar, and later, the libpython3.*-stdlib package ships a file /usr/lib/python3.*/EXTERNALLY-MANAGED, which prevents the installation of Python modules outside of venv environments. motionEye however has a small number of dependencies with no strict version requirements and hence is very unlikely to break any Python package you might have installed via APT. To bypass this block, add break-system-packages=true to the [global] section of your pip.conf:
+
+grep -q '\[global\]' /etc/pip.conf 2> /dev/null || printf '%b' '[global]\n' | sudo tee -a /etc/pip.conf > /dev/null
+sudo sed -i '/^\[global\]/a\break-system-packages=true' /etc/pip.conf
+Install and setup motionEye
+
+sudo python3 -m pip install --pre motioneye
+sudo motioneye_init
+NB: motioneye_init currently assumes either an APT- or RPM-based distribution with systemd as init system. For a manual setup, config and service files can be found here: https://github.com/motioneye-project/motioneye/tree/dev/motioneye/extra
+
+Upgrade
+sudo systemctl stop motioneye
+sudo python3 -m pip install --upgrade --pre motioneye
+sudo systemctl start motioneye
+Accessing the user interface
+After having successfully followed the installation instructions, the motionEye server should be running on your system and listening on port 8765. Fire up your favorite web browser and visit the following URL (replacing [your_ip] with... well, your system's IP address):
+
+http://[your_ip]:8765/
+Use usernamme admin with empty password when prompted for credentials. For security, please do set up a proper password for the admin user, at least if you plan to make your motionEye installation accessible from the Internet.

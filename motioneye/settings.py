@@ -69,6 +69,13 @@ MOTION_CONTROL_LOCALHOST = True
 # the TCP port that motion HTTP control interface listens on
 MOTION_CONTROL_PORT = 7999
 
+# rpicam (libcamera) RTSP bridge settings
+RPICAM_RTSP_ENABLED = None  # Auto-detect based on tool availability
+RPICAM_RTSP_PORT = 8554
+RPICAM_DEFAULT_WIDTH = 1920
+RPICAM_DEFAULT_HEIGHT = 1080
+RPICAM_DEFAULT_FRAMERATE = 30
+
 # interval in seconds at which motionEye checks if motion is running
 MOTION_CHECK_INTERVAL = 30  # Pi 5 optimized (was 10)
 

@@ -75,7 +75,7 @@ def find_motion():
 
 
 def start(deferred=False):
-    from motioneye import config, mjpgclient
+    from motioneye import config, mjpgclient, rpicam_rtsp, utils
 
     if deferred:
         io_loop = IOLoop.current()
@@ -88,6 +88,25 @@ def start(deferred=False):
     enabled_local_motion_cameras = config.get_enabled_local_motion_cameras()
     if running() or not enabled_local_motion_cameras:
         return
+
+    # Start RTSP streams for any rpicam cameras
+    if rpicam_rtsp.should_start():
+        for camera in enabled_local_motion_cameras:
+            if utils.is_rpicam_camera(camera):
+                camera_id = camera.get('rpicam_id')
+                camera_index = camera.get('rpicam_index', 0)
+                width = camera.get('width', settings.RPICAM_DEFAULT_WIDTH)
+                height = camera.get('height', settings.RPICAM_DEFAULT_HEIGHT)
+                framerate = camera.get('framerate', settings.RPICAM_DEFAULT_FRAMERATE)
+
+                logging.info(f'starting RTSP stream for {camera_id}')
+                rpicam_rtsp.add_stream(
+                    camera_id=camera_id,
+                    camera_index=camera_index,
+                    width=width,
+                    height=height,
+                    framerate=framerate
+                )
 
     logging.debug('searching motion executable')
 

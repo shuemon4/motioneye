@@ -3523,7 +3523,7 @@ function getCameraIdsByInstance() {
     var cameraIdsByInstance = {};
     getCameraFrames().each(function () {
         var instance;
-        if (this.config.proto == 'netcam' || this.config.proto == 'v4l2' || this.config.proto == 'mmal') {
+        if (this.config.proto == 'netcam' || this.config.proto == 'v4l2' || this.config.proto == 'mmal' || this.config.proto == 'rpicam') {
             instance = '';
         }
         else if (this.config.proto == 'motioneye') {
@@ -3878,6 +3878,7 @@ function runAddCameraDialog() {
                     '<td class="dialog-item-value"><select class="styled" id="typeSelect">' +
                         (hasLocalCamSupport ? '<option value="v4l2">'+i18n.gettext("Loka V4L2-kamerao")+'</option>' : '') +
                         (hasLocalCamSupport ? '<option value="mmal">'+i18n.gettext("Loka MMAL-kamerao")+'</option>' : '') +
+                        (hasLocalCamSupport ? '<option value="rpicam">'+i18n.gettext("RPi Camera")+'</option>' : '') +
                         (hasNetCamSupport ? '<option value="netcam">'+i18n.gettext("Reta kamerao")+'</option>' : '') +
                         '<option value="motioneye">'+i18n.gettext("Fora motionEye kamerao")+'</option>' +
                         '<option value="mjpeg">'+i18n.gettext("Simpla MJPEG-kamerao")+'</option>' +
@@ -3899,15 +3900,15 @@ function runAddCameraDialog() {
                     '<td class="dialog-item-value"><input type="password" class="styled" id="passwordEntry" placeholder="'+i18n.gettext("pasvorto...")+'"></td>' +
                     '<td><span class="help-mark" title="'+i18n.gettext("la pasvorto por la URL, se bezonata")+'">?</span></td>' +
                 '</tr>' +
-                '<tr class="v4l2 motioneye netcam mjpeg mmal">' +
+                '<tr class="v4l2 motioneye netcam mjpeg mmal rpicam">' +
                     '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Kamerao")+'</span></td>' +
                     '<td class="dialog-item-value"><select class="styled" id="addCameraSelect"></select><span id="cameraMsgLabel"></span></td>' +
                     '<td><span class="help-mark" title="'+i18n.gettext("la kameraon, kiun vi volas aldoni")+'">?</span></td>' +
                 '</tr>' +
-                '<tr class="v4l2 motioneye netcam mjpeg mmal">' +
+                '<tr class="v4l2 motioneye netcam mjpeg mmal rpicam">' +
                     '<td colspan="100"><div class="dialog-item-separator"></div></td>' +
                 '</tr>' +
-                '<tr class="v4l2 motioneye netcam mjpeg mmal">' +
+                '<tr class="v4l2 motioneye netcam mjpeg mmal rpicam">' +
                     '<td class="dialog-item-value" colspan="100"><div id="addCameraInfo"></div></td>' +
                 '</tr>' +
             '</table>');
@@ -3959,6 +3960,11 @@ function runAddCameraDialog() {
             content.find('tr.mmal').css('display', 'table-row');
             addCameraInfo.html(
 		i18n.gettext("Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."));
+        }
+        else if (typeSelect.val() == 'rpicam') {
+            content.find('tr.rpicam').css('display', 'table-row');
+            addCameraInfo.html(
+		i18n.gettext("RPi Camera uses the modern libcamera stack for Raspberry Pi camera modules. Supports Camera Module 3, Camera Module 2, and other libcamera-compatible cameras."));
         }
         else if (typeSelect.val() == 'mjpeg') {
             usernameEntry.removeAttr('readonly');
@@ -4157,6 +4163,10 @@ function runAddCameraDialog() {
             else if (typeSelect.val() == 'mmal') {
                 data.path = addCameraSelect.val();
                 data.proto = 'mmal';
+            }
+            else if (typeSelect.val() == 'rpicam') {
+                data.path = addCameraSelect.val();
+                data.proto = 'rpicam';
             }
             else if (typeSelect.val() == 'mjpeg') {
                 data = splitCameraUrl(urlEntry.val());

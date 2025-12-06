@@ -678,6 +678,30 @@ def add_camera(device_details):
         camera_config['width'] = 640
         camera_config['height'] = 480
 
+    elif proto == 'rpicam':
+        # RPi camera will be bridged to RTSP and consumed as netcam
+        camera_config['@proto'] = 'rpicam'
+        camera_config['rpicam_id'] = device_details['path']
+        camera_config['rpicam_index'] = int(device_details['path'].replace('rpicam', ''))
+
+        # Start RTSP bridge and get URL
+        from motioneye import rpicam_rtsp
+        rtsp_url = rpicam_rtsp.add_stream(
+            camera_id=device_details['path'],
+            camera_index=int(device_details['path'].replace('rpicam', '')),
+            width=settings.RPICAM_DEFAULT_WIDTH,
+            height=settings.RPICAM_DEFAULT_HEIGHT,
+            framerate=settings.RPICAM_DEFAULT_FRAMERATE
+        )
+
+        if rtsp_url:
+            camera_config['netcam_url'] = rtsp_url
+            camera_config['width'] = settings.RPICAM_DEFAULT_WIDTH
+            camera_config['height'] = settings.RPICAM_DEFAULT_HEIGHT
+        else:
+            logging.error(f'failed to start RTSP bridge for {device_details["path"]}')
+            return None
+
     elif proto == 'netcam':
         camera_config['netcam_url'] = device_details['url']
 

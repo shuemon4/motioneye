@@ -197,6 +197,7 @@ def is_local_motion_camera(config):
         or config.get('video_device')
         or config.get('netcam_url')
         or config.get('mmalcam_name')
+        or (config.get('@proto') == 'rpicam' and config.get('netcam_url'))
     )
 
 
@@ -223,6 +224,11 @@ def is_net_camera(config):
 def is_simple_mjpeg_camera(config):
     """Tells if a camera is a simple MJPEG camera not managed by any motion instance."""
     return bool(config.get('@proto') == 'mjpeg')
+
+
+def is_rpicam_camera(config):
+    """Tells if a camera is an RPi camera using rpicam/libcamera tools."""
+    return bool(config.get('@proto') == 'rpicam')
 
 
 def compute_signature(method, path, body: bytes, key):

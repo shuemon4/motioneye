@@ -415,7 +415,7 @@ def make_app(debug: bool = False) -> Application:
 
 def run():
     import motioneye
-    from motioneye import cleanup, mediafiles, mjpgclient, motionctl, static_cache, tasks, wsswitch
+    from motioneye import cleanup, mediafiles, mjpgclient, motionctl, rpicam_rtsp, static_cache, tasks, wsswitch
     from motioneye.controls import smbctl
 
     configure_signals()
@@ -431,6 +431,11 @@ def run():
     # Initialize media files module (Pi 5 optimization - ThreadPoolExecutor)
     mediafiles.start()
     logging.debug('mediafiles executor initialized')
+
+    # Initialize rpicam RTSP bridge
+    rpicam_rtsp.start()
+    if rpicam_rtsp.should_start():
+        logging.info('rpicam RTSP bridge initialized')
 
     if settings.SMB_SHARES:
         stop, start = smbctl.update_mounts()  # @UnusedVariable
@@ -482,6 +487,10 @@ def run():
     # Shutdown mediafiles executor (Pi 5 optimization)
     mediafiles.stop()
     logging.debug('mediafiles executor stopped')
+
+    # Shutdown rpicam RTSP bridge
+    rpicam_rtsp.stop()
+    logging.info('rpicam RTSP bridge stopped')
 
     if cleanup.running():
         cleanup.stop()
