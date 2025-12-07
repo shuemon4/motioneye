@@ -35,7 +35,7 @@ from motioneye import (
     uploadservices,
     utils,
 )
-from motioneye.controls import mmalctl, smbctl, tzctl, v4l2ctl
+from motioneye.controls import libcamctl, mmalctl, pictl, smbctl, tzctl, v4l2ctl
 from motioneye.controls.powerctl import PowerControl
 from motioneye.handlers.base import BaseHandler
 from motioneye.utils.mjpeg import test_mjpeg_url
@@ -469,12 +469,26 @@ class ConfigHandler(BaseHandler):
                 data = config.get_camera(camera_id)
                 if utils.is_mmal_camera(data):
                     configured_devices.add(data['mmalcam_name'])
+                elif utils.is_libcamera_device(data):
+                    configured_devices.add(data['libcam_device'])
 
-            cameras = [
-                {'id': d[0], 'name': d[1]}
-                for d in mmalctl.list_devices()
-                if (d[0] not in configured_devices)
-            ]
+            # Use libcamera on Pi 5, MMAL on older Pis
+            if pictl.is_pi5():
+                cameras = [
+                    {
+                        'id': d[0],
+                        'name': d[1],
+                        'supports_autofocus': d[2].get('supports_autofocus', False),
+                    }
+                    for d in libcamctl.list_devices()
+                    if d[0] not in configured_devices
+                ]
+            else:
+                cameras = [
+                    {'id': d[0], 'name': d[1]}
+                    for d in mmalctl.list_devices()
+                    if (d[0] not in configured_devices)
+                ]
 
             return self.finish_json({'cameras': cameras})
 

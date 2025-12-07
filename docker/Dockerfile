@@ -8,16 +8,19 @@ ARG RUN_GID=0
 COPY . /tmp/motioneye
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# Build deps:
+# Build deps (removed after install):
 # - armhf/riscv64: Python headers, C compiler and libjpeg for Pillow: https://pypi.org/project/pillow/#files, libcurl and libssl for pycurl: https://pypi.org/project/pycurl/#files
+# Runtime deps (kept after install):
+# - arm64: libcamera-tools for Pi 5 camera enumeration via libcamera-hello
 RUN printf '%b' '[global]\nbreak-system-packages=true\n' > /etc/pip.conf && \
     case "$(dpkg --print-architecture)" in \
-      'armhf'|'riscv64') PACKAGES='python3-dev gcc libjpeg62-turbo-dev libcurl4-openssl-dev libssl-dev';; \
-      *) PACKAGES='';; \
+      'armhf'|'riscv64') BUILD_PACKAGES='python3-dev gcc libjpeg62-turbo-dev libcurl4-openssl-dev libssl-dev'; RUNTIME_PACKAGES='';; \
+      'arm64') BUILD_PACKAGES=''; RUNTIME_PACKAGES='libcamera-tools';; \
+      *) BUILD_PACKAGES=''; RUNTIME_PACKAGES='';; \
     esac && \
     apt-get -q update && \
     DEBIAN_FRONTEND="noninteractive" apt-get -qq --option Dpkg::Options::="--force-confnew" --no-install-recommends install \
-      ca-certificates curl python3 fdisk $PACKAGES && \
+      ca-certificates curl python3 fdisk $BUILD_PACKAGES $RUNTIME_PACKAGES && \
     curl -sSfO 'https://bootstrap.pypa.io/get-pip.py' && \
     python3 get-pip.py && \
     python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
@@ -30,9 +33,9 @@ RUN printf '%b' '[global]\nbreak-system-packages=true\n' > /etc/pip.conf && \
     mv /etc/motioneye/motioneye.conf /etc/motioneye.conf.sample && \
     mkdir /var/log/motioneye /var/lib/motioneye && \
     chown motion:motion /var/log/motioneye /var/lib/motioneye && \
-    # Cleanup
+    # Cleanup (only remove build packages, keep runtime packages)
     python3 -m pip uninstall -y pip setuptools wheel && \
-    DEBIAN_FRONTEND="noninteractive" apt-get -qq autopurge $PACKAGES && \
+    DEBIAN_FRONTEND="noninteractive" apt-get -qq autopurge $BUILD_PACKAGES && \
     apt-get clean && \
     rm -r /var/lib/apt/lists /var/cache/apt /tmp/motioneye get-pip.py /root/.cache
 

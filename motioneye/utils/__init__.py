@@ -197,6 +197,7 @@ def is_local_motion_camera(config):
         or config.get('video_device')
         or config.get('netcam_url')
         or config.get('mmalcam_name')
+        or config.get('libcam_device')  # Pi 5 libcamera support
     )
 
 
@@ -213,6 +214,11 @@ def is_v4l2_camera(config):
 def is_mmal_camera(config):
     """Tells if a camera is mmal device managed by the local motion instance."""
     return bool(config.get('mmalcam_name'))
+
+
+def is_libcamera_device(config):
+    """Tells if a camera uses libcamera (Pi 5+ with libcam_device parameter)."""
+    return bool(config.get('libcam_device'))
 
 
 def is_net_camera(config):

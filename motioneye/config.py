@@ -29,8 +29,28 @@ from urllib.parse import urlunparse
 from tornado.ioloop import IOLoop
 
 from motioneye import meyectl, motionctl, settings, tasks, uploadservices, utils
-from motioneye.controls import diskctl, smbctl, v4l2ctl
+from motioneye.controls import diskctl, pictl, smbctl, v4l2ctl
 from motioneye.controls.powerctl import PowerControl
+
+# Import from refactored modules
+from motioneye.config.adaptation import (
+    adapt_config_directives,
+    _MOTION_41_TO_43_OPTIONS_MAPPING,
+    _MOTION_43_TO_41_OPTIONS_MAPPING,
+    _MOTION_43_TO_44_OPTIONS_MAPPING,
+    _MOTION_44_TO_43_OPTIONS_MAPPING,
+)
+from motioneye.config.serialization import (
+    _value_to_python,
+    _python_to_value,
+    _conf_to_dict,
+    _dict_to_conf,
+)
+from motioneye.config.defaults import (
+    _set_default_motion,
+    _set_default_motion_camera,
+    _set_default_simple_mjpeg_camera,
+)
 
 _CAMERA_CONFIG_FILE_NAME = 'camera-%(id)s.conf'
 _MAIN_CONFIG_FILE_NAME = 'motion.conf'
@@ -74,6 +94,8 @@ _USED_MOTION_OPTIONS = {
     'event_gap',
     'framerate',
     'height',
+    'libcam_device',
+    'libcam_buffer_count',
     'lightswitch_percent',
     'locate_motion_mode',
     'locate_motion_style',
@@ -134,133 +156,9 @@ _USED_MOTION_OPTIONS = {
 }
 
 
-def text_double(v, data):
-    return {'text_scale': [1, 2][v]}
-
-
-def webcontrol_html_output(v, data):
-    return {'webcontrol_interface': int(v)}
-
-
-def text_scale(v, data):
-    return {'text_double': True if int(v) > 1 else False}
-
-
-def webcontrol_interface(v, data):
-    return {'webcontrol_html_output': bool(v)}
-
-
-_MOTION_41_TO_43_OPTIONS_MAPPING = {
-    'ffmpeg_video_codec': 'movie_codec',
-    'ffmpeg_output_movies': 'movie_output',
-    'ffmpeg_output_debug_movies': 'movie_output_motion',
-    'ffmpeg_variable_bitrate': 'movie_quality',
-    'lightswitch': 'lightswitch_percent',
-    'max_movie_time': 'movie_max_time',
-    'output_pictures': 'picture_output',
-    'output_debug_pictures': 'picture_output_motion',
-    'quality': 'picture_quality',
-    'rtsp_uses_tcp': 'netcam_use_tcp',
-    'text_double': text_double,
-    'webcontrol_html_output': webcontrol_html_output,
-}
-
-
-_MOTION_43_TO_41_OPTIONS_MAPPING = {
-    'movie_codec': 'ffmpeg_video_codec',
-    'movie_output': 'ffmpeg_output_movies',
-    'movie_output_motion': 'ffmpeg_output_debug_movies',
-    'movie_quality': 'ffmpeg_variable_bitrate',
-    'lightswitch_percent': 'lightswitch',
-    'movie_max_time': 'max_movie_time',
-    'picture_output': 'output_pictures',
-    'picture_output_motion': 'output_debug_pictures',
-    'picture_quality': 'quality',
-    'netcam_use_tcp': 'rtsp_uses_tcp',
-    'text_scale': text_scale,
-    'webcontrol_interface': webcontrol_interface,
-    # motion pre-v4.1
-    'webcontrol_parms': None,
-}
-
-
-def netcam_keepalive_params(v, data):
-    # value can be 'force' as well
-    v = 'on' if v == True else 'off' if v == False else v
-
-    if 'netcam_params' in data and data['netcam_params']:
-        return {'netcam_params': data['netcam_params'] + ',keepalive = ' + v}
-
-    return {'netcam_params': 'keepalive = ' + v}
-
-
-def netcam_tolerant_check_params(v, data):
-    v = 'on' if v else 'off'
-
-    if 'netcam_params' in data and data['netcam_params']:
-        return {'netcam_params': data['netcam_params'] + ',tolerant_check = ' + v}
-
-    return {'netcam_params': 'tolerant_check = ' + v}
-
-
-def netcam_use_tcp_params(v, data):
-    v = 'tcp' if v else 'udp'
-
-    if 'netcam_params' in data and data['netcam_params']:
-        return {'netcam_params': data['netcam_params'] + ',rtsp_transport = ' + v}
-
-    return {'netcam_params': 'rtsp_transport = ' + v}
-
-
-def netcam_params(v, data):
-    params = {}
-    for param in v.split(','):
-        param = [x.strip() for x in param.split('=')]
-        if param[0] == 'keepalive':
-            params['netcam_keepalive'] = param[1]
-
-        elif param[0] == 'tolerant_check':
-            params['netcam_tolerant_check'] = param[1]
-
-        elif param[0] == 'rtsp_transport':
-            if param[1] == 'udp':
-                params['netcam_use_tcp'] = False
-
-            else:
-                params['netcam_use_tcp'] = True
-
-    return params
-
-
-_MOTION_43_TO_44_OPTIONS_MAPPING = {
-    'netcam_keepalive': netcam_keepalive_params,
-    'netcam_tolerant_check': netcam_tolerant_check_params,
-    'netcam_use_tcp': netcam_use_tcp_params,
-    'vid_control_params': 'video_params',
-    'videodevice': 'video_device',
-}
-
-
-_MOTION_44_TO_43_OPTIONS_MAPPING = {
-    'netcam_params': netcam_params,
-    'video_params': 'vid_control_params',
-    'video_device': 'videodevice',
-}
-
-
-def adapt_config_directives(data, mapping):
-    for name in list(data.keys()):
-        mapped = mapping.get(name)
-        if mapped is None:
-            continue
-
-        value = data.pop(name)
-
-        if callable(mapped):
-            data.update(mapped(value, data))
-
-        else:  # assuming simple new name
-            data[mapped] = value
+# NOTE: Adaptation functions (text_double, webcontrol_html_output, etc.)
+# and version mappings (_MOTION_*_OPTIONS_MAPPING) have been extracted to
+# motioneye/config/adaptation.py
 
 
 def additional_section(func):
@@ -674,9 +572,19 @@ def add_camera(device_details):
         camera_config['@remote_camera_id'] = device_details['remote_camera_id']
 
     elif proto == 'mmal':
-        camera_config['mmalcam_name'] = device_details['path']
-        camera_config['width'] = 640
-        camera_config['height'] = 480
+        # On Pi 5, use libcamera instead of MMAL
+        if pictl.is_pi5():
+            camera_config['libcam_device'] = device_details['path']
+            camera_config['libcam_buffer_count'] = 4
+            camera_config['width'] = 1920
+            camera_config['height'] = 1080
+            # Check if camera supports autofocus (Camera v3)
+            if device_details.get('supports_autofocus'):
+                camera_config['@supports_autofocus'] = True
+        else:
+            camera_config['mmalcam_name'] = device_details['path']
+            camera_config['width'] = 640
+            camera_config['height'] = 480
 
     elif proto == 'netcam':
         camera_config['netcam_url'] = device_details['url']
@@ -980,13 +888,16 @@ def motion_camera_ui_to_dict(ui, prev_config=None):
     if utils.is_v4l2_camera(prev_config):
         proto = 'v4l2'
 
+    elif utils.is_libcamera_device(prev_config):
+        proto = 'libcamera'
+
     elif utils.is_mmal_camera(prev_config):
         proto = 'mmal'
 
     else:
         proto = 'netcam'
 
-    if proto in ('v4l2', 'mmal'):
+    if proto in ('v4l2', 'mmal', 'libcamera'):
         # leave videodevice unchanged
 
         # resolution
@@ -1007,6 +918,31 @@ def motion_camera_ui_to_dict(ui, prev_config=None):
                 for n, c in list(ui['video_controls'].items())
             )
             data['vid_control_params'] = ','.join(vid_control_params)
+
+        elif proto == 'libcamera':
+            # libcamera buffer count
+            data['libcam_buffer_count'] = ui.get('libcam_buffer_count', 4)
+
+            # Autofocus control parameters for Camera v3
+            if ui.get('supports_autofocus'):
+                af_mode = ui.get('autofocus_mode', 2)
+                af_range = ui.get('autofocus_range', 0)
+                lens_pos = ui.get('lens_position', 0.0)
+
+                # Store for UI persistence
+                data['@supports_autofocus'] = True
+                data['@af_mode'] = af_mode
+                data['@af_range'] = af_range
+                data['@lens_position'] = lens_pos
+
+                # Generate libcam_control_item entries for motion.conf
+                # Motion accepts multiple libcam_control_item directives
+                control_items = [f'AfMode={af_mode}', f'AfRange={af_range}']
+                if af_mode == 0:  # Manual focus mode
+                    control_items.append(f'LensPosition={lens_pos}')
+
+                # Motion uses separate libcam_control_item for each control
+                data['libcam_control_item'] = control_items
 
     else:  # assuming netcam
         if match(
@@ -1524,6 +1460,27 @@ def motion_camera_dict_to_ui(data):
         else:  # width & height are not available for other netcams
             # we have no other choice but use something like 640x480 as reference
             threshold = data['threshold'] * 100.0 / (640 * 480)
+
+    elif utils.is_libcamera_device(data):
+        ui['device_url'] = data['libcam_device']
+        ui['proto'] = 'libcamera'
+        ui['libcam_buffer_count'] = data.get('libcam_buffer_count', 4)
+
+        # Autofocus controls for Camera v3 (imx708)
+        if data.get('@supports_autofocus'):
+            ui['autofocus_mode'] = data.get('@af_mode', 2)
+            ui['autofocus_range'] = data.get('@af_range', 0)
+            ui['lens_position'] = data.get('@lens_position', 0.0)
+            ui['supports_autofocus'] = True
+
+        resolutions = utils.COMMON_RESOLUTIONS
+        resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]
+        ui['available_resolutions'] = [
+            (str(w) + 'x' + str(h)) for (w, h) in resolutions
+        ]
+        ui['resolution'] = str(data['width']) + 'x' + str(data['height'])
+
+        threshold = data['threshold'] * 100.0 / (data['width'] * data['height'])
 
     elif utils.is_mmal_camera(data):
         ui['device_url'] = data['mmalcam_name']
@@ -2067,316 +2024,14 @@ def invalidate():
     _additional_structure_cache = {}
 
 
-def _value_to_python(value):
-    value_lower = value.lower()
-    if value_lower == 'off':
-        return False
+# NOTE: Serialization functions (_value_to_python, _python_to_value,
+# _conf_to_dict, _dict_to_conf) have been extracted to
+# motioneye/config/serialization.py
 
-    elif value_lower == 'on':
-        return True
 
-    try:
-        return int(value)
-
-    except ValueError:
-        try:
-            return float(value)
-
-        except ValueError:
-            return value
-
-
-def _python_to_value(value):
-    if value is True:
-        return 'on'
-
-    elif value is False:
-        return 'off'
-
-    elif isinstance(value, (int, float)):
-        return str(value)
-
-    else:
-        return value
-
-
-def _conf_to_dict(lines, list_names=None, no_convert=None):
-    if list_names is None:
-        list_names = []
-
-    if no_convert is None:
-        no_convert = []
-
-    data = collections.OrderedDict()
-
-    for line in lines:
-        line = line.strip()
-        if len(line) == 0:  # empty line
-            continue
-
-        _match = match(r'^#\s*(@\w+)\s*(.*)', line)
-        if _match:
-            name, value = _match.groups()[:2]
-
-        elif line.startswith('#') or line.startswith(';'):  # comment line
-            continue
-
-        else:
-            parts = line.split(None, 1)
-            if len(parts) == 1:  # empty value
-                parts.append('')
-
-            (name, value) = parts
-
-            value = value.strip()
-
-        if name not in no_convert:
-            value = _value_to_python(value)
-
-        if name in list_names:
-            data.setdefault(name, []).append(value)
-
-        else:
-            data[name] = value
-
-    return data
-
-
-def _dict_to_conf(lines, data, list_names=None):
-    if list_names is None:
-        list_names = []
-
-    conf_lines = []
-    remaining = collections.OrderedDict(data)
-    processed = set()
-
-    # parse existing lines and replace the values
-
-    for line in lines:
-        line = line.strip()
-        if len(line) == 0:  # empty line
-            conf_lines.append(line)
-            continue
-
-        _match = match(r'^#\s*(@\w+)\s*(.*)', line)
-        if _match:  # @line
-            (name, value) = _match.groups()[:2]
-
-        elif line.startswith('#') or line.startswith(';'):  # simple comment line
-            conf_lines.append(line)
-            continue
-
-        else:
-            parts = line.split(None, 1)
-            if len(parts) == 2:
-                (name, value) = parts
-
-            else:
-                (name, value) = parts[0], ''
-
-        if name in processed:
-            continue  # name already processed
-
-        processed.add(name)
-
-        if name in list_names:
-            new_value = data.get(name)
-            if new_value is not None:
-                for v in new_value:
-                    if v is None:
-                        continue
-
-                    line = name + ' ' + _python_to_value(v)
-                    conf_lines.append(line)
-
-            else:
-                line = name + ' ' + value
-                conf_lines.append(line)
-
-        else:
-            new_value = data.get(name)
-            if new_value is not None:
-                value = _python_to_value(new_value)
-                line = name + ' ' + value
-                conf_lines.append(line)
-
-        remaining.pop(name, None)
-
-    # add the remaining config values not covered by existing lines
-    if len(remaining) and len(lines):
-        conf_lines.append('')  # add a blank line
-
-    for name, value in list(remaining.items()):
-        if name.startswith('@_'):
-            continue  # ignore additional configs
-
-        if name in list_names:
-            for v in value:
-                if v is None:
-                    continue
-
-                line = name + ' ' + _python_to_value(v)
-                conf_lines.append(line)
-
-        else:
-            line = name + ' ' + _python_to_value(value)
-            conf_lines.append(line)
-
-    # build the final config lines
-    conf_lines.sort(key=lambda line: not line.startswith('@'))
-
-    lines = []
-    for i, line in enumerate(conf_lines):
-        # squeeze successive blank lines
-        if i > 0 and len(line.strip()) == 0 and len(conf_lines[i - 1].strip()) == 0:
-            continue
-
-        if line.startswith('@'):
-            line = '# ' + line
-
-        elif i > 0 and conf_lines[i - 1].startswith('@'):
-            lines.append('')  # add a blank line between @lines and the rest
-
-        lines.append(line)
-
-    return lines
-
-
-def _set_default_motion(data):
-    data.setdefault('@enabled', True)
-
-    data.setdefault('@admin_username', 'admin')
-    data.setdefault('@admin_password', '')
-    data.setdefault('@normal_username', 'user')
-    data.setdefault('@normal_password', '')
-    data.setdefault('@lang', 'en')
-
-    data.setdefault('setup_mode', False)
-    data.setdefault('webcontrol_port', settings.MOTION_CONTROL_PORT)
-    data.setdefault('webcontrol_interface', 1)
-    data.setdefault('webcontrol_localhost', settings.MOTION_CONTROL_LOCALHOST)
-    # the advanced list of parameters will be available
-    data.setdefault('webcontrol_parms', 2)
-
-
-def _set_default_motion_camera(camera_id, data):
-    data.setdefault('camera_name', 'Camera' + str(camera_id))
-    data.setdefault('@id', camera_id)
-
-    if utils.is_v4l2_camera(data):
-        data.setdefault('videodevice', '/dev/video0')
-        data.setdefault('vid_control_params', '')
-        data.setdefault('width', 352)
-        data.setdefault('height', 288)
-
-    data.setdefault('auto_brightness', False)
-    data.setdefault('framerate', 2)
-    data.setdefault('rotate', 0)
-    data.setdefault('mask_privacy', '')
-
-    data.setdefault('@storage_device', 'custom-path')
-    data.setdefault('@network_server', '')
-    data.setdefault('@network_share_name', '')
-    data.setdefault('@network_smb_ver', '1.0')
-    data.setdefault('@network_username', '')
-    data.setdefault('@network_password', '')
-    data.setdefault(
-        'target_dir', os.path.join(settings.MEDIA_PATH, data['camera_name'])
-    )
-    data.setdefault('@upload_enabled', False)
-    data.setdefault('@upload_picture', True)
-    data.setdefault('@upload_movie', True)
-    data.setdefault('@upload_service', 'ftp')
-    data.setdefault('@upload_server', '')
-    data.setdefault('@upload_port', '')
-    data.setdefault('@upload_method', 'POST')
-    data.setdefault('@upload_location', '')
-    data.setdefault('@upload_subfolders', True)
-    data.setdefault('@upload_username', '')
-    data.setdefault('@upload_password', '')
-    data.setdefault('@upload_endpoint_url', '')
-    data.setdefault('@upload_access_key', '')
-    data.setdefault('@upload_secret_key', '')
-    data.setdefault('@upload_bucket', '')
-    data.setdefault('@clean_cloud_enabled', False)
-
-    data.setdefault('stream_localhost', False)
-    data.setdefault('stream_port', 9080 + camera_id)
-    data.setdefault('stream_maxrate', 5)
-    data.setdefault('stream_quality', 85)
-    data.setdefault('stream_motion', False)
-    data.setdefault('stream_auth_method', 0)
-
-    data.setdefault('@webcam_resolution', 100)
-    data.setdefault('@webcam_server_resize', False)
-
-    data.setdefault('text_left', data['camera_name'])
-    data.setdefault('text_right', '%Y-%m-%d\\n%T')
-    data.setdefault('text_scale', 1)
-
-    data.setdefault('@motion_detection', True)
-    data.setdefault('text_changes', False)
-    data.setdefault('locate_motion_mode', False)
-    data.setdefault('locate_motion_style', 'redbox')
-
-    data.setdefault('threshold', 2000)
-    data.setdefault('threshold_maximum', 0)
-    data.setdefault('threshold_tune', False)
-    data.setdefault('noise_tune', True)
-    data.setdefault('noise_level', 32)
-    data.setdefault('lightswitch_percent', 0)
-    data.setdefault('despeckle_filter', '')
-    data.setdefault('minimum_motion_frames', 20)
-    data.setdefault('smart_mask_speed', 0)
-    data.setdefault('mask_file', '')
-    data.setdefault('movie_output_motion', False)
-    data.setdefault('picture_output_motion', False)
-
-    data.setdefault('pre_capture', 1)
-    data.setdefault('post_capture', 1)
-
-    data.setdefault('picture_output', False)
-    data.setdefault('picture_filename', '')
-    data.setdefault('emulate_motion', False)
-    data.setdefault('event_gap', 30)
-
-    data.setdefault('snapshot_interval', 0)
-    data.setdefault('snapshot_filename', '')
-    data.setdefault('picture_quality', 85)
-    data.setdefault('@preserve_pictures', 0)
-    data.setdefault('@manual_snapshots', True)
-
-    data.setdefault('movie_filename', '%Y-%m-%d/%H-%M-%S')
-    data.setdefault('movie_max_time', 0)
-    data.setdefault('movie_output', False)
-    data.setdefault('movie_passthrough', False)
-
-    if motionctl.has_h264_omx_support():
-        data.setdefault('movie_codec', 'mp4:h264_omx')  # will use h264 codec
-
-    elif motionctl.has_h264_v4l2m2m_support():
-        data.setdefault('movie_codec', 'mp4:h264_v4l2m2m')  # will use h264 codec
-
-    else:
-        data.setdefault('movie_codec', 'mp4')  # will use h264 codec
-
-    data.setdefault('movie_quality', 75)  # 75%
-
-    data.setdefault('@preserve_movies', 0)
-    data.setdefault('@manual_record', False)
-
-    data.setdefault('@working_schedule', '')
-    data.setdefault('@working_schedule_type', 'outside')
-
-    data.setdefault('on_event_start', '')
-    data.setdefault('on_event_end', '')
-    data.setdefault('on_movie_end', '')
-    data.setdefault('on_picture_save', '')
-
-
-def _set_default_simple_mjpeg_camera(camera_id, data):
-    data.setdefault('camera_name', 'Camera' + str(camera_id))
-    data.setdefault('@id', camera_id)
+# NOTE: Default value functions (_set_default_motion, _set_default_motion_camera,
+# _set_default_simple_mjpeg_camera) have been extracted to
+# motioneye/config/defaults.py
 
 
 def get_additional_structure(camera, separators=False):
