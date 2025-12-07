@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Tornado web server initialization and request routing
+Functions: _make_application(), start()
+"""
+
 import atexit
 import datetime
 import logging

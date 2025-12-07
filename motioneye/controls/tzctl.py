@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: System timezone detection and configuration
+Functions: get_time_zone(), timeZone()
+"""
+
 import hashlib
 import logging
 import os

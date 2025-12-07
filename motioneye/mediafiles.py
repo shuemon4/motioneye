@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Media file management (pictures, movies) with cleanup and timelapse
+Functions: get_media_path(), make_media_preview(), get_prepared_cache(), set_prepared_cache(), list_media(), get_media_content(), del_media_content(), del_media_group(), make_timelapse_movie(), check_media_removal(), get_zipped_content(), cleanup_media(), make_movie_preview()
+"""
+
 import datetime
 import fcntl
 import functools

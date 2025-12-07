@@ -14,6 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: File upload service integrations (FTP, SFTP, S3, Google Drive, Dropbox, WebDAV)
+Classes: UploadService, FTPUploadService, SFTPUploadService, S3UploadService, GoogleDriveUploadService, DropboxUploadService, WebDAVUploadService
+Functions: get(), get_authorize_url()
+"""
+
 import datetime
 import ftplib
 import io

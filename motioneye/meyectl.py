@@ -16,6 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Command-line configuration management tool for motionEye
+Functions: load_l10n(), set_admin_username(), set_admin_password(), set_normal_username(), set_normal_password(), list_cameras(), get_camera_config(), set_camera_config(), add_camera(), rem_camera(), test_camera()
+"""
+
 import argparse
 import gettext
 import locale

@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Picture/snapshot management handler (current, list, frame, delete, zip)
+Classes: PictureHandler
+"""
+
 import datetime
 import logging
 import os

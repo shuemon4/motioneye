@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: MMAL camera detection for Raspberry Pi
+Functions: list_devices()
+"""
+
 from logging import debug
 from subprocess import CalledProcessError
 

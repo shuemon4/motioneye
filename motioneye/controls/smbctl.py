@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: SMB/CIFS network share mounting and management
+Functions: start(), stop(), find_mount_cifs(), make_mount_point(), list_mounts(), update_mounts(), test_share()
+"""
+
 import datetime
 import logging
 import os

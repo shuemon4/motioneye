@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Disk and partition management utilities
+Functions: list_mounted_disks(), list_mounted_partitions()
+"""
+
 import logging
 import os
 import re

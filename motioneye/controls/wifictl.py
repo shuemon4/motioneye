@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: WiFi network configuration via wpa_supplicant
+Functions: network(), wifi_enabled(), wifi_network_name(), wifi_network_key()
+"""
+
 import logging
 import re
 

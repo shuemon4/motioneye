@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Date and time formatting utilities
+Functions: pretty_date_time(), pretty_date(), pretty_duration(), pretty_time()
+"""
+
 import datetime
 from typing import Union
 

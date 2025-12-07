@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: System OS version detection and update management
+Functions: get_os_version(), get_all_versions(), compare_versions(), perform_update()
+"""
+
 import datetime
 import logging
 import re

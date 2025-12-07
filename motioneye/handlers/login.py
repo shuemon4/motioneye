@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Login authentication handler for client-side authentication trigger
+Classes: LoginHandler
+"""
+
 from motioneye.handlers.base import BaseHandler
 
 __all__ = ('LoginHandler',)

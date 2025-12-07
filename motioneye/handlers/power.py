@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: System power operations handler (shutdown, reboot)
+Classes: PowerHandler
+"""
+
 import datetime
 
 from tornado.ioloop import IOLoop

@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: V4L2 video device detection and control management
+Functions: find_v4l2_ctl(), list_devices(), list_resolutions(), device_present(), find_persistent_device(), list_ctrls()
+"""
+
 import fcntl
 import logging
 import os.path

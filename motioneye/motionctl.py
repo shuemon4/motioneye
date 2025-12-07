@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Motion daemon control and management
+Functions: find_motion(), start(), stop(), restart(), check_enable_disable(), check_disabled(), make_movie_preview(), invalidate_movie_preview(), get_motion_detection(), set_motion_detection(), take_snapshot(), has_h264_omx_support(), resolution_is_valid()
+"""
+
 import errno
 import logging
 import os.path

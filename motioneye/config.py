@@ -14,23 +14,42 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import collections
-import datetime
-import glob
-import hashlib
+"""
+Motion and camera configuration management.
+
+This module serves as the main entry point for configuration operations,
+delegating most functionality to specialized submodules while maintaining
+backward compatibility with the original API.
+
+Main functions exported:
+- Configuration I/O: get_main(), set_main(), get_camera(), set_camera(), get_camera_ids()
+- Camera operations: add_camera(), rem_camera()
+- Backup/restore: backup(), restore()
+- Extensions: get_additional_structure(), additional_section, additional_config
+- Converters: motion_camera_ui_to_dict(), motion_camera_dict_to_ui()
+- Commands: get_action_commands(), get_monitor_command()
+- Network: get_network_shares()
+
+Most implementation has been refactored into:
+- motioneye.config.storage: Configuration file I/O and caching
+- motioneye.config.camera.crud: Camera add/remove operations
+- motioneye.config.camera.converters: UI/dict conversion functions
+- motioneye.config.backup: Backup and restore operations
+- motioneye.config.commands: Action and monitor command handling
+- motioneye.config.extensions: Plugin system for additional configs
+- motioneye.config.adaptation: Version compatibility mappings
+- motioneye.config.serialization: Config file parsing/writing
+- motioneye.config.defaults: Default value assignment
+"""
+
 import logging
 import os.path
-import subprocess
 from errno import EEXIST, ENOENT
 from re import match, sub
 from shlex import split
-from urllib.parse import urlunparse
-
-from tornado.ioloop import IOLoop
 
 from motioneye import meyectl, motionctl, settings, tasks, uploadservices, utils
 from motioneye.controls import diskctl, pictl, smbctl, v4l2ctl
-from motioneye.controls.powerctl import PowerControl
 
 # Import from refactored modules
 from motioneye.config.adaptation import (
@@ -51,40 +70,46 @@ from motioneye.config.defaults import (
     _set_default_motion_camera,
     _set_default_simple_mjpeg_camera,
 )
+from motioneye.config.commands import (
+    get_action_commands,
+    get_monitor_command,
+    invalidate_monitor_commands,
+)
+from motioneye.config.extensions import (
+    additional_section,
+    additional_config,
+    get_additional_structure,
+    _get_additional_config,
+    _set_additional_config,
+)
+from motioneye.config.storage import (
+    get_main,
+    set_main,
+    get_camera,
+    set_camera,
+    get_camera_ids,
+    get_enabled_local_motion_cameras,
+    get_network_shares,
+    invalidate,
+)
+from motioneye.config.camera.crud import (
+    add_camera as _add_camera_impl,
+    rem_camera as _rem_camera_impl,
+)
+from motioneye.config.camera.converters import (
+    input_sanity_check,
+    main_ui_to_dict,
+    main_dict_to_ui,
+    simple_mjpeg_camera_ui_to_dict,
+    simple_mjpeg_camera_dict_to_ui as _simple_mjpeg_camera_dict_to_ui_impl,
+)
+from motioneye.config.backup import (
+    backup,
+    restore as _restore_impl,
+)
 
 _CAMERA_CONFIG_FILE_NAME = 'camera-%(id)s.conf'
 _MAIN_CONFIG_FILE_NAME = 'motion.conf'
-_ACTIONS = [
-    'lock',
-    'unlock',
-    'light_on',
-    'light_off',
-    'alarm_on',
-    'alarm_off',
-    'up',
-    'right',
-    'down',
-    'left',
-    'zoom_in',
-    'zoom_out',
-    'preset1',
-    'preset2',
-    'preset3',
-    'preset4',
-    'preset5',
-    'preset6',
-    'preset7',
-    'preset8',
-    'preset9',
-]
-
-_main_config_cache = None
-_camera_config_cache = {}
-_camera_ids_cache = None
-_additional_section_funcs = []
-_additional_config_funcs = []
-_additional_structure_cache = {}
-_monitor_command_cache = {}
 
 _USED_MOTION_OPTIONS = {
     'auto_brightness',
@@ -160,601 +185,45 @@ _USED_MOTION_OPTIONS = {
 # and version mappings (_MOTION_*_OPTIONS_MAPPING) have been extracted to
 # motioneye/config/adaptation.py
 
-
-def additional_section(func):
-    _additional_section_funcs.append(func)
-
-
-def additional_config(func):
-    _additional_config_funcs.append(func)
-
-
-def get_main(as_lines=False):
-    global _main_config_cache
-
-    if not as_lines and _main_config_cache is not None:
-        return _main_config_cache
-
-    config_file_path = os.path.join(settings.CONF_PATH, _MAIN_CONFIG_FILE_NAME)
-
-    logging.debug(f'reading main config from file {config_file_path}...')
-
-    lines = None
-    try:
-        f = open(config_file_path)
-
-    except OSError as e:
-        if e.errno == ENOENT:  # file does not exist
-            logging.info(
-                f'main config file {config_file_path} does not exist, using default values'
-            )
-
-            lines = []
-            f = None
-
-        else:
-            logging.error(f'could not open main config file {config_file_path}: {e}')
-
-            raise
-
-    if lines is None and f:
-        try:
-            lines = [line[:-1] for line in f.readlines()]
-
-        except Exception as e:
-            logging.error(f'could not read main config file {config_file_path}: {e}')
-
-            raise
-
-        finally:
-            f.close()
-
-    if as_lines:
-        return lines
-
-    main_config = _conf_to_dict(
-        lines,
-        list_names=['camera'],
-        no_convert=[
-            '@admin_username',
-            '@admin_password',
-            '@normal_username',
-            '@normal_password',
-        ],
-    )
-
-    # adapt directives for motion versions < 4.2 and > 4.3
-    adapt_config_directives(main_config, _MOTION_41_TO_43_OPTIONS_MAPPING)
-    adapt_config_directives(main_config, _MOTION_44_TO_43_OPTIONS_MAPPING)
-
-    _get_additional_config(main_config)
-    _set_default_motion(main_config)
-
-    _main_config_cache = main_config
-
-    return main_config
-
-
-def set_main(main_config):
-    global _main_config_cache
-
-    main_config = dict(main_config)
-    for n, v in list(_main_config_cache.items()):
-        main_config.setdefault(n, v)
-    _main_config_cache = main_config
-
-    main_config = dict(main_config)
-    _set_additional_config(main_config)
-
-    # adapt directives for motion versions < 4.2 and > 4.3
-    if motionctl.is_motion_pre42():
-        adapt_config_directives(main_config, _MOTION_43_TO_41_OPTIONS_MAPPING)
-
-    elif motionctl.is_motion_post43():
-        adapt_config_directives(main_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
-
-    config_file_path = os.path.join(settings.CONF_PATH, _MAIN_CONFIG_FILE_NAME)
-
-    # read the actual configuration from file
-    lines = get_main(as_lines=True)
-
-    # write the configuration to file
-    logging.debug(f'writing main config to {config_file_path}...')
-
-    try:
-        f = open(config_file_path, 'w')
-
-    except Exception as e:
-        logging.error(
-            f'could not open main config file {config_file_path} for writing: {e}'
-        )
-
-        raise
-
-    lines = _dict_to_conf(lines, main_config, list_names=['camera'])
-
-    try:
-        f.writelines([utils.make_str(line) + '\n' for line in lines])
-
-    except Exception as e:
-        logging.error(f'could not write main config file {config_file_path}: {e}')
-
-        raise
-
-    finally:
-        f.close()
-
-
-def get_camera_ids(filter_valid=True):
-    global _camera_ids_cache
-
-    if _camera_ids_cache is not None:
-        return _camera_ids_cache
-
-    config_path = settings.CONF_PATH
-
-    logging.debug(f'listing config dir {config_path}...')
-
-    try:
-        ls = os.listdir(config_path)
-
-    except Exception as e:
-        logging.error(f'failed to list config dir {config_path}: {e}')
-
-        raise
-
-    camera_ids = []
-
-    pattern = '^' + _CAMERA_CONFIG_FILE_NAME.replace('%(id)s', r'(\d+)') + '$'
-    for name in ls:
-        _match = match(pattern, name)
-        if _match:
-            camera_id = int(_match.groups()[0])
-            logging.debug(f'found camera with id {camera_id}')
-
-            camera_ids.append(camera_id)
-
-    camera_ids.sort()
-
-    if not filter_valid:
-        return camera_ids
-
-    filtered_camera_ids = []
-    for camera_id in camera_ids:
-        if get_camera(camera_id):
-            filtered_camera_ids.append(camera_id)
-
-    _camera_ids_cache = filtered_camera_ids
-
-    return filtered_camera_ids
-
-
-def get_enabled_local_motion_cameras():
-    if not get_main().get('@enabled'):
-        return []
-
-    camera_ids = get_camera_ids()
-    cameras = [get_camera(camera_id) for camera_id in camera_ids]
-    return [c for c in cameras if c.get('@enabled') and utils.is_local_motion_camera(c)]
-
-
-def get_network_shares():
-    if not get_main().get('@enabled'):
-        return []
-
-    camera_ids = get_camera_ids()
-    cameras = [get_camera(camera_id) for camera_id in camera_ids]
-
-    mounts = []
-    for camera in cameras:
-        if camera.get('@storage_device') != 'network-share':
-            continue
-
-        mounts.append(
-            {
-                'server': camera['@network_server'],
-                'share': camera['@network_share_name'],
-                'smb_ver': camera['@network_smb_ver'],
-                'username': camera['@network_username'],
-                'password': camera['@network_password'],
-            }
-        )
-
-    return mounts
-
-
-def get_camera(camera_id, as_lines=False):
-    if not as_lines and camera_id in _camera_config_cache:
-        return _camera_config_cache[camera_id]
-
-    camera_config_path = os.path.join(settings.CONF_PATH, _CAMERA_CONFIG_FILE_NAME) % {
-        'id': camera_id
-    }
-
-    logging.debug(f'reading camera config from {camera_config_path}...')
-
-    try:
-        f = open(camera_config_path)
-
-    except Exception as e:
-        logging.error(f'could not open camera config file: {str(e)}')
-
-        raise
-
-    try:
-        lines = [line.strip() for line in f.readlines()]
-
-    except Exception as e:
-        logging.error(f'could not read camera config file {camera_config_path}: {e}')
-
-        raise
-
-    finally:
-        f.close()
-
-    if as_lines:
-        return lines
-
-    camera_config = _conf_to_dict(
-        lines,
-        no_convert=[
-            '@network_share_name',
-            '@network_smb_ver',
-            '@network_server',
-            '@network_username',
-            '@network_password',
-            '@storage_device',
-            '@upload_server',
-            '@upload_username',
-            '@upload_password',
-            '@upload_endpoint_url',
-            '@upload_access_key',
-            '@upload_secret_key',
-            '@upload_bucket',
-            'camera_name',
-        ],
-    )
-
-    if utils.is_local_motion_camera(camera_config):
-        # determine the enabled status
-        main_config = get_main()
-        cameras = main_config.get('camera', [])
-        camera_config['@enabled'] = (
-            _CAMERA_CONFIG_FILE_NAME % {'id': camera_id} in cameras
-        )
-        camera_config['@id'] = camera_id
-
-        # adapt directives for motion versions < 4.2 and > 4.3
-        adapt_config_directives(camera_config, _MOTION_41_TO_43_OPTIONS_MAPPING)
-        adapt_config_directives(camera_config, _MOTION_44_TO_43_OPTIONS_MAPPING)
-
-        _get_additional_config(camera_config, camera_id=camera_id)
-
-        _set_default_motion_camera(camera_id, camera_config)
-
-    elif utils.is_remote_camera(camera_config):
-        pass
-
-    elif utils.is_simple_mjpeg_camera(camera_config):
-        _get_additional_config(camera_config, camera_id=camera_id)
-
-        _set_default_simple_mjpeg_camera(camera_id, camera_config)
-
-    else:  # incomplete configuration
-        logging.warning(
-            f'camera config file at {camera_config_path} is incomplete, ignoring'
-        )
-
-        return None
-
-    _camera_config_cache[camera_id] = dict(camera_config)
-
-    return camera_config
-
-
-def set_camera(camera_id, camera_config):
-    camera_config['@id'] = camera_id
-    _camera_config_cache[camera_id] = camera_config
-
-    camera_config = dict(camera_config)
-
-    if utils.is_local_motion_camera(camera_config):
-        # adapt directives for motion versions < 4.2 and > 4.3
-        if motionctl.is_motion_pre42():
-            adapt_config_directives(camera_config, _MOTION_43_TO_41_OPTIONS_MAPPING)
-
-        elif motionctl.is_motion_post43():
-            adapt_config_directives(camera_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
-
-        # set the enabled status in main config
-        main_config = get_main()
-        cameras = main_config.setdefault('camera', [])
-        config_file_name = _CAMERA_CONFIG_FILE_NAME % {'id': camera_id}
-        if camera_config['@enabled'] and config_file_name not in cameras:
-            cameras.append(config_file_name)
-
-        elif not camera_config['@enabled']:
-            cameras = [c for c in cameras if c != config_file_name]
-
-        main_config['camera'] = cameras
-
-        set_main(main_config)
-        _set_additional_config(camera_config, camera_id=camera_id)
-
-    elif utils.is_remote_camera(camera_config):
-        pass
-
-    elif utils.is_simple_mjpeg_camera(camera_config):
-        _set_additional_config(camera_config, camera_id=camera_id)
-
-    # read the actual configuration from file
-    config_file_path = os.path.join(settings.CONF_PATH, _CAMERA_CONFIG_FILE_NAME) % {
-        'id': camera_id
-    }
-    if os.path.isfile(config_file_path):
-        lines = get_camera(camera_id, as_lines=True)
-
-    else:
-        lines = []
-
-    # write the configuration to file
-    camera_config_path = os.path.join(settings.CONF_PATH, _CAMERA_CONFIG_FILE_NAME) % {
-        'id': camera_id
-    }
-    logging.debug(f'writing camera config to {camera_config_path}...')
-
-    try:
-        f = open(camera_config_path, 'w')
-
-    except Exception as e:
-        logging.error(
-            f'could not open camera config file {camera_config_path} for writing: {e}'
-        )
-
-        raise
-
-    lines = _dict_to_conf(lines, camera_config)
-
-    try:
-        f.writelines([utils.make_str(line) + '\n' for line in lines])
-
-    except Exception as e:
-        logging.error(f'could not write camera config file {camera_config_path}: {e}')
-
-        raise
-
-    finally:
-        f.close()
+# NOTE: Storage functions (get_main, set_main, get_camera, set_camera, etc.)
+# have been extracted to motioneye/config/storage.py
 
 
 def add_camera(device_details):
-    global _camera_ids_cache
+    """
+    Add a new camera to the configuration.
 
-    proto = device_details['proto']
-    if proto in ['netcam', 'mjpeg']:
-        host = device_details['host']
-        if device_details['port']:
-            host += ':' + str(device_details['port'])
-
-        device_details['url'] = urlunparse(
-            (device_details['scheme'], host, device_details['path'], '', '', '')
-        )
-
-    # determine the last camera id
-    camera_ids = get_camera_ids()
-
-    camera_id = 1
-    while camera_id in camera_ids:
-        camera_id += 1
-
-    logging.info(f'adding new {proto} camera with id {camera_id}...')
-
-    # prepare a default camera config
-    camera_config = {'@enabled': True}
-    if proto == 'v4l2':
-        # find a suitable resolution
-        for w, h in v4l2ctl.list_resolutions(device_details['path']):
-            if w > 300:
-                camera_config['width'] = w
-                camera_config['height'] = h
-                break
-
-        camera_config['videodevice'] = device_details['path']
-
-    elif proto == 'motioneye':
-        camera_config['@proto'] = 'motioneye'
-        camera_config['@scheme'] = device_details['scheme']
-        camera_config['@host'] = device_details['host']
-        camera_config['@port'] = device_details['port']
-        camera_config['@path'] = device_details['path']
-        camera_config['@username'] = device_details['username']
-        camera_config['@password'] = device_details['password']
-        camera_config['@remote_camera_id'] = device_details['remote_camera_id']
-
-    elif proto == 'mmal':
-        # On Pi 5, use libcamera instead of MMAL
-        if pictl.is_pi5():
-            camera_config['libcam_device'] = device_details['path']
-            camera_config['libcam_buffer_count'] = 4
-            camera_config['width'] = 1920
-            camera_config['height'] = 1080
-            # Check if camera supports autofocus (Camera v3)
-            if device_details.get('supports_autofocus'):
-                camera_config['@supports_autofocus'] = True
-        else:
-            camera_config['mmalcam_name'] = device_details['path']
-            camera_config['width'] = 640
-            camera_config['height'] = 480
-
-    elif proto == 'netcam':
-        camera_config['netcam_url'] = device_details['url']
-
-        if device_details['username']:
-            camera_config['netcam_userpass'] = (
-                device_details['username'] + ':' + device_details['password']
-            )
-
-        camera_config['netcam_keepalive'] = device_details.get('keep_alive', False)
-        camera_config['netcam_tolerant_check'] = True
-
-        if device_details.get('camera_index') == 'udp':
-            camera_config['netcam_use_tcp'] = False
-
-        if match(r'^rtsp|^rtmp', camera_config['netcam_url']):
-            camera_config['width'] = 640
-            camera_config['height'] = 480
-
-    else:  # assuming mjpeg
-        camera_config['@proto'] = 'mjpeg'
-        camera_config['@url'] = device_details['url']
-
-    if utils.is_local_motion_camera(camera_config):
-        _set_default_motion_camera(camera_id, camera_config)
-
-        # go through the config conversion functions back and forth once
-        camera_config = motion_camera_ui_to_dict(
-            motion_camera_dict_to_ui(camera_config), camera_config
-        )
-
-    elif utils.is_simple_mjpeg_camera(camera_config):
-        _set_default_simple_mjpeg_camera(camera_id, camera_config)
-
-        # go through the config conversion functions back and forth once
-        camera_config = simple_mjpeg_camera_ui_to_dict(
-            simple_mjpeg_camera_dict_to_ui(camera_config), camera_config
-        )
-
-    # write the configuration to file
-    set_camera(camera_id, camera_config)
-
-    _camera_ids_cache = None
-    _camera_config_cache.clear()
-
-    camera_config = get_camera(camera_id)
-
-    return camera_config
+    Wrapper that calls config.camera.crud.add_camera with injected dependencies.
+    """
+    return _add_camera_impl(
+        device_details,
+        get_camera_ids_func=get_camera_ids,
+        get_camera_func=get_camera,
+        set_camera_func=set_camera,
+        motion_camera_dict_to_ui_func=motion_camera_dict_to_ui,
+        motion_camera_ui_to_dict_func=motion_camera_ui_to_dict,
+        simple_mjpeg_camera_dict_to_ui_func=simple_mjpeg_camera_dict_to_ui,
+        simple_mjpeg_camera_ui_to_dict_func=simple_mjpeg_camera_ui_to_dict,
+        clear_cache_func=invalidate,
+    )
 
 
 def rem_camera(camera_id):
-    global _camera_ids_cache
+    """
+    Remove a camera from the configuration.
 
-    camera_config_name = _CAMERA_CONFIG_FILE_NAME % {'id': camera_id}
-    camera_config_path = os.path.join(settings.CONF_PATH, _CAMERA_CONFIG_FILE_NAME) % {
-        'id': camera_id
-    }
-
-    # remove the camera from the main config
-    main_config = get_main()
-    cameras = main_config.setdefault('camera', [])
-    cameras = [t for t in cameras if t != camera_config_name]
-
-    main_config['camera'] = cameras
-
-    set_main(main_config)
-
-    logging.info(f'removing camera config file {camera_config_path}...')
-
-    _camera_ids_cache = None
-    _camera_config_cache.clear()
-
-    try:
-        os.remove(camera_config_path)
-
-    except Exception as e:
-        logging.error(f'could not remove camera config file {camera_config_path}: {e}')
-
-        raise
+    Wrapper that calls config.camera.crud.rem_camera with injected dependencies.
+    """
+    return _rem_camera_impl(
+        camera_id,
+        get_main_func=get_main,
+        set_main_func=set_main,
+        clear_cache_func=invalidate,
+    )
 
 
-def main_ui_to_dict(ui):
-    data = {
-        '@admin_username': ui['admin_username'],
-        '@normal_username': ui['normal_username'],
-    }
-
-    def call_hook(u, p):
-        if settings.PASSWORD_HOOK:
-            env = {'MEYE_USERNAME': u, 'MEYE_PASSWORD': p}
-
-            try:
-                utils.call_subprocess(
-                    settings.PASSWORD_HOOK, env=env, stderr=subprocess.STDOUT
-                )
-                logging.debug('password hook exec succeeded')
-
-            except Exception as e:
-                logging.error(f'password hook exec failed: {e}')
-
-    if ui.get('admin_password') is not None:
-        if ui['admin_password']:
-            data['@admin_password'] = hashlib.sha1(
-                ui['admin_password'].encode('utf-8')
-            ).hexdigest()
-
-        else:
-            data['@admin_password'] = ''
-
-        call_hook(ui['admin_username'], ui['admin_password'])
-
-    if ui.get('normal_password') is not None:
-        data['@normal_password'] = ui['normal_password']
-
-        call_hook(ui['normal_username'], ui['normal_password'])
-
-    if ui.get('lang') is not None:
-        data['@lang'] = ui['lang']
-
-    # additional configs
-    for name, value in list(ui.items()):
-        if not name.startswith('_'):
-            continue
-
-        data['@' + name] = value
-
-    return data
-
-
-def main_dict_to_ui(data):
-    ui = {
-        'admin_username': data['@admin_username'],
-        'normal_username': data['@normal_username'],
-    }
-
-    if data['@lang']:
-        ui['lang'] = data['@lang']
-
-    # don't transmit password (or its hash) to the client;
-    # instead transmit an indication of password being set
-    if data['@admin_password']:
-        ui['admin_password'] = '*****'
-
-    else:
-        ui['admin_password'] = ''
-
-    if data['@normal_password']:
-        ui['normal_password'] = '*****'
-
-    else:
-        ui['normal_password'] = ''
-
-    # additional configs
-    for name, value in list(data.items()):
-        if not name.startswith('@_'):
-            continue
-
-        ui[name[1:]] = value
-
-    return ui
-
-
-def input_sanity_check(regex, value, key, msg):
-    if match(regex, value):
-        return value
-
-    else:
-        raise ValueError(
-            f'Value "{value}" for setting "{key}" did not match regex "{regex}": {msg}'
-        )
+# NOTE: Main converters (main_ui_to_dict, main_dict_to_ui) have been
+# extracted to motioneye/config/camera/converters.py
 
 
 def motion_camera_ui_to_dict(ui, prev_config=None):
@@ -1851,177 +1320,27 @@ def motion_camera_dict_to_ui(data):
     return ui
 
 
-def simple_mjpeg_camera_ui_to_dict(ui, prev_config=None):
-    prev_config = dict(prev_config or {})
-
-    data = {
-        # device
-        'camera_name': ui['name'],
-        '@enabled': ui['enabled'],
-    }
-
-    # additional configs
-    for name, value in list(ui.items()):
-        if not name.startswith('_'):
-            continue
-
-        data['@' + name] = value
-
-    prev_config.update(data)
-
-    return prev_config
-
-
 def simple_mjpeg_camera_dict_to_ui(data):
-    ui = {
-        'name': data['camera_name'],
-        'enabled': data['@enabled'],
-        'id': data['@id'],
-        'proto': 'mjpeg',
-        'url': data['@url'],
-    }
+    """
+    Convert simple MJPEG camera config dictionary to UI format.
 
-    # additional configs
-    for name, value in list(data.items()):
-        if not name.startswith('@_'):
-            continue
-
-        ui[name[1:]] = value
-
-    # action commands
-    action_commands = get_action_commands(data)
-    ui['actions'] = list(action_commands.keys())
-
-    return ui
+    Wrapper that calls config.camera.converters.simple_mjpeg_camera_dict_to_ui
+    with injected get_action_commands dependency.
+    """
+    return _simple_mjpeg_camera_dict_to_ui_impl(data, get_action_commands)
 
 
-def get_action_commands(camera_config):
-    camera_id = camera_config['@id']
-
-    action_commands = {}
-    for action in _ACTIONS:
-        path = os.path.join(settings.CONF_PATH, f'{action}_{camera_id}')
-        if os.access(path, os.X_OK):
-            action_commands[action] = path
-
-    if camera_config.get('@manual_snapshots') and bool(
-        camera_config.get('snapshot_filename')
-    ):
-        action_commands['snapshot'] = True
-
-    if camera_config.get('@manual_record'):
-        action_commands['record'] = True
-
-    return action_commands
-
-
-def get_monitor_command(camera_id):
-    if camera_id not in _monitor_command_cache:
-        path = os.path.join(settings.CONF_PATH, f'monitor_{camera_id}')
-        if os.access(path, os.X_OK):
-            _monitor_command_cache[camera_id] = path
-
-        else:
-            _monitor_command_cache[camera_id] = None
-
-    return _monitor_command_cache[camera_id]
-
-
-def invalidate_monitor_commands():
-    _monitor_command_cache.clear()
-
-
-def backup():
-    logging.debug('generating config backup file')
-
-    if len(os.listdir(settings.CONF_PATH)) > 100:
-        logging.debug(
-            f'config path "{settings.CONF_PATH}" appears to be a system-wide config directory, performing a selective backup'
-        )
-
-        cmd = ['tar', 'zc', 'motion.conf']
-        cmd += list(
-            map(
-                os.path.basename,
-                glob.glob(os.path.join(settings.CONF_PATH, 'camera-*.conf')),
-            )
-        )
-        try:
-            content = utils.call_subprocess(cmd, cwd=settings.CONF_PATH, encoding=None)
-            logging.debug(f'backup file created ({len(content)} bytes)')
-
-            return content
-
-        except Exception as e:
-            logging.error(f'backup failed: {e}', exc_info=True)
-
-            return None
-
-    else:
-        logging.debug(
-            f'config path "{settings.CONF_PATH}" appears to be a motion-specific config directory, performing a full backup'
-        )
-
-        try:
-            content = utils.call_subprocess(
-                ['tar', 'zc', '.'], cwd=settings.CONF_PATH, encoding=None
-            )
-            logging.debug(f'backup file created ({len(content)} bytes)')
-
-            return content
-
-        except Exception as e:
-            logging.error(f'backup failed: {e}', exc_info=True)
-
-            return None
+# NOTE: Command functions (get_action_commands, get_monitor_command,
+# invalidate_monitor_commands) have been extracted to motioneye/config/commands.py
 
 
 def restore(content):
-    logging.info('restoring config from backup file')
+    """
+    Restore configuration from a backup file.
 
-    cmd = ['tar', 'zxC', settings.CONF_PATH]
-
-    try:
-        p = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        msg = p.communicate(content)[0]
-        if msg:
-            logging.error(f'failed to restore configuration: {msg}')
-            return False
-
-        logging.debug('configuration restored successfully')
-
-        if settings.ENABLE_REBOOT:
-
-            def later():
-                PowerControl.reboot()
-
-            io_loop = IOLoop.current()
-            io_loop.add_timeout(datetime.timedelta(seconds=2), later)
-
-        else:
-            invalidate()
-
-        return {'reboot': settings.ENABLE_REBOOT}
-
-    except Exception as e:
-        logging.error(f'failed to restore configuration: {e}', exc_info=True)
-
-        return None
-
-
-def invalidate():
-    global _main_config_cache
-    global _camera_config_cache
-    global _camera_ids_cache
-    global _additional_structure_cache
-
-    logging.debug('invalidating config cache')
-    _main_config_cache = None
-    _camera_config_cache = {}
-    _camera_ids_cache = None
-    _additional_structure_cache = {}
+    Wrapper that calls config.backup.restore with injected invalidate dependency.
+    """
+    return _restore_impl(content, invalidate_func=invalidate)
 
 
 # NOTE: Serialization functions (_value_to_python, _python_to_value,
@@ -2033,120 +1352,6 @@ def invalidate():
 # _set_default_simple_mjpeg_camera) have been extracted to
 # motioneye/config/defaults.py
 
-
-def get_additional_structure(camera, separators=False):
-    if _additional_structure_cache.get((camera, separators)) is None:
-        logging.debug(
-            'loading additional config structure for {}, {} separators'.format(
-                'camera' if camera else 'main', 'with' if separators else 'without'
-            )
-        )
-
-        # gather sections
-        sections = collections.OrderedDict()
-        for func in _additional_section_funcs:
-            result = func()
-            if not result:
-                continue
-
-            if result.get('reboot') and not settings.ENABLE_REBOOT:
-                continue
-
-            if bool(result.get('camera')) != bool(camera):
-                continue
-
-            result['name'] = func.__name__
-            sections[func.__name__] = result
-
-            logging.debug(f"additional config section: {result['name']}")
-
-        configs = collections.OrderedDict()
-        for func in _additional_config_funcs:
-            result = func()
-            if not result:
-                continue
-
-            if result.get('reboot') and not settings.ENABLE_REBOOT:
-                continue
-
-            if bool(result.get('camera')) != bool(camera):
-                continue
-
-            if result['type'] == 'separator' and not separators:
-                continue
-
-            result['name'] = func.__name__
-            configs[func.__name__] = result
-
-            section = sections.setdefault(result.get('section'), {})
-            section.setdefault('configs', []).append(result)
-
-            logging.debug(f"additional config item: {result['name']}")
-
-        _additional_structure_cache[(camera, separators)] = sections, configs
-
-    return _additional_structure_cache[(camera, separators)]
-
-
-def _get_additional_config(data, camera_id=None):
-    args = [camera_id] if camera_id else []
-
-    (sections, configs) = get_additional_structure(camera=bool(camera_id))
-    get_funcs = {c.get('get') for c in list(configs.values()) if c.get('get')}
-    get_func_values = collections.OrderedDict((f, f(*args)) for f in get_funcs)
-
-    for name, section in list(sections.items()):
-        if not section.get('get'):
-            continue
-
-        if section.get('get_set_dict'):
-            data['@_' + name] = get_func_values.get(section['get'], {}).get(name)
-
-        else:
-            data['@_' + name] = get_func_values.get(section['get'])
-
-    for name, config in list(configs.items()):
-        if not config.get('get'):
-            continue
-
-        if config.get('get_set_dict'):
-            data['@_' + name] = get_func_values.get(config['get'], {}).get(name)
-
-        else:
-            data['@_' + name] = get_func_values.get(config['get'])
-
-
-def _set_additional_config(data, camera_id=None):
-    args = [camera_id] if camera_id else []
-
-    (sections, configs) = get_additional_structure(camera=bool(camera_id))
-
-    set_func_values = collections.OrderedDict()
-    for name, section in list(sections.items()):
-        if not section.get('set'):
-            continue
-
-        if ('@_' + name) not in data:
-            continue
-
-        if section.get('get_set_dict'):
-            set_func_values.setdefault(section['set'], {})[name] = data['@_' + name]
-
-        else:
-            set_func_values[section['set']] = data['@_' + name]
-
-    for name, config in list(configs.items()):
-        if not config.get('set'):
-            continue
-
-        if ('@_' + name) not in data:
-            continue
-
-        if config.get('get_set_dict'):
-            set_func_values.setdefault(config['set'], {})[name] = data['@_' + name]
-
-        else:
-            set_func_values[config['set']] = data['@_' + name]
-
-    for func, value in list(set_func_values.items()):
-        func(*(args + [value]))
+# NOTE: Extension functions (get_additional_structure, _get_additional_config,
+# _set_additional_config, additional_section, additional_config) have been
+# extracted to motioneye/config/extensions.py

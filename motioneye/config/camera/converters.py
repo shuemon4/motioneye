@@ -18,19 +18,25 @@
 Camera configuration converters.
 
 Provides functions for converting between UI format and dictionary format
-for different camera types (motion cameras, simple MJPEG cameras).
+for different camera types (motion cameras, simple MJPEG cameras, main config).
 
 Note: The complex motion_camera_ui_to_dict and motion_camera_dict_to_ui
 functions remain in config.py due to their extensive dependencies on
 other config functions, settings, and external modules.
 
 This module contains:
+- Main configuration converters
 - Simple MJPEG camera converters (self-contained)
 - Input validation utilities
 - Converter interface definitions for future extraction
 """
 
+import hashlib
+import logging
 import re
+import subprocess
+
+from motioneye import settings, utils
 
 
 def input_sanity_check(regex, value, key, msg):
@@ -116,6 +122,105 @@ def simple_mjpeg_camera_dict_to_ui(data, get_action_commands_func):
     # action commands
     action_commands = get_action_commands_func(data)
     ui['actions'] = list(action_commands.keys())
+
+    return ui
+
+
+def main_ui_to_dict(ui):
+    """
+    Convert main configuration UI format to config dictionary.
+
+    Args:
+        ui: UI configuration dictionary with user credentials and settings
+
+    Returns:
+        Configuration dictionary with hashed passwords
+    """
+    data = {
+        '@admin_username': ui['admin_username'],
+        '@normal_username': ui['normal_username'],
+    }
+
+    def call_hook(u, p):
+        if settings.PASSWORD_HOOK:
+            env = {'MEYE_USERNAME': u, 'MEYE_PASSWORD': p}
+
+            try:
+                utils.call_subprocess(
+                    settings.PASSWORD_HOOK, env=env, stderr=subprocess.STDOUT
+                )
+                logging.debug('password hook exec succeeded')
+
+            except Exception as e:
+                logging.error(f'password hook exec failed: {e}')
+
+    if ui.get('admin_password') is not None:
+        if ui['admin_password']:
+            data['@admin_password'] = hashlib.sha1(
+                ui['admin_password'].encode('utf-8')
+            ).hexdigest()
+
+        else:
+            data['@admin_password'] = ''
+
+        call_hook(ui['admin_username'], ui['admin_password'])
+
+    if ui.get('normal_password') is not None:
+        data['@normal_password'] = ui['normal_password']
+
+        call_hook(ui['normal_username'], ui['normal_password'])
+
+    if ui.get('lang') is not None:
+        data['@lang'] = ui['lang']
+
+    # additional configs
+    for name, value in list(ui.items()):
+        if not name.startswith('_'):
+            continue
+
+        data['@' + name] = value
+
+    return data
+
+
+def main_dict_to_ui(data):
+    """
+    Convert main configuration dictionary to UI format.
+
+    Args:
+        data: Configuration dictionary
+
+    Returns:
+        UI configuration dictionary with masked passwords
+    """
+    ui = {
+        'admin_username': data['@admin_username'],
+        'normal_username': data['@normal_username'],
+    }
+
+    if data['@lang']:
+        ui['lang'] = data['@lang']
+
+    # don't transmit password (or its hash) to the client;
+    # instead transmit an indication of password being set
+    if data['@admin_password']:
+        ui['admin_password'] = '*****'
+
+    else:
+        ui['admin_password'] = ''
+
+    if data['@normal_password']:
+        ui['normal_password'] = '*****'
+
+    else:
+        ui['normal_password'] = ''
+
+    # additional configs
+    for name, value in list(data.items()):
+        if not name.startswith('@_'):
+            continue
+
+        ui[name[1:]] = value
 
     return ui
 

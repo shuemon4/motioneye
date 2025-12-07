@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: HTTP webhook request execution for event notifications
+Functions: parse_options(), main()
+"""
+
 import json
 import logging
 import urllib.error

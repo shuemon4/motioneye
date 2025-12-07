@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Remote camera event relay handler
+Classes: RelayEventHandler
+"""
+
 import logging
 
 from motioneye import config, mediafiles, motionctl, tasks, uploadservices, utils

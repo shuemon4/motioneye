@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: RTSP URL testing and validation
+Functions: test_rtsp_url()
+"""
+
 import datetime
 import functools
 import logging

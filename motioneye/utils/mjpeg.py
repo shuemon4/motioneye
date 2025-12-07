@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: MJPEG URL testing and validation
+Functions: test_mjpeg_url()
+"""
+
 import logging
 import re
 from typing import List

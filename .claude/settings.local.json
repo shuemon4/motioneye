@@ -4,7 +4,14 @@
       "Bash(python -m py_compile:*)",
       "Bash(python -m pytest:*)",
       "Bash(pip install:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(for file in motioneye/cleanup.py motioneye/mediafiles.py motioneye/meyectl.py motioneye/mjpgclient.py motioneye/monitor.py motioneye/motionctl.py motioneye/sendmail.py motioneye/sendtelegram.py motioneye/server.py motioneye/wsswitch.py)",
+      "Bash(do echo \"Testing $file...\")",
+      "Bash(done)",
+      "Bash(for file in motioneye/config/*.py motioneye/config/camera/*.py)",
+      "Bash(for file in motioneye/controls/smbctl.py motioneye/controls/tzctl.py motioneye/controls/wifictl.py motioneye/handlers/*.py)",
+      "Bash(git:*)"
     ],
     "deny": [],
     "ask": []

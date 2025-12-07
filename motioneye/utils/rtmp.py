@@ -15,6 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: RTMP URL testing and validation
+Functions: test_rtmp_url()
+"""
+
 from motioneye.utils import GetCamerasResponse
 from motioneye.utils.http import RtmpUrl
 

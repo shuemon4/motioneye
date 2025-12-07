@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Module: Remote camera communication and command execution
+Functions: pretty_camera_url(), list_cameras(), get_config(), set_config(), test(), get_current_picture(), list_media(), get_media_preview(), get_media_content(), del_media_content(), del_media_group(), exec_action()
+"""
+
 import json
 import logging
 import re
