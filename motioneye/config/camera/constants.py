@@ -84,3 +84,19 @@ USED_MOTION_OPTIONS = {
     'webcontrol_port',
     'width',
 }
+
+# Motion 5.0 new parameters (renamed from 4.x equivalents)
+MOTION_50_PARAMS = {
+    'device_name',      # Renamed from camera_name
+    'movie_container',  # Renamed from movie_codec
+}
+
+# Parameters removed in Motion 5.0
+MOTION_50_REMOVED_PARAMS = {
+    'stream_port',
+    'stream_localhost',
+    'stream_auth_method',
+    'stream_authentication',
+    'auto_brightness',
+    'setup_mode',
+}

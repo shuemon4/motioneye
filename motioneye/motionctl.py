@@ -372,6 +372,14 @@ def is_motion_post43():
     return update.compare_versions(version, '4.4') >= 0  # 4.3.2 > 4.3
 
 
+def is_motion_50():
+    """Check if Motion version is 5.0 or later."""
+    binary, version = find_motion()
+    if not binary:
+        return False
+    return update.compare_versions(version, '5.0') >= 0
+
+
 def has_h264_omx_support():
     binary, version, codecs = mediafiles.find_ffmpeg()
     if not binary:

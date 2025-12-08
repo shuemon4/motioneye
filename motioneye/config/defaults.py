@@ -44,9 +44,14 @@ def _set_default_motion(data):
     data.setdefault('@normal_password', '')
     data.setdefault('@lang', 'en')
 
-    data.setdefault('setup_mode', False)
+    if not motionctl.is_motion_50():
+        data.setdefault('setup_mode', False)
     data.setdefault('webcontrol_port', settings.MOTION_CONTROL_PORT)
-    data.setdefault('webcontrol_interface', 1)
+    # Motion 5.0 uses string values for webcontrol_interface
+    if motionctl.is_motion_50():
+        data.setdefault('webcontrol_interface', 'default')
+    else:
+        data.setdefault('webcontrol_interface', 1)
     data.setdefault('webcontrol_localhost', settings.MOTION_CONTROL_LOCALHOST)
     # the advanced list of parameters will be available
     data.setdefault('webcontrol_parms', 2)
@@ -83,7 +88,8 @@ def _set_default_motion_camera(camera_id, data):
             data.setdefault('@af_range', 0)  # Normal range
             data.setdefault('@lens_position', 0.0)  # Infinity (for manual mode)
 
-    data.setdefault('auto_brightness', False)
+    if not motionctl.is_motion_50():
+        data.setdefault('auto_brightness', False)
     data.setdefault('framerate', 2)
     data.setdefault('rotate', 0)
     data.setdefault('mask_privacy', '')
@@ -114,12 +120,15 @@ def _set_default_motion_camera(camera_id, data):
     data.setdefault('@upload_bucket', '')
     data.setdefault('@clean_cloud_enabled', False)
 
-    data.setdefault('stream_localhost', False)
-    data.setdefault('stream_port', 9080 + camera_id)
+    # Motion 5.0 removed stream_port, stream_localhost, stream_auth_method
+    # Streams are now served via webcontrol interface
+    if not motionctl.is_motion_50():
+        data.setdefault('stream_localhost', False)
+        data.setdefault('stream_port', 9080 + camera_id)
+        data.setdefault('stream_auth_method', 0)
     data.setdefault('stream_maxrate', 5)
     data.setdefault('stream_quality', 85)
     data.setdefault('stream_motion', False)
-    data.setdefault('stream_auth_method', 0)
 
     data.setdefault('@webcam_resolution', 100)
     data.setdefault('@webcam_server_resize', False)

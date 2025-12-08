@@ -42,13 +42,14 @@ class MjpgClient(IOStream):
         0  # helps detecting erroneous connections and restart motion
     )
 
-    def __init__(self, camera_id, port, username, password, auth_mode):
+    def __init__(self, camera_id, port, username, password, auth_mode, stream_path='/'):
         self._camera_id = camera_id
         self._port = port
         self._username = username or ''
         self._password = password or ''
         self._auth_mode = auth_mode
         self._auth_digest_state = {}
+        self._stream_path = stream_path  # Configurable stream path for Motion 5.0
 
         self._last_access = 0
         self._last_jpg = None
@@ -169,25 +170,25 @@ class MjpgClient(IOStream):
             return
 
         logging.debug(
-            f'mjpg client for camera {self._camera_id} connected on port {self._port}'
+            f'mjpg client for camera {self._camera_id} connected on port {self._port}, stream_path={self._stream_path}'
         )
 
         if self._auth_mode == 'basic':
             logging.debug('mjpg client using basic authentication')
             auth_header = utils.build_basic_header(self._username, self._password)
             self.write(
-                f'GET / HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
+                f'GET {self._stream_path} HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
             )
 
         elif (
             self._auth_mode == 'digest'
         ):  # in digest auth mode, the header is built upon receiving 401
             logging.debug('digest authentication _on_connect')
-            self.write(b'GET / HTTP/1.0\r\n\r\n')
+            self.write(f'GET {self._stream_path} HTTP/1.0\r\n\r\n'.encode())
 
         else:  # no authentication
             logging.debug('no authentication _on_connect')
-            self.write(b'GET / HTTP/1.0\r\nConnection: close\r\n\r\n')
+            self.write(f'GET {self._stream_path} HTTP/1.0\r\nConnection: close\r\n\r\n'.encode())
 
         self._seek_http()
 
@@ -235,7 +236,7 @@ class MjpgClient(IOStream):
             logging.debug('mjpg client using basic authentication')
 
             auth_header = utils.build_basic_header(self._username, self._password)
-            w_data = f'GET / HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
+            w_data = f'GET {self._stream_path} HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
             w_future = utils.cast_future(self.write(w_data))
             w_future.add_done_callback(self._seek_http)
 
@@ -252,9 +253,9 @@ class MjpgClient(IOStream):
             self._auth_digest_state = parts_dict
 
             auth_header = utils.build_digest_header(
-                'GET', '/', self._username, self._password, self._auth_digest_state
+                'GET', self._stream_path, self._username, self._password, self._auth_digest_state
             )
-            w_data = f'GET / HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
+            w_data = f'GET {self._stream_path} HTTP/1.0\r\nAuthorization: {auth_header}\r\nConnection: close\r\n\r\n'.encode()
             w_future = utils.cast_future(self.write(w_data))
             w_future.add_done_callback(self._seek_http)
 
@@ -331,18 +332,33 @@ def get_jpg(camera_id):
 
             return None
 
-        port = camera_config['stream_port']
         username, password = None, None
         auth_mode = None
-        if camera_config.get('stream_auth_method') > 0:
-            username, password = camera_config.get('stream_authentication', ':').split(
-                ':'
-            )
-            auth_mode = (
-                'digest' if camera_config.get('stream_auth_method') > 1 else 'basic'
-            )
+        stream_path = '/'
 
-        client = MjpgClient(camera_id, port, username, password, auth_mode)
+        if motionctl.is_motion_50():
+            # Motion 5.0: Streams via webcontrol interface
+            main_config = config.get_main()
+            port = main_config.get('webcontrol_port', settings.MOTION_CONTROL_PORT)
+            motion_camera_id = motionctl.camera_id_to_motion_camera_id(camera_id)
+            stream_path = f'/{motion_camera_id}/mjpg/stream'
+
+            # Auth is via webcontrol settings in Motion 5.0
+            if main_config.get('webcontrol_auth_method'):
+                auth_str = main_config.get('webcontrol_authentication', ':')
+                if ':' in auth_str:
+                    username, password = auth_str.split(':', 1)
+                auth_mode = 'digest' if main_config.get('webcontrol_auth_method') == 'digest' else 'basic'
+        else:
+            # Motion 4.x: Separate stream ports per camera
+            port = camera_config['stream_port']
+            if camera_config.get('stream_auth_method', 0) > 0:
+                username, password = camera_config.get('stream_authentication', ':').split(':')
+                auth_mode = (
+                    'digest' if camera_config.get('stream_auth_method') > 1 else 'basic'
+                )
+
+        client = MjpgClient(camera_id, port, username, password, auth_mode, stream_path)
         client.do_connect()
 
         MjpgClient.clients[camera_id] = client

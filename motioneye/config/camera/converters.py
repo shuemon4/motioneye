@@ -839,7 +839,7 @@ def motion_camera_dict_to_ui(
         'name': data['camera_name'],
         'enabled': data['@enabled'],
         'id': data['@id'],
-        'auto_brightness': data['auto_brightness'],
+        'auto_brightness': data.get('auto_brightness', False),  # Removed in Motion 5.0
         'framerate': int(data['framerate']),
         'rotation': int(data['rotate']),
         'privacy_mask': False,
@@ -880,17 +880,17 @@ def motion_camera_dict_to_ui(
         'right_text': 'timestamp',
         'custom_left_text': '',
         'custom_right_text': '',
-        # streaming
-        'video_streaming': not data['stream_localhost'],
-        'streaming_framerate': int(data['stream_maxrate']),
-        'streaming_quality': int(data['stream_quality']),
+        # streaming (many options removed in Motion 5.0)
+        'video_streaming': not data.get('stream_localhost', False),
+        'streaming_framerate': int(data.get('stream_maxrate', 1)),
+        'streaming_quality': int(data.get('stream_quality', 85)),
         'streaming_resolution': int(data['@webcam_resolution']),
         'streaming_server_resize': data['@webcam_server_resize'],
-        'streaming_port': int(data['stream_port']),
+        'streaming_port': int(data.get('stream_port', 8081)),
         'streaming_auth_mode': {0: 'disabled', 1: 'basic', 2: 'digest'}.get(
             data.get('stream_auth_method'), 'disabled'
         ),
-        'streaming_motion': int(data['stream_motion']),
+        'streaming_motion': int(data.get('stream_motion', 0)),
         # still images
         'still_images': False,
         'capture_mode': 'motion-triggered',
