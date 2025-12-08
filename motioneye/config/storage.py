@@ -332,6 +332,7 @@ def get_camera(camera_id, as_lines=False):
 
     camera_config = _conf_to_dict(
         lines,
+        list_names=['libcam_control_item'],  # libcamera controls can have multiple entries
         no_convert=[
             '@network_share_name',
             '@network_smb_ver',
@@ -455,7 +456,8 @@ def set_camera(camera_id, camera_config):
 
         raise
 
-    lines = _dict_to_conf(lines, camera_config)
+    # libcam_control_item can appear multiple times for libcamera controls
+    lines = _dict_to_conf(lines, camera_config, list_names=['libcam_control_item'])
 
     try:
         f.writelines([utils.make_str(line) + '\n' for line in lines])

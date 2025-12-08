@@ -11,7 +11,9 @@
       "Bash(done)",
       "Bash(for file in motioneye/config/*.py motioneye/config/camera/*.py)",
       "Bash(for file in motioneye/controls/smbctl.py motioneye/controls/tzctl.py motioneye/controls/wifictl.py motioneye/handlers/*.py)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(where sshpass:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
