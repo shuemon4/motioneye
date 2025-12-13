@@ -162,15 +162,41 @@ def camera_name_to_device_name(v, data):
     return {'device_name': v}
 
 
+# Legacy formats removed in Motion 5.0
+_LEGACY_FORMAT_MAPPING = {
+    'mpeg4': 'mp4',
+    'msmpeg4': 'mp4',
+    'swf': 'flv',
+    'ffv1': 'mkv',
+}
+
+
 def movie_codec_to_container(v, data):
-    """Rename movie_codec to movie_container for Motion 5.0."""
-    return {'movie_container': v}
+    """Rename movie_codec to movie_container for Motion 5.0.
+
+    Also migrates legacy formats that were removed in Motion 5.0:
+    - mpeg4, msmpeg4 -> mp4
+    - swf -> flv
+    - ffv1 -> mkv
+    """
+    container = _LEGACY_FORMAT_MAPPING.get(v, v)
+    return {'movie_container': container}
+
+
+def migrate_legacy_movie_container(v, data):
+    """Migrate legacy movie_container values to Motion 5.0 compatible values.
+
+    Handles configs that already have movie_container set to legacy values
+    like mpeg4, msmpeg4, swf, ffv1.
+    """
+    return {'movie_container': _LEGACY_FORMAT_MAPPING.get(v, v)}
 
 
 _MOTION_44_TO_50_OPTIONS_MAPPING = {
     'webcontrol_interface': webcontrol_interface_to_50,
     'camera_name': camera_name_to_device_name,
     'movie_codec': movie_codec_to_container,
+    'movie_container': migrate_legacy_movie_container,  # Migrate legacy values
     'stream_port': None,  # Removed in 5.0
     'stream_localhost': None,
     'stream_auth_method': None,

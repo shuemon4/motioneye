@@ -45,60 +45,59 @@ from motioneye import config, settings, uploadservices, utils
 from motioneye.utils.dtconv import pretty_date_time
 
 _PICTURE_EXTS = ['.jpg']
-_MOVIE_EXTS = ['.avi', '.mp4', '.mov', '.swf', '.flv', '.mkv']
+_MOVIE_EXTS = ['.mp4', '.mkv', '.mov', '.flv', '.webm', '.ogg']
 
+# Motion 5.0 compatible codec mappings
+# Note: mpeg4, msmpeg4, swf removed in Motion 5.0
 FFMPEG_CODEC_MAPPING = {
-    'mpeg4': 'mpeg4',
-    'msmpeg4': 'msmpeg4v2',
-    'swf': 'flv1',
-    'flv': 'flv1',
-    'mov': 'mpeg4',
     'mp4': 'h264',
     'mkv': 'h264',
+    'mov': 'h264',
+    'flv': 'flv1',
+    'webm': 'vp8',
+    'ogg': 'theora',
+    'hevc': 'h265',
     'mp4:h264_omx': 'h264_omx',
     'mkv:h264_omx': 'h264_omx',
     'mp4:h264_v4l2m2m': 'h264_v4l2m2m',
     'mkv:h264_v4l2m2m': 'h264_v4l2m2m',
-    'hevc': 'h265',
 }
 
 FFMPEG_FORMAT_MAPPING = {
-    'mpeg4': 'avi',
-    'msmpeg4': 'avi',
-    'swf': 'swf',
-    'flv': 'flv',
-    'mov': 'mov',
     'mp4': 'mp4',
     'mkv': 'matroska',
+    'mov': 'mov',
+    'flv': 'flv',
+    'webm': 'webm',
+    'ogg': 'ogg',
+    'hevc': 'mp4',
     'mp4:h264_omx': 'mp4',
     'mkv:h264_omx': 'matroska',
     'mp4:h264_v4l2m2m': 'mp4',
     'mkv:h264_v4l2m2m': 'matroska',
-    'hevc': 'mp4',
 }
 
 FFMPEG_EXT_MAPPING = {
-    'mpeg4': 'avi',
-    'msmpeg4': 'avi',
-    'swf': 'swf',
-    'flv': 'flv',
-    'mov': 'mov',
     'mp4': 'mp4',
     'mkv': 'mkv',
+    'mov': 'mov',
+    'flv': 'flv',
+    'webm': 'webm',
+    'ogg': 'ogg',
+    'hevc': 'mp4',
     'mp4:h264_omx': 'mp4',
     'mkv:h264_omx': 'mkv',
     'mp4:h264_v4l2m2m': 'mp4',
     'mkv:h264_v4l2m2m': 'mkv',
-    'hevc': 'mp4',
 }
 
 MOVIE_EXT_TYPE_MAPPING = {
-    'avi': 'video/x-msvideo',
     'mp4': 'video/mp4',
-    'mov': 'video/quicktime',
-    'swf': 'application/x-shockwave-flash',
-    'flv': 'video/x-flv',
     'mkv': 'video/x-matroska',
+    'mov': 'video/quicktime',
+    'flv': 'video/x-flv',
+    'webm': 'video/webm',
+    'ogg': 'video/ogg',
 }
 
 # a cache of prepared files (whose preparing time is significant)

@@ -333,6 +333,33 @@
                             <td><span class="help-mark" title="{{ _("agordas la nombron de kadroj kaptitaj de la kamerao ĉiun sekundon (pli altaj valoroj produktas pli mildajn filmetojn sed postulas pli da CPU-potenco, pli grandan stokadon kaj larĝan bandon)") }}">?</span></td>
                         </tr>
                         <tr class="settings-item">
+                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtofokusa Reĝimo") }}</span></td>
+                            <td class="settings-item-value">
+                                <select class="styled device camera-config" id="autofocusModeSelect">
+                                    <option value="0">{{ _("Mana") }}</option>
+                                    <option value="1">{{ _("Aŭtomata") }}</option>
+                                    <option value="2">{{ _("Kontinua") }}</option>
+                                </select>
+                            </td>
+                            <td><span class="help-mark" title="{{ _("elektu la aŭtofokusan reĝimon: mana (fiksa fokusa distanco), aŭtomata (unufoje fokusas), aŭ kontinua (daŭre fokusas)") }}">?</span></td>
+                        </tr>
+                        <tr class="settings-item" depends="autofocusMode!=0">
+                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtofokusa Amplekso") }}</span></td>
+                            <td class="settings-item-value">
+                                <select class="styled device camera-config" id="autofocusRangeSelect">
+                                    <option value="0">{{ _("Normala") }}</option>
+                                    <option value="1">{{ _("Makro (Proksima)") }}</option>
+                                    <option value="2">{{ _("Plena Amplekso") }}</option>
+                                </select>
+                            </td>
+                            <td><span class="help-mark" title="{{ _("elektu la fokusserĉan amplekson: normala por ĝenerala uzo, makro por proksimaj objektoj, plena por maksimuma amplekso") }}">?</span></td>
+                        </tr>
+                        <tr class="settings-item" depends="autofocusMode=0" min="0" max="10" snap="0" decimals="1">
+                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Fokusa Pozicio") }}</span></td>
+                            <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="lensPositionSlider"></td>
+                            <td><span class="help-mark" title="{{ _("mana fokusa pozicio en dioptroj: 0 = infinito, 2 = 0.5m, 10 = 0.1m (makro)") }}">?</span></td>
+                        </tr>
+                        <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
@@ -826,12 +853,12 @@
                             <td class="settings-item-label"><span class="settings-item-label">{{ _("Filmformato") }}</span></td>
                             <td class="settings-item-value">
                                 <select class="styled movies camera-config" id="movieFormatSelect">
-                                    <option value="mpeg4">MPEG4 (.avi)</option>
-                                    <option value="msmpeg4">MSMPEG4v2 (.avi)</option>
-                                    <option value="swf">Small Web Format (.swf)</option>
-                                    <option value="flv">Flash Video (.flv)</option>
-                                    <option value="mov">QuickTime (.mov)</option>
                                     <option value="mp4">H.264 (.mp4)</option>
+                                    <option value="mkv">Matroska Video (.mkv)</option>
+                                    <option value="mov">QuickTime (.mov)</option>
+                                    <option value="flv">Flash Video (.flv)</option>
+                                    <option value="webm">WebM VP8 (.webm)</option>
+                                    <option value="ogg">Ogg Theora (.ogg)</option>
                                     {% if has_h264_nvenc_support %}
                                     <option value="mp4:h264_nvenc">H.264/NVENC (.mp4)</option>
                                     {% endif %}
@@ -857,7 +884,6 @@
                                     {% if has_hevc_qsv_support %}
                                     <option value="mp4:hevc_qsv">HEVC/QSV (.mp4)</option>
                                     {% endif %}
-                                    <option value="mkv">Matroska Video (.mkv)</option>
                                     {% if has_h264_omx_support %}
                                     <option value="mkv:h264_omx">Matroska Video/OMX (.mkv)</option>
                                     {% endif %}
