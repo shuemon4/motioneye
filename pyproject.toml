@@ -47,7 +47,7 @@ where = ["."]
 include = ["motioneye*"]
 
 [tool.setuptools.package-data]
-motioneye = ["extra/*", "static/*.*", "static/*/*", "templates/*", "scripts/*", "controls/*", "handlers/*", "utils/*", "locale/*/LC_MESSAGES/*.mo"]
+motioneye = ["extra/*", "static/*.*", "static/*/*", "static/*/*/*", "templates/*", "scripts/*", "controls/*", "handlers/*", "utils/*", "locale/*/LC_MESSAGES/*.mo"]
 
 [tool.setuptools.dynamic]
 version = {attr = "motioneye.VERSION"}

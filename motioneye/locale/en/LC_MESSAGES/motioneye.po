@@ -364,7 +364,55 @@ msgstr "Frame rate"
 msgid "agordas la nombron de kadroj kaptitaj de la kamerao ĉiun sekundon (pli altaj valoroj produktas pli mildajn filmetojn sed postulas pli da CPU-potenco, pli grandan stokadon kaj larĝan bandon)"
 msgstr "Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)"
 
+#: motioneye/templates/main.html:336
+msgid "Aŭtofokusa Reĝimo"
+msgstr "Autofocus Mode"
+
 #: motioneye/templates/main.html:339
+msgid "Mana"
+msgstr "Manual"
+
+#: motioneye/templates/main.html:340
+msgid "Aŭtomata"
+msgstr "Auto (Single)"
+
+#: motioneye/templates/main.html:341
+msgid "Kontinua"
+msgstr "Continuous"
+
+#: motioneye/templates/main.html:344
+msgid "elektu la aŭtofokusan reĝimon: mana (fiksa fokusa distanco), aŭtomata (unufoje fokusas), aŭ kontinua (daŭre fokusas)"
+msgstr "select the autofocus mode: manual (fixed focus distance), auto (focuses once), or continuous (always focusing)"
+
+#: motioneye/templates/main.html:347
+msgid "Aŭtofokusa Amplekso"
+msgstr "Autofocus Range"
+
+#: motioneye/templates/main.html:350
+msgid "Normala"
+msgstr "Normal"
+
+#: motioneye/templates/main.html:351
+msgid "Makro (Proksima)"
+msgstr "Macro (Close-up)"
+
+#: motioneye/templates/main.html:352
+msgid "Plena Amplekso"
+msgstr "Full Range"
+
+#: motioneye/templates/main.html:355
+msgid "elektu la fokusserĉan amplekson: normala por ĝenerala uzo, makro por proksimaj objektoj, plena por maksimuma amplekso"
+msgstr "select the focus search range: normal for general use, macro for close objects, full for maximum range"
+
+#: motioneye/templates/main.html:358
+msgid "Fokusa Pozicio"
+msgstr "Focus Position"
+
+#: motioneye/templates/main.html:360
+msgid "mana fokusa pozicio en dioptroj: 0 = infinito, 2 = 0.5m, 10 = 0.1m (makro)"
+msgstr "manual focus position in dioptres: 0 = infinity, 2 = 0.5m, 10 = 0.1m (macro)"
+
+#: motioneye/templates/main.html:366
 msgid "Privateca masko"
 msgstr "Privacy mask"
 
@@ -790,6 +838,14 @@ msgstr "Streaming Resolution"
 #: motioneye/templates/main.html:680
 msgid "la rezolucio donita kiel procento de la rezolucio de la video-aparato (pli altaj valoroj produktas pli bonan videan kvaliton sed postulas pli da larĝa de bando)"
 msgstr "the streaming resolution given as percent of the video device resolution (higher values produce better video quality but require more bandwidth)"
+
+#: motioneye/templates/main.html:715
+msgid "Direct Streaming"
+msgstr "Direct Streaming"
+
+#: motioneye/templates/main.html:717
+msgid "Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues."
+msgstr "Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues."
 
 #: motioneye/templates/main.html:683
 msgid "Flua haveno"

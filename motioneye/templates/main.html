@@ -71,22 +71,41 @@
 
 {% block inline %}
     {{super()}}
-    <!-- gettext.js required for setting language -->
+    <!-- Legacy gettext.js for main.js compatibility (must load first) -->
     <script src="{{static_path}}js/gettext.min.js"></script>
+    <!-- Client-side i18n - English is source, translations loaded on demand -->
+    <script src="{{static_path}}js/i18n.js"></script>
     <script>
+        // Base path for loading translation files
+        var basePath = '{{static_path}}';
+        var userLang = '{{settings.lingvo}}';
+
+        // Initialize new i18n system (for HTML data-i18n attributes)
+        // Uses motionEyeI18n to avoid conflict with gettext.js's i18n
+        motionEyeI18n.init(userLang, function() {
+            // Translate page after i18n is ready
+            motionEyeI18n.translatePage();
+        }, basePath);
+
+        // Setup legacy i18n for main.js (Esperanto -> target language)
         var i18n = window.i18n();
-      {% if settings.lingvo != 'eo' %}
-        // Set language for JavaScript
-        function Get(yourUrl){
-            var Httpreq = new XMLHttpRequest(); // a new request
-            Httpreq.open("GET",yourUrl,false);
-            Httpreq.send(null);
-            return Httpreq.responseText;
-        }
-        var i18njson=Get("{{static_path}}js/motioneye.{{settings.lingvo}}.json");
-        i18n.loadJSON(i18njson, 'messages');
+      {% if settings.lingvo != 'eo' and settings.lingvo != 'en' %}
+        // Load legacy translations for JavaScript strings in main.js
+        (function() {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "{{static_path}}js/motioneye.{{settings.lingvo}}.json", false);
+            xhr.send(null);
+            if (xhr.status === 200) {
+                try {
+                    i18n.loadJSON(xhr.responseText, 'messages');
+                } catch (e) {
+                    console.warn('Failed to load legacy translations');
+                }
+            }
+        })();
       {% endif %}
         i18n.setLocale('{{settings.lingvo}}');
+
         // Pass variables to JavaScript
         var adminUsername = '{{admin_username}}';
         var frame = {% if frame %}true{% else %}false{% endif %};
@@ -101,11 +120,11 @@
     <div class="header">
         <div class="header-container">
             <div class="settings-top-bar closed">
-                <div class="button icon settings-button mouse-effect" title="{{ _("agordojn")}}"></div>
-                <div class="button icon logout-button mouse-effect" title="{{ _("ŝanĝi uzanton")}}"></div>
+                <div class="button icon settings-button mouse-effect" data-i18n-title="settings" title="settings"></div>
+                <div class="button icon logout-button mouse-effect" data-i18n-title="switch user" title="switch user"></div>
                 <select class="styled" id="cameraSelect" {% if not add_remove_cameras %}style="display: none;"{% endif %}></select>
-                <div class="button icon rem-camera-button mouse-effect" id="remCameraButton" title="{{ _("forigi kameraon")}}" {% if not add_remove_cameras %}style="display: none;"{% endif %}></div>
-                <div class="button apply-button" id="applyButton">{{ _("Apliki")}}</div>
+                <div class="button icon rem-camera-button mouse-effect" id="remCameraButton" data-i18n-title="remove camera" title="remove camera" {% if not add_remove_cameras %}style="display: none;"{% endif %}></div>
+                <div class="button apply-button" id="applyButton" data-i18n="Apply">Apply</div>
                 {% if hostname %}<div class="hostname">{{hostname}}</div>{% endif %}
             </div>
             <div class="logo">
@@ -124,73 +143,73 @@
                 <form autocomplete="new-password">
                     <!-- Preferences -->
                     <div class="settings-section-title" id="preferencesDiv">
-                        <span class="help-mark" title="{{ _("preferoj de uzanto") }}">?</span>
-                        <a class="settings-section-title">{{ _("Preferoj") }}</a>
+                        <span class="help-mark" data-i18n-title="user preferences" title="user preferences">?</span>
+                        <a class="settings-section-title" data-i18n="Preferences">Preferences</a>
                         <span class="minimize open"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" min="1" max="4" snap="1" ticksnum="4" decimals="0" id="layoutColumnsRow">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aranĝo Kolumnoj")}}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Layout Columns">Layout Columns</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled prefs" id="layoutColumnsSlider"></td>
-                            <td><span class="help-mark" title='{{ _("agordas la nombron da kolumnoj uzataj por aranĝi la fotilojn")}}'>?</span></td>
+                            <td><span class="help-mark" data-i18n-title="configures the number of columns used to lay out the camera frames" title="configures the number of columns used to lay out the camera frames">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Fiksi Kadrojn Vertikale") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Fit Frames Vertically">Fit Frames Vertically</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled prefs" id="fitFramesVerticallySwitch"></td>
-                            <td><span class="help-mark" title="{{ _("kontrolas ĉu framfojoj povas esti reduktitaj por vertikale konveni al la fenestro aŭ ne") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="controls whether frame sizes can be reduced to vertically fit the window or not" title="controls whether frame sizes can be reduced to vertically fit the window or not">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="4" snap="1" ticksnum="4" decimals="0" id="layoutRows" depends="fitFramesVertically">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aranĝo linioj") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Layout Rows">Layout Rows</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled prefs" id="layoutRowsSlider"></td>
-                            <td><span class="help-mark" title='{{ _("agordas la nombron da linioj uzataj por aranĝi la fotilojn") }}'>?</span></td>
+                            <td><span class="help-mark" data-i18n-title="configures the number of rows used to lay out the camera frames" title="configures the number of rows used to lay out the camera frames">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="6" decimals="0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("kadro-variatoro") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame Rate Dimmer">Frame Rate Dimmer</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled prefs" id="framerateDimmerSlider"></td>
-                            <td><span class="help-mark" title="{{ _("reduktas framfrekvencon por ŝpari retan larĝan bandon kaj trafikon (ne funkcias kun simplaj MJPEG-fotiloj)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="dims the global frame rate to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)" title="dims the global frame rate to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="100" snap="0" ticks="1|20|40|60|80|100" decimals="0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Rezolucio-variatoro") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Resolution Dimmer">Resolution Dimmer</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled prefs" id="resolutionDimmerSlider"></td>
-                            <td><span class="help-mark" title="{{ _("reduktas la efektivan rezolucion de ĉiuj fotiloj por ŝpari retan larĝan bandon kaj trafikon (ne funkcias en simplaj MJPEG-fotiloj)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="dims the actual resolution of all cameras to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)" title="dims the actual resolution of all cameras to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)">?</span></td>
                         </tr>
                     </table>
 
                     <!-- General Settings -->
                     <div class="settings-section-title" id="generalSectionDiv">
-                        <span class="help-mark" title="{{ _("ĝeneralaj parametroj, komunaj al ĉiuj fotiloj") }}">?</span>
-                        <a class="settings-section-title">{{ _("Ĝeneralaj Agordoj") }}</a>
+                        <span class="help-mark" data-i18n-title="general settings, not related to any camera" title="general settings, not related to any camera">?</span>
+                        <a class="settings-section-title" data-i18n="General Settings">General Settings</a>
                         <span class="minimize open"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Lingvo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Language">Language</span></td>
                             <td class="settings-item-value"><select class="styled general main-config" id="langSelect">
                               {% for lang in settings.langlist %}
                               <option value="{{lang[0]}}">{{lang[1]}}</option>
                               {% endfor %}
                               </select></td>
-                            <td><span class="help-mark" title="{{ _("la lingvo de la interfaco (du literoj)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the interface language" title="the interface language">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Administranto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Admin Username">Admin Username</span></td>
                             <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled general main-config" id="adminUsernameEntry" readonly="readonly"></td>
-                            <td><span class="help-mark" title="{{ _("la uzantnomo uzata por agordi la sistemon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the username to be used for configuring the system" title="the username to be used for configuring the system">?</span></td>
                         </tr>
                         <tr class="settings-item" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Pasvorto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Password">Password</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled general main-config" id="adminPasswordEntry"></td>
-                            <td><span class="help-mark" title="{{ _("pasvorto de administranto") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="administrator's password" title="administrator's password">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Observanto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Surveillance Username">Surveillance Username</span></td>
                             <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled general main-config" id="normalUsernameEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la uzantnomo por uzi por la monitorado") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the username to be used for video surveillance" title="the username to be used for video surveillance">?</span></td>
                         </tr>
                         <tr class="settings-item" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Pasvorto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Password">Password</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled general main-config" id="normalPasswordEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la pasvorto de la uzanto de monitorado (lasu blankan por monitorado sen pasvorto)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the password for the surveillance user (leave empty for passwordless surveillance)" title="the password for the surveillance user (leave empty for passwordless surveillance)">?</span></td>
                         </tr>
                         {% for config in main_sections.get('general', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -199,46 +218,46 @@
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("motionEye Versio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="motionEye Version">motionEye Version</span></td>
                             <td class="settings-item-value"><span class="settings-item-label">{{version}}</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Motion Versio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Motion Version">Motion Version</span></td>
                             <td class="settings-item-value"><span class="settings-item-label">{{motion_version}}</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Operaciumo Versio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="OS Version">OS Version</span></td>
                             <td class="settings-item-value"><span class="settings-item-label">{{os_version}}</span></td>
                         </tr>
                         {% if enable_update %}
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Programara Ĝisdatigo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Software Update">Software Update</span></td>
                             <td class="settings-item-value"><div class="button normal-button update-button" id="updateButton">Check</div></td>
-                            <td><span class="help-mark" title="{{ _("kontrolas novajn versiojn kaj plenumas ĝisdatigojn") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="checks for new versions and performs updates" title="checks for new versions and performs updates">?</span></td>
                         </tr>
                         {% endif %}
                         <tr class="settings-item{% if not enable_reboot %} hidden{% endif %}">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Nutro") }}</span></td>
-                            <td class="settings-item-value"><div class="button normal-button shut-down-button" id="shutDownButton">{{ _("Fermu") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("malŝaltas la sistemon") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Power">Power</span></td>
+                            <td class="settings-item-value"><div class="button normal-button shut-down-button" id="shutDownButton" data-i18n="Shut Down">Shut Down</div></td>
+                            <td><span class="help-mark" data-i18n-title="shuts down the system" title="shuts down the system">?</span></td>
                         </tr>
                         <tr class="settings-item{% if not enable_reboot %} hidden{% endif %}">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button reboot-button" id="rebootButton">{{ _("Rekomencu") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("rekomencas la sistemon") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button reboot-button" id="rebootButton" data-i18n="Reboot">Reboot</div></td>
+                            <td><span class="help-mark" data-i18n-title="reboots the system" title="reboots the system">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Agordo") }}</span></td>
-                            <td class="settings-item-value"><div class="button normal-button backup-button" id="backupButton">{{ _("Sekurkopio") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("kreas dosieron kun la nuna agordo por ke vi konservu ĝin surloke") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Configuration">Configuration</span></td>
+                            <td class="settings-item-value"><div class="button normal-button backup-button" id="backupButton" data-i18n="Backup">Backup</div></td>
+                            <td><span class="help-mark" data-i18n-title="creates a file with the current configuration for you to save it locally" title="creates a file with the current configuration for you to save it locally">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button restore-button" id="restoreButton">{{ _("Restaŭri") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("restarigas la agordon el antaŭe konservita rezerva dosiero") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button restore-button" id="restoreButton" data-i18n="Restore">Restore</div></td>
+                            <td><span class="help-mark" data-i18n-title="restores the configuration from a previously saved backup file" title="restores the configuration from a previously saved backup file">?</span></td>
                         </tr>
                     </table>
 
@@ -262,61 +281,61 @@
                     <!-- Video Device -->
                     <div class="settings-section-title" id="deviceSectionDiv">
                         <input type="checkbox" class="styled section device camera-config" id="videoDeviceEnabledSwitch">
-                        <span class="help-mark" title="{{ _("aktivigu ĉi tion, se vi volas uzi ĉi tiun kameraon") }}">?</span>
-                        <a class="settings-section-title">{{ _("Video-Aparato") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want to use this camera device" title="enable this if you want to use this camera device">?</span>
+                        <a class="settings-section-title" data-i18n="Video Device">Video Device</a>
                         <span class="minimize open"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kamerao Nomo") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceNameEntry" placeholder="{{ _("kameraa nomo…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("alias pri ĉi tiu kamera aparato") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Name">Camera Name</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceNameEntry" placeholder="<span data-i18n="Camera name …">Camera name …</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="an alias for this camera device" title="an alias for this camera device">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kamerao ID") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera ID">Camera ID</span></td>
                             <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceIdEntry" readonly="readonly"></td>
-                            <td><span class="help-mark" title="{{ _("la kamerao identiga numero") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the camera identifier number" title="the camera identifier number">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kamerao aparato") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera device">Camera device</span></td>
                             <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceUrlEntry" readonly="readonly"></td>
-                            <td><span class="help-mark" title="{{ _("Eniga aparato (ekz. : /dev/video) or URL (ekz. : rtsp://192.168.1.1/stream)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="Input device (eg: /dev/video) or URL (eg: rtsp://192.168.1.1/stream)" title="Input device (eg: /dev/video) or URL (eg: rtsp://192.168.1.1/stream)">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kamerao Tipo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Type">Camera Type</span></td>
                             <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceTypeEntry" readonly="readonly"></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtomata Brilo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Automatic Brightness">Automatic Brightness</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled device camera-config" id="autoBrightnessSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligas aŭtomatan brilon de programaro (rekomendita nur por kameraoj sen aŭtomata brilo)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enables software automatic brightness (only recommended for cameras without autobrightness)" title="enables software automatic brightness (only recommended for cameras without autobrightness)">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Video-rezolucio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Video resolution">Video resolution</span></td>
                             <td class="settings-item-value">
                                 <select class="video-resolution styled device camera-config" id="resolutionSelect">
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("la video-rezolucio (pli grandaj valoroj produktas pli bonan kvaliton, sed postulas pli da CPU-potenco, pli granda stokado kaj larĝa de bando)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the video resolution (larger values produce better quality, but require more CPU power, larger storage space and bandwidth)" title="the video resolution (larger values produce better quality, but require more CPU power, larger storage space and bandwidth)">?</span></td>
                         </tr>
                         <tr class="settings-item" min="96" max="4096" required="true" depends="resolution=custom">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Larĝeco") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Width">Width</span></td>
                             <td class="settings-item-value"><input type="text" class="styled number device camera-config" id="customWidthEntry"></td>
-                            <td><span class="help-mark" title="{{ _("enigu kutiman rezolucian larĝon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enter a custom resolution width" title="enter a custom resolution width">?</span></td>
                         </tr>
                         <tr class="settings-item" min="96" max="4096" required="true" depends="resolution=custom">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alteco") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Height">Height</span></td>
                             <td class="settings-item-value"><input type="text" class="styled number device camera-config" id="customHeightEntry"></td>
-                            <td><span class="help-mark" title="{{ _("enigu kutiman rezolucian altecon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enter a custom resolution height" title="enter a custom resolution height">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Video-Rotacio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Video Rotation">Video Rotation</span></td>
                             <td class="settings-item-value">
                                 <select class="rotation styled device camera-config" id="rotationSelect">
                                     <option value="0">0&deg;</option>
@@ -325,56 +344,56 @@
                                     <option value="270">270&deg;</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("uzu ĉi tion por turni la kaptitan bildon, se via kamerao ne estas poziciigita ĝuste") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="use this to rotate the captured image if your camera is not positioned correctly" title="use this to rotate the captured image if your camera is not positioned correctly">?</span></td>
                         </tr>
                         <tr class="settings-item" min="2" max="30" snap="0" ticks="2|5|10|15|20|25|30" decimals="0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kadrofrekvenco") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame rate">Frame rate</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="framerateSlider"></td>
-                            <td><span class="help-mark" title="{{ _("agordas la nombron de kadroj kaptitaj de la kamerao ĉiun sekundon (pli altaj valoroj produktas pli mildajn filmetojn sed postulas pli da CPU-potenco, pli grandan stokadon kaj larĝan bandon)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)" title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtofokusa Reĝimo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Mode">Autofocus Mode</span></td>
                             <td class="settings-item-value">
                                 <select class="styled device camera-config" id="autofocusModeSelect">
-                                    <option value="0">{{ _("Mana") }}</option>
-                                    <option value="1">{{ _("Aŭtomata") }}</option>
-                                    <option value="2">{{ _("Kontinua") }}</option>
+                                    <option value="0" data-i18n="Manual">Manual</option>
+                                    <option value="1" data-i18n="Auto (Single)">Auto (Single)</option>
+                                    <option value="2" data-i18n="Continuous">Continuous</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("elektu la aŭtofokusan reĝimon: mana (fiksa fokusa distanco), aŭtomata (unufoje fokusas), aŭ kontinua (daŭre fokusas)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="select the autofocus mode: manual (fixed focus distance), auto (focuses once), or continuous (always focusing)" title="select the autofocus mode: manual (fixed focus distance), auto (focuses once), or continuous (always focusing)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="autofocusMode!=0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtofokusa Amplekso") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Range">Autofocus Range</span></td>
                             <td class="settings-item-value">
                                 <select class="styled device camera-config" id="autofocusRangeSelect">
-                                    <option value="0">{{ _("Normala") }}</option>
-                                    <option value="1">{{ _("Makro (Proksima)") }}</option>
-                                    <option value="2">{{ _("Plena Amplekso") }}</option>
+                                    <option value="0" data-i18n="Normal">Normal</option>
+                                    <option value="1" data-i18n="Macro (Close-up)">Macro (Close-up)</option>
+                                    <option value="2" data-i18n="Full Range">Full Range</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("elektu la fokusserĉan amplekson: normala por ĝenerala uzo, makro por proksimaj objektoj, plena por maksimuma amplekso") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="select the focus search range: normal for general use, macro for close objects, full for maximum range" title="select the focus search range: normal for general use, macro for close objects, full for maximum range">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="autofocusMode=0" min="0" max="10" snap="0" decimals="1">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Fokusa Pozicio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Focus Position">Focus Position</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="lensPositionSlider"></td>
-                            <td><span class="help-mark" title="{{ _("mana fokusa pozicio en dioptroj: 0 = infinito, 2 = 0.5m, 10 = 0.1m (makro)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="manual focus position in dioptres: 0 = infinity, 2 = 0.5m, 10 = 0.1m (macro)" title="manual focus position in dioptres: 0 = infinity, 2 = 0.5m, 10 = 0.1m (macro)">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Privateca masko") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Privacy mask">Privacy mask</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled device camera-config" id="privacyMaskSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligas maskeradon de bildoj por eviti registradon de iuj bildaj areoj por protekti privatecon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enables image masking to prevent some image areas from being recorded to protect privacy" title="enables image masking to prevent some image areas from being recorded to protect privacy">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="privacyMask">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
                             <td class="settings-item-value">
-                                <div class="button normal-button edit-mask-button" id="privacyMaskEditButton">{{ _("Redakti maskon") }}</div>
-                                <div class="button normal-button save-mask-button" id="privacyMaskSaveButton">{{ _("Konservi maskon") }}</div>
+                                <div class="button normal-button edit-mask-button" id="privacyMaskEditButton" data-i18n="Edit Mask">Edit Mask</div>
+                                <div class="button normal-button save-mask-button" id="privacyMaskSaveButton" data-i18n="Save Mask">Save Mask</div>
                                 <input type="text" class="device camera-config" id="privacyMaskLinesEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("alklaku ĉi tiun butonon por ebligi/malebligi la maskan redaktilon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to enable/disable the mask editor" title="click this button to enable/disable the mask editor">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="privacyMask">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
@@ -385,9 +404,9 @@
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Ekstraj Elektoj") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Extra Options">Extra Options</span></td>
                             <td class="settings-item-value"><textarea class="styled device camera-config" id="extraOptionsEntry" rows="3"></textarea></td>
-                            <td><span class="help-mark" title="{{ _("vi povas aldoni iujn ajn pliajn opciojn ĉi tie por la «motion» demono (uzu la «nomo valoro» formaton, unu opcion por linio)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)" title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('device', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -396,26 +415,26 @@
 
                     <!-- File Storage -->
                     <div class="settings-section-title" id="storageSectionDiv">
-                        <span class="help-mark" title="{{ _("elektu kie kaj kiel viaj amaskomunikiloj estas konservitaj") }}">?</span>
-                        <a class="settings-section-title">{{ _("Stokado de dosieroj") }}</a>
+                        <span class="help-mark" data-i18n-title="choose where and how your media is stored" title="choose where and how your media is stored">?</span>
+                        <a class="settings-section-title" data-i18n="File storage">File storage</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Stokada Aparato") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Storage Device">Storage Device</span></td>
                             <td class="settings-item-value">
                                 <select class="styled storage camera-config" id="storageDeviceSelect">
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("indikas la stokan aparaton, kie la bildo kaj video-dosieroj estos konservitaj") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="indicates the storage device where the image and video files will be saved" title="indicates the storage device where the image and video files will be saved">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="storageDevice=network-share" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Retservilo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Network server">Network server</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="networkServerEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la adreso de la retservilo (IP-adreso aŭ nomo)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the address of the network server (IP address or hostname)" title="the address of the network server (IP address or hostname)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="storageDevice=network-share">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("SMB Protokolo-Versio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="SMB Protocol Version">SMB Protocol Version</span></td>
                             <td class="settings-item-value">
                                 <select class="styled storage camera-config" id="networkSMBVerSelect">
                                     <option value="1.0">1.0</option>
@@ -425,69 +444,69 @@
                                     <option value="3.1.1">3.1.1</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("elektu la SMB-version, kiun vi povas uzi (testu la malsamajn eblojn kaj vidu, kiu funkcias plej bone kun via NAS)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="selects the SMB version to be used (test the various options and see which one works best with your NAS)" title="selects the SMB version to be used (test the various options and see which one works best with your NAS)">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="storageDevice=network-share" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kunhava nomo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Share name">Share name</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="networkShareNameEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la nomo de la interŝanĝa reto") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the name of the network share" title="the name of the network share">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="storageDevice=network-share" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Uzantnomo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Username">Username</span></td>
                             <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled storage camera-config" id="networkUsernameEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la uzantnomo kiu estu provizita kiam vi aliras la reton dosierujon (lasu malplena se neniu uzantnomo estas bezonata)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the username to be supplied when accessing the network share (leave empty if no username is required)" title="the username to be supplied when accessing the network share (leave empty if no username is required)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="storageDevice=network-share" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Pasvorton") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Share Password">Share Password</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled storage camera-config" id="networkPasswordEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la pasvorto bezonata de la reto dosierujo (lasi malplena se neniu pasvorto estas bezonata)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the password required by the network share (leave empty if no password is required)" title="the password required by the network share (leave empty if no password is required)">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Radika dosierujo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Root directory">Root directory</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="rootDirectoryEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la radika vojo (sur la elektita stokada aparato), kie la dosieroj estos konservitaj") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the root path (on the selected storage device) where the files will be saved" title="the root path (on the selected storage device) where the files will be saved">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="storageDevice=network-share">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button test-button" id="networkShareTestButton">{{ _("Testi la reton dosierujon") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("alklaku ĉi tiun butonon por testi la retan kunlokon post kiam vi plenigis la postulatajn detalojn") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button test-button" id="networkShareTestButton" data-i18n="Test share">Test share</div></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to test the network share connectivity after you have filled in the required details" title="click this button to test the network share connectivity after you have filled in the required details">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Uzado de Disko") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Disk usage">Disk usage</span></td>
                             <td class="settings-item-value">
                                 <div id="diskUsageProgressBar" class="progress-bar"></div>
                             </td>
-                            <td><span class="help-mark" title="{{ _("la uzata/tuta grandeco de la disko, kie loĝas la radika dosierujo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the used/total size of the disk where the root directory resides" title="the used/total size of the disk where the root directory resides">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alŝutu Mediajn Dosierojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Upload Media Files">Upload Media Files</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="uploadEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("aktivigu ĉi tiun opcion, se vi volas, ke viaj amaskomunikiloj estu alŝutitaj al ekstera servo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want your media files to be uploaded to an external service" title="enable this if you want your media files to be uploaded to an external service">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alŝutu Bildojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Upload Pictures">Upload Pictures</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="uploadPictureSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("aktivigu ĉi tiun opcion, se vi volas, ke la bildoj elŝutiĝu al ekstera servo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want pictures to be uploaded to an external service" title="enable this if you want pictures to be uploaded to an external service">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alŝutu Filmojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Upload Movies">Upload Movies</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="uploadMovieSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu ĉi tion, se vi volas, ke filmetoj estu alŝutitaj al ekstera servo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want videos to be uploaded to an external service" title="enable this if you want videos to be uploaded to an external service">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alŝuta Servo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Upload Service">Upload Service</span></td>
                             <td class="settings-item-value">
                                 <select class="styled storage camera-config" id="uploadServiceSelect">
-                                    <option value="ftp">{{ _("Servilo FTP") }}</option>
-                                    <option value="sftp">{{ _("Servilo SFTP") }}</option>
-                                    <!-- <option value="http">{{ _("Servilo HTTP") }}</option> -->
-                                    <!-- <option value="https">{{ _("Servilo HTTPS") }}</option> -->
+                                    <option value="ftp" data-i18n="FTP server">FTP server</option>
+                                    <option value="sftp" data-i18n="SFTP server">SFTP server</option>
+                                    <!-- <option value="http" data-i18n="HTTP server">HTTP server</option> -->
+                                    <!-- <option value="https" data-i18n="HTTPS server">HTTPS server</option> -->
                                     <option value="gdrive">Google Drive</option>
                                     <option value="gphoto">Google Photo</option>
                                     <option value="dropbox">Dropbox</option>
@@ -495,109 +514,109 @@
                                     <option value="webdav">WebDAV</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("elektu servon, al kiu la mediadosieroj estu alŝutitaj") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="choose a service to which the media files should be uploaded" title="choose a service to which the media files should be uploaded">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="uploadEnabled uploadService=(ftp|sftp|http|https)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Servila Adreso") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Server Address">Server Address</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="uploadServerEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la domajna nomo aŭ IP-adreso de la servilo (ekz. ftp.example.com aŭ 192.168.1.3)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the domain name or IP address of the server (eg ftp.example.com or 192.168.1.3)" title="the domain name or IP address of the server (eg ftp.example.com or 192.168.1.3)">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" min="1" max="65535" depends="uploadEnabled uploadService=(ftp|sftp|http|https)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Servila haveno") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Server port">Server port</span></td>
                             <td class="settings-item-value"><input type="text" class="number styled storage camera-config" id="uploadPortEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la haveno por uzi konekti al la servo (lasu ĉi tiun kampon malplena por uzi la defaŭltan valoron)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the port to use when connecting to the service (leave it empty to use the default value)" title="the port to use when connecting to the service (leave it empty to use the default value)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(http|https)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Metodo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Method">Method</span></td>
                             <td class="settings-item-value">
                                 <select class="styled storage camera-config" id="uploadMethodSelect">
                                     <option value="post">POST</option>
                                     <option value="put">PUT</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("la HTTP-metodo uzi por alŝuti dosierojn") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the HTTP method to use when uploading files" title="the HTTP method to use when uploading files">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(s3|webdav)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Finpunkto URL") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Endpoint URL">Endpoint URL</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="uploadEndpointUrlEntry"></td>
-                            <td><span class="help-mark" title="{{ _("La kompleta URL al la alŝuta servila finpunkto:") }}
-      {{ _("Por S3: ekz. http://my.minio:9000. Lasu ĝin malplena por AWS!") }}
-      {{ _("Por WebDAV: ekz. https://my.cloud/remote.php/dav/files/Me/") }}">?</span></td>
+                            <td><span class="help-mark" title="<span data-i18n="The complete URL to the upload server endpoint:">The complete URL to the upload server endpoint:</span>
+      <span data-i18n="For S3: E.g. http://my.minio:9000. Leave it empty for AWS!">For S3: E.g. http://my.minio:9000. Leave it empty for AWS!</span>
+      <span data-i18n="For WebDAV: E.g. https://my.cloud/remote.php/dav/files/me/">For WebDAV: E.g. https://my.cloud/remote.php/dav/files/me/</span>">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="uploadEnabled uploadService!=(s3)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Loko") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Location">Location</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="uploadLocationEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la loko (radika vojo) kie amaskomunikiloj devas esti alŝutitaj (ekz. /files/cam1/)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the location (root path) where media files should be uploaded (e.g. /files/cam1/)" title="the location (root path) where media files should be uploaded (e.g. /files/cam1/)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService!=(gphoto)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Inkluzivi Subdosierujojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Include Subfolders">Include Subfolders</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="uploadSubfoldersSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Aktivigu tion por elŝuti plurmediajn dosierojn kun siaj subdosierujoj, anstataŭ meti ilin rekte en la radikan lokon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this to upload the media files together with their subfolders, instead of placing them directly into the root location" title="enable this to upload the media files together with their subfolders, instead of placing them directly into the root location">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(gdrive)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Purigi la nubon") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Clean Cloud">Clean Cloud</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="cleanCloudEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu ĉi tion forigi amaskomunikilaĵojn dosierojn alŝutitajn al la nubo ankaŭ kiam loka amaskomunikilaro estas forigita konforme al la agordo de persistemo de dosieroj. Nuntempe ĉi tiu opcio nur haveblas por gdrivo.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this to delete the uploaded media files on cloud as well when the local media files get deleted according to file persistence setting, currently this option is available only for gdrive." title="enable this to delete the uploaded media files on cloud as well when the local media files get deleted according to file persistence setting, currently this option is available only for gdrive.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(ftp|sftp|http|https|webdav)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Uzantnomo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Username">Username</span></td>
                             <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled storage camera-config" id="uploadUsernameEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la uzantnomo por la alŝuta servo-konto") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the username for the upload service account" title="the username for the upload service account">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(ftp|sftp|http|https|webdav)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Pasvorto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Password">Password</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled storage camera-config" id="uploadPasswordEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la pasvorto por la alŝuta servo-konto") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the password for the upload service account" title="the password for the upload service account">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(gdrive|gphoto|dropbox)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Rajtiga ŝlosilo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Authorization key">Authorization key</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled storage camera-config" id="uploadAuthorizationKeyEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la ŝlosilo uzata por aŭtentiĝi kun la alŝuta servo (kutime bezonata nur dum agordo)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the key used to authenticate with the upload service (normally required only during setup)" title="the key used to authenticate with the upload service (normally required only during setup)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(gdrive|gphoto|dropbox)">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
                             <td class="settings-item-value">
                                 <div class="html styled storage camera-config" id="authorizeLinkHtml">
-                                    <a href="javascript:authorizeUpload()">{{ _("Akiri ŝlosilon") }}</a>
+                                    <a href="javascript:authorizeUpload()" data-i18n="Obtain key">Obtain key</a>
                                 </div>
                             </td>
-                            <td><span class="help-mark" title="{{ _("alklaku ĉi tie por akiri la ŝlosilan rajtigan servon") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="click here to obtain the service authorization key" title="click here to obtain the service authorization key">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(s3)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Access Key") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Access Key">Access Key</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled storage camera-config" id="uploadAccessKeyEntry"></td>
-                            <td><span class="help-mark" title="{{ _("The AWS access key used to authenticate with the upload service") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="The AWS Access Key Used To Authenticate with the Upload Service" title="The AWS Access Key Used To Authenticate with the Upload Service">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(s3)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Sekreta Alira Ŝlosilo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Secret Access Key">Secret Access Key</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled storage camera-config" id="uploadSecretKeyEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la AWS-sekreta alira ŝlosilo uzata por aŭtentiĝi kun la alŝuta servo (kutime bezonata nur dum agordo)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the AWS secret access key used to authenticate with the upload service (usually required only during configuration)" title="the AWS secret access key used to authenticate with the upload service (usually required only during configuration)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled uploadService=(s3)">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Sitelo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Bucket">Bucket</span></td>
                             <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="uploadBucketEntry"></td>
-                            <td><span class="help-mark" title="{{ _("la nomo S3-sitelo por la alŝuta servo (kutime bezonata nur dum agordo)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the S3 bucket name for the upload service (normally required only during setup)" title="the S3 bucket name for the upload service (normally required only during setup)">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="uploadEnabled">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button test-button" id="uploadTestButton">{{ _("Testi la servon") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("alklaku ĉi tiun butonon por provi la alŝutan servon post kiam vi plenigis la postulatajn detalojn") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button test-button" id="uploadTestButton" data-i18n="Test service">Test service</div></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to test the upload service after you have filled in the required details" title="click this button to test the upload service after you have filled in the required details">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("alvoki URL") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Call A Web Hook">Call A Web Hook</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="webHookStorageEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu ĉi tion, se vi volas, ke URL estu petata post kreado de amaskomunikila dosiero") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want a URL to be requested after a media file is created" title="enable this if you want a URL to be requested after a media file is created">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="webHookStorageEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Reteja URL") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="webHookStorageUrlEntry" placeholder="{{ _("ekz. http://example.com/notify/") }}"></td>
-                            <td><span class="help-mark" title="{{ _("URL por transdoni kiam moviĝo estas detektita; la sekvaj specialaj ŝparvojoj estas akceptitaj:%%Y = jaro,%%m = monato,%%d = tago,%%H = horo,%%M = minuto,%%S = sekundo,%%q = kadro numero,%%v = evento numero,%%f = dosiera vojo") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Web Hook URL">Web Hook URL</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="webHookStorageUrlEntry" placeholder="<span data-i18n="e.g. http://example.com/notify/">e.g. http://example.com/notify/</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="a URL to be requested when motion is detected; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%f = file path" title="a URL to be requested when motion is detected; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%f = file path">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="webHookStorageEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Metodo HTTP") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="HTTP method">HTTP method</span></td>
                             <td class="settings-item-value">
                                 <select class="styled storage camera-config" id="webHookStorageHttpMethodSelect">
                                     <option value="GET">GET</option>
@@ -606,20 +625,20 @@
                                     <option value="POSTj">POST (json)</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("la HTTP-metodo por uzi kiam vi petas retan hoko-URL (la donitaj URL-koditaj parametroj fakte estos transdonitaj kiel indikite ĉi tie)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here)" title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here)">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kuri Komando") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Run A Command">Run A Command</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled storage camera-config" id="commandStorageEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu ĉi tion, se vi volas ekzekuti komandon post kiam media dosiero estas kreita") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want to execute a command after a media file is created" title="enable this if you want to execute a command after a media file is created">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="commandStorageEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Ordono") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="commandStorageEntry" placeholder="{{ _("ordono…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Komando por esti plenumita post la kreo de plurmedia dosiero. Pluraj komandoj povas esti apartigitaj per punktoknomo; ne uzu punktoknomo en komandojn; la sekvaj specialaj tokensoj estas akceptitaj: %%Y = jaro, %%m = monato, %%d = tago, %%H = horo, %%M = minuto, %%S = sekundo, %%q = kadra numero , %%v = okaza numero, %%f = dosiera vojo") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Command">Command</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled storage camera-config" id="commandStorageEntry" placeholder="<span data-i18n="Order…">Order…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="a command to be executed after a media file is created; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%f = file path" title="a command to be executed after a media file is created; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%f = file path">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('storage', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -629,49 +648,53 @@
                     <!-- Text Overlay -->
                     <div class="settings-section-title" id="textOverlaySectionDiv">
                         <input type="checkbox" class="styled section text-overlay camera-config" id="textOverlayEnabledSwitch">
-                        <span class="help-mark" title="{{ _("elektu kiajn informojn montras sur la kaptitaj kadroj") }}">?</span>
-                        <a class="settings-section-title">{{ _("Teksto Superkovrita") }}</a>
+                        <span class="help-mark" data-i18n-title="choose what information is displayed on the captured frames" title="choose what information is displayed on the captured frames">?</span>
+                        <a class="settings-section-title" data-i18n="Text Overlay">Text Overlay</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Maldekstra Teksto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Left Text">Left Text</span></td>
                             <td class="settings-item-value">
                                 <select class="styled text-overlay camera-config" id="leftTextTypeSelect">
-                                    <option value="camera-name">{{ _("Kamerao Nomo") }}</option>
-                                    <option value="timestamp">{{ _("Tempostampo") }}</option>
-                                    <option value="custom-text">{{ _("Propra Teksto") }}</option>
-                                    <option value="disabled">{{ _("Malebligita") }}</option>
+                                    <option value="camera-name" data-i18n="Camera Name">Camera Name</option>
+                                    <option value="timestamp" data-i18n="Timestamp">Timestamp</option>
+                                    <option value="custom-text" data-i18n="Custom Text">Custom Text</option>
+                                    <option value="disabled" data-i18n="Disabled">Disabled</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la tekston montritan sur la filmoj kaj bildoj, sur la malsupra maldekstra angulo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the text displayed on the movies and images, on the lower left corner" title="sets the text displayed on the movies and images, on the lower left corner">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="leftTextType=custom-text" strip="true">
                             <td class="settings-item-label"></td>
-                            <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="leftTextEntry" placeholder="{{ _("propra teksto…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas kutimon maldekstran tekston; la sekvaj specialaj tokensoj estas akceptitaj:%%Y = jaro,%%m = monato,%%d = tago,%%H = horo,%%M = minuto,%%S = sekundo,%%q = kadro numero,%%v = evento numero,%%T = HH:MM:SS, \\n = nova linio") }}">?</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="leftTextEntry" placeholder="<span data-i18n="Custom text…">Custom text…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="sets a custom left text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%T = HH:MM:SS, \
+ = new line" title="sets a custom left text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%T = HH:MM:SS, \
+ = new line">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Dekstra Teksto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Right Text">Right Text</span></td>
                             <td class="settings-item-value">
                                 <select class="styled text-overlay camera-config" id="rightTextTypeSelect">
-                                    <option value="camera-name">{{ _("Kamerao Nomo") }}</option>
-                                    <option value="timestamp">{{ _("Tempostampo") }}</option>
-                                    <option value="custom-text">{{ _("Propra Teksto") }}</option>
-                                    <option value="disabled">{{ _("Malebligita") }}</option>
+                                    <option value="camera-name" data-i18n="Camera Name">Camera Name</option>
+                                    <option value="timestamp" data-i18n="Timestamp">Timestamp</option>
+                                    <option value="custom-text" data-i18n="Custom Text">Custom Text</option>
+                                    <option value="disabled" data-i18n="Disabled">Disabled</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la tekston montritan sur la filmoj kaj bildoj, sur la malsupra dekstra angulo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="Sets the text displayed on the movies and pictures, in the lower right corner" title="Sets the text displayed on the movies and pictures, in the lower right corner">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="rightTextType=custom-text" strip="true">
                             <td class="settings-item-label"></td>
-                            <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="rightTextEntry" placeholder="{{ _("propra teksto…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas kutimon dekstran tekston; la sekvaj specialaj tokensoj estas akceptitaj:%%Y = jaro,%%m = monato,%%d = tago,%%H = horo,%%M = minuto,%%S = sekundo,%%q = kadro numero,%%v = evento numero,%%T = HH:MM:SS, \\n = nova linio") }}">?</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="rightTextEntry" placeholder="<span data-i18n="Custom text…">Custom text…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="sets a custom right text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = number of event, %%T = HH: MM: SS, \
+ = new line" title="sets a custom right text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = number of event, %%T = HH: MM: SS, \
+ = new line">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="10" snap="1" ticksnum="10" decimals="0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Teksta Skalo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Text Scale">Text Scale</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled text-overlay camera-config" id="textScaleSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la grandecon de la superkovrita teksto") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the size of the overlay text" title="sets the size of the overlay text">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('text-overlay', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -681,81 +704,86 @@
                     <!-- Video Streaming -->
                     <div class="settings-section-title" minimize-switch-independent="true" id="streamingSectionDiv">
                         <input type="checkbox" class="styled section streaming camera-config" id="videoStreamingEnabledSwitch">
-                        <span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas videofluon por ĉi tiu fotilo") }}">?</span>
-                        <a class="settings-section-title">{{ _("Videofluo") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want video streaming for this camera" title="enable this if you want video streaming for this camera">?</span>
+                        <a class="settings-section-title" data-i18n="Video Streaming">Video Streaming</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" min="1" max="30" snap="0" ticks="1|5|10|15|20|25|30" decimals="0">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Framo frekvencon") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Frame Rate">Streaming Frame Rate</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingFramerateSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la nombron de kadroj transdonitaj ĉiun sekundon en la viva fluo.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of frames transmitted every second on the live streaming." title="sets the number of frames transmitted every second on the live streaming.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Flua Kvalito") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Quality">Streaming Quality</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingQualitySlider"></td>
-                            <td><span class="help-mark" title="{{ _("Agordas la vivan fluan kvaliton (pli altaj valoroj produktas pli bonan videokvaliton sed postulas pli da larĝa bando).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the live streaming quality (higher values produce a better video quality but require more bandwidth)." title="sets the live streaming quality (higher values produce a better video quality but require more bandwidth).">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Bilda Redimensionado") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Image Resizing">Streaming Image Resizing</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingServerResizeSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Kiam ĉi tio estas enŝaltita, la bildoj estas regrandigitaj antaŭ ol ili estas senditaj al la retumilo (malebligu dum funkciado sur malrapida CPU).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="when this is enabled, the images are resized before they are sent to the browser (disable when running on a slow CPU)." title="when this is enabled, the images are resized before they are sent to the browser (disable when running on a slow CPU).">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%" depends="streamingServerResize">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Flua rezolucio") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Resolution">Streaming Resolution</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingResolutionSlider"></td>
-                            <td><span class="help-mark" title="{{ _("la rezolucio donita kiel procento de la rezolucio de la video-aparato (pli altaj valoroj produktas pli bonan videan kvaliton sed postulas pli da larĝa de bando)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the streaming resolution given as percent of the video device resolution (higher values produce better video quality but require more bandwidth)" title="the streaming resolution given as percent of the video device resolution (higher values produce better video quality but require more bandwidth)">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1024" max="65535" depends="videoStreamingEnabled" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Flua haveno") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Port">Streaming Port</span></td>
                             <td class="settings-item-value"><input type="text" class="styled streaming camera-config" id="streamingPortEntry"></td>
-                            <td><span class="help-mark" title="{{ _("starigas la TCP-havenon, sur kiu aŭskultas la ret-servila ret-servo") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the TCP port on which the webcam streaming server listens" title="sets the TCP port on which the webcam streaming server listens">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="videoStreamingEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtentiga reĝimo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Direct Streaming">Direct Streaming</span></td>
+                            <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingDirectModeSwitch" checked></td>
+                            <td><span class="help-mark" data-i18n-title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues." title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues.">?</span></td>
+                        </tr>
+                        <tr class="settings-item" depends="videoStreamingEnabled">
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Authentication mode">Authentication mode</span></td>
                             <td class="settings-item-value">
                                 <select class="styled streaming camera-config" id="streamingAuthModeSelect">
-                                    <option value="disabled">{{ _("Malebligita") }}</option>
+                                    <option value="disabled" data-i18n="Disabled">Disabled</option>
                                     <option value="basic">Basic</option>
                                     <option value="digest">Digest</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("la aŭtentiga metodo uzata de la rivereto (elektu 'Bazic' anstataŭ 'Digest' se vi renkontas problemojn kun triaj programoj); akreditoj kontroloj estos uzataj") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the authentication method used by the stream (choose Basic instead of Digest if you encounter issues with third party apps); surveillance credentials will be used" title="the authentication method used by the stream (choose Basic instead of Digest if you encounter issues with third party apps); surveillance credentials will be used">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Movado-Optimigo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Motion Optimization">Motion Optimization</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingMotion"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu ĉi tion, se vi volas pli malaltan kadran indicon por la livera fluo kiam neniu movo estas detektita") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want a lower frame rate for the live streaming when no motion is detected" title="enable this if you want a lower frame rate for the live streaming when no motion is detected">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="videoStreamingEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Utilaj URLoj") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Useful URLs">Useful URLs</span></td>
                             <td class="settings-item-value">
                                 <div class="html styled streaming camera-config" id="streamingSnapshotUrlHtml">
-                                    <a href="javascript:showSnapshotUrl()">{{ _("Instantara URL") }}</a>
+                                    <a href="javascript:showSnapshotUrl()" data-i18n="Snapshot URL">Snapshot URL</a>
                                 </div>
                             </td>
-                            <td><span class="help-mark" title="{{ _("URL kiu provizas JPEG-bildon kun la plej freŝa kaptaĵo de la kamerao") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="a URL that provides a JPEG image with the most recent snapshot of the camera" title="a URL that provides a JPEG image with the most recent snapshot of the camera">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td class="settings-item-label"></td>
                             <td class="settings-item-value">
                                 <div class="html styled streaming camera-config" id="streamingMjpgUrlHtml">
-                                    <a href="javascript:showMjpgUrl()">{{ _("Flua URL") }}</a>
+                                    <a href="javascript:showMjpgUrl()" data-i18n="Streaming URL">Streaming URL</a>
                                 </div>
                             </td>
-                            <td><span class="help-mark" title="{{ _("URL kiu provizas MJPEG-fluon de la kamerao") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="a URL that provides a MJPEG stream of the camera" title="a URL that provides a MJPEG stream of the camera">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td class="settings-item-label"></td>
                             <td class="settings-item-value">
                                 <div class="html styled streaming camera-config" id="streamingEmbedUrlHtml">
-                                    <a href="javascript:showEmbedUrl()">{{ _("Enigita URL") }}</a>
+                                    <a href="javascript:showEmbedUrl()" data-i18n="Embed URL">Embed URL</a>
                                 </div>
                             </td>
-                            <td><span class="help-mark" title="{{ _("URL kiu provizas minimuman HTML-dokumenton enhavantan la kameraan kadron, preta por esti enigita") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="a URL that provides a minimal HTML document containing the camera frame, ready to be embedded" title="a URL that provides a minimal HTML document containing the camera frame, ready to be embedded">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('streaming', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -765,66 +793,66 @@
                     <!-- Still Images -->
                     <div class="settings-section-title" id="stillImagesSectionDiv">
                         <input type="checkbox" class="styled section still-images camera-config" id="stillImagesEnabledSwitch">
-                        <span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas kapti statika bildojn.") }}">?</span>
-                        <a class="settings-section-title">{{ _("Kaptitaj Bildoj") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want to capture still images (pictures)." title="enable this if you want to capture still images (pictures).">?</span>
+                        <a class="settings-section-title" data-i18n="Still Images">Still Images</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Nomo Bildo-Dosiero") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled still-images camera-config" id="imageFileNameEntry" placeholder="{{ _("dosiernomo ŝablono…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la nomon ŝablonon por bilddosieroj (JPEG); la sekvaj specialaj tokensoj estas akceptitaj:%%Y = jaro,%%m = monato,%%d = tago,%%H = horo,%%M = minuto,%%S = sekundo,%%q = kadro numero,%%v = evento numero, / = subdosierujo.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Image File Name">Image File Name</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled still-images camera-config" id="imageFileNameEntry" placeholder="<span data-i18n="File name Template…">File name Template…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="sets the name pattern for the image (JPEG) files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder." title="sets the name pattern for the image (JPEG) files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Bildkvalito") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Image Quality">Image Quality</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled still-images camera-config" id="imageQualitySlider"></td>
-                            <td><span class="help-mark" title="{{ _("agordas la JPEG-bildkvaliton (pli altaj valoroj produktas pli bonan bildan kvaliton sed postulas pli da stokado)") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the JPEG image quality (higher values produce a better image quality but require more storage space)" title="sets the JPEG image quality (higher values produce a better image quality but require more storage space)">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kaptila reĝimo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Capture mode">Capture mode</span></td>
                             <td class="settings-item-value">
                                 <select class="styled still-images camera-config" id="captureModeSelect">
-                                    <option value="motion-triggered">{{ _("Moviĝa deĉenigo") }}</option>
-                                    <option value="motion-triggered-one">{{ _("Moviĝa deĉenigo (Unu bildo)") }}</option>
-                                    <option value="interval-snapshots">{{ _("Intertempe") }}</option>
-                                    <option value="all-frames">{{ _("Ĉiuj bildoj") }}</option>
-                                    <option value="manual">{{ _("Mane") }}</option>
+                                    <option value="motion-triggered" data-i18n="Motion Triggered">Motion Triggered</option>
+                                    <option value="motion-triggered-one" data-i18n="Motion Triggered (One Picture)">Motion Triggered (One Picture)</option>
+                                    <option value="interval-snapshots" data-i18n="Interval Snapshots">Interval Snapshots</option>
+                                    <option value="all-frames" data-i18n="All Frames">All Frames</option>
+                                    <option value="manual" data-i18n="Manual">Manual</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Difinas la kapta reĝimon:") }}
-      {{ _("Moviĝa deĉenigo = bildo kaptita ĉiufoje kiam moviĝo estas detektita,") }}
-      {{ _("Intertempe = bildo kaptita ĉiun x sekundojn,") }}
-      {{ _("Ĉiuj bildoj = konservas ĉiun kadron en bildodosiero,") }}
-      {{ _("Mane = mana kapto kun dediĉita butono.") }}">?</span></td>
+                            <td><span class="help-mark" title="<span data-i18n="sets the image capture mode:">sets the image capture mode:</span>
+      <span data-i18n="Motion Triggered = an image captured whenever motion is detected,">Motion Triggered = an image captured whenever motion is detected,</span>
+      <span data-i18n="Interval Snapshots = an image captured every x seconds,">Interval Snapshots = an image captured every x seconds,</span>
+      <span data-i18n="All Frames = saves each frame to an image file,">All Frames = saves each frame to an image file,</span>
+      <span data-i18n="Manual = manual snapshots using snapshot button.">Manual = manual snapshots using snapshot button.</span>">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="86400" required="true" depends="captureMode=interval-snapshots">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Interkapto-Intervalo") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled number still-images camera-config" id="snapshotIntervalEntry"><span class="settings-item-unit">{{ _("sekundoj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("agordas la intervalon (en sekundoj) por la kaptiloj") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Snapshot Interval">Snapshot Interval</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled number still-images camera-config" id="snapshotIntervalEntry"><span class="settings-item-unit" data-i18n="seconds">seconds</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the interval (in seconds) for the snapshots" title="sets the interval (in seconds) for the snapshots">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Konservi bildojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Preserve Pictures">Preserve Pictures</span></td>
                             <td class="settings-item-value">
                                 <select class="styled still-images camera-config" id="preservePicturesSelect">
-                                    <option value="1">{{ _("Dum unu tago") }}</option>
-                                    <option value="7">{{ _("Dum unu semajno") }}</option>
-                                    <option value="30">{{ _("Dum unu monato") }}</option>
-                                    <option value="365">{{ _("Dum unu jaro") }}</option>
-                                    <option value="0">{{ _("Porĉiame") }}</option>
-                                    <option value="-1">{{ _("Propra") }}</option>
+                                    <option value="1" data-i18n="For One Day">For One Day</option>
+                                    <option value="7" data-i18n="For One Week">For One Week</option>
+                                    <option value="30" data-i18n="For One Month">For One Month</option>
+                                    <option value="365" data-i18n="For One Year">For One Year</option>
+                                    <option value="0" data-i18n="Forever">Forever</option>
+                                    <option value="-1" data-i18n="Custom">Custom</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Bildoj pli aĝaj ol la difinita daŭro estas aŭtomate forigitaj por liberigi stokadan spacon.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="images older than the specified duration are automatically deleted to free up storage space." title="images older than the specified duration are automatically deleted to free up storage space.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="3650" depends="preservePictures=-1" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Bildaj Vivdaŭro") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Picture Lifetime">Picture Lifetime</span></td>
                             <td class="settings-item-value"><input type="text" class="styled number still-images camera-config" id="picturesLifetimeEntry"><span class="settings-item-unit">days</span></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la nombron da tagoj post kiuj la bildoj estos forigitaj aŭtomate.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of days after which the pictures will be deleted automatically." title="sets the number of days after which the pictures will be deleted automatically.">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Ebligu manaj kaptoj") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Enable Manual Snapshots">Enable Manual Snapshots</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled still-images camera-config" id="manualSnapshotsSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Kiam ĉi tio estas enŝaltita, butono sur la kameraa kadro permesos al vi permane preni kaptojn.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="when this is enabled, a button on the camera frame will allow you to manually take snapshots." title="when this is enabled, a button on the camera frame will allow you to manually take snapshots.">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('still-images', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -834,23 +862,23 @@
                     <!-- Movies -->
                     <div class="settings-section-title" id="moviesSectionDiv">
                         <input type="checkbox" class="styled section movies camera-config" id="moviesEnabledSwitch">
-                        <span class="help-mark" title="{{ _("ebligu ĉi tion, se vi volas registri filmojn") }}">?</span>
-                        <a class="settings-section-title">{{ _("Filmoj") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want to record movies" title="enable this if you want to record movies">?</span>
+                        <a class="settings-section-title" data-i18n="Movies">Movies</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" required="true" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Filma Dosiernomo") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled movies camera-config" id="movieFileNameEntry" placeholder="{{ _("dosiernomo ŝablono…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la nomon ŝablonon por por la filmdosieroj; la sekvaj specialaj tokensoj estas akceptitaj:%%Y = jaro,%%m = monato,%%d = tago,%%H = horo,%%M = minuto,%%S = sekundo,%%q = kadro numero,%%v = evento numero, / = subdosierujo.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie File Name">Movie File Name</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled movies camera-config" id="movieFileNameEntry" placeholder="<span data-i18n="File name Template…">File name Template…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="sets the name pattern for the movie files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder." title="sets the name pattern for the movie files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder.">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Rekta kopia filmeto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie Passthrough">Movie Passthrough</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled movies camera-config" id="moviePassthroughSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Kreu filmojn rekte de la kamerao. Ĉi tiu opcio devus redukti CPU-uzadon sed pliigi memorpostulojn. Neniu bilda prilaborado estas farita, do tekstoj interkovras, privatecaj maskoj ktp. ne estos sur la rezulta video.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="Create movie files of the motion directly from the camera. This option should reduce CPU usage but does increase memory requirements. No image processing is performed so text overlays, privacy masks etc will not be on the resulting video." title="Create movie files of the motion directly from the camera. This option should reduce CPU usage but does increase memory requirements. No image processing is performed so text overlays, privacy masks etc will not be on the resulting video.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="!moviePassthrough">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Filmformato") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie format">Movie format</span></td>
                             <td class="settings-item-value">
                                 <select class="styled movies camera-config" id="movieFormatSelect">
                                     <option value="mp4">H.264 (.mp4)</option>
@@ -892,46 +920,46 @@
                                     {% endif %}
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Agordas la filmdosieron; ne ĉiuj formatoj garantias funkcii en ĉiuj sistemoj; se vi dubas, testu ĉiun formaton kaj elektu tiun, kiu plej bone funkcias per via filmetilo.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player." title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Filma Kvalito") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie Quality">Movie Quality</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled movies camera-config" id="movieQualitySlider"></td>
-                            <td><span class="help-mark" title="{{ _("Agordas la MPEG-video-kvaliton (pli altaj valoroj produktas pli bonan videokvaliton sed postulas pli da stokado).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the MPEG video quality (higher values produce a better video quality but require more storage space)." title="sets the MPEG video quality (higher values produce a better video quality but require more storage space).">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Rekorda reĝimo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Recording Mode">Recording Mode</span></td>
                             <td class="settings-item-value">
                                 <select class="styled movies camera-config" id="recordingModeSelect">
-                                    <option value="motion-triggered">{{ _("Moviĝa deĉenigo") }}</option>
-                                    <option value="continuous">{{ _("Kontinua registrado") }}</option>
+                                    <option value="motion-triggered" data-i18n="Motion Triggered">Motion Triggered</option>
+                                    <option value="continuous" data-i18n="Continuous Recording">Continuous Recording</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Agordas la registradreĝimon: Moviĝa deĉenigo = nova filmo kreita kiam ajn moviĝo estas detektita, Kontinua Registrado = unu granda filma dosiero.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the recording mode: Motion Triggered = a new movie created whenever motion is detected, Continuous Recording = one big movie file." title="sets the recording mode: Motion Triggered = a new movie created whenever motion is detected, Continuous Recording = one big movie file.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="86400" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Maksimuma filma daŭro") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled movies camera-config" id="maxMovieLengthEntry"><span class="settings-item-unit">{{ _("sekundoj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Agordas la maksimuman longon de filmoj en sekundoj; se la movada evento daŭras pli longe, nova filmdosiero estas kreita; uzu 0 por senlima longo.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Maximum Movie Length">Maximum Movie Length</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled movies camera-config" id="maxMovieLengthEntry"><span class="settings-item-unit" data-i18n="seconds">seconds</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the maximum length of movies, in seconds; if the motion event lasts longer, a new movie file is created; use 0 for unlimited length." title="sets the maximum length of movies, in seconds; if the motion event lasts longer, a new movie file is created; use 0 for unlimited length.">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Konservi filmojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Preserve Movies">Preserve Movies</span></td>
                             <td class="settings-item-value">
                                 <select class="styled movies camera-config" id="preserveMoviesSelect">
-                                    <option value="1">{{ _("Dum unu tago") }}</option>
-                                    <option value="7">{{ _("Dum unu semajno") }}</option>
-                                    <option value="30">{{ _("Dum unu monato") }}</option>
-                                    <option value="365">{{ _("Dum unu jaro") }}</option>
-                                    <option value="0">{{ _("Porĉiame") }}</option>
-                                    <option value="-1">{{ _("Propra") }}</option>
+                                    <option value="1" data-i18n="For One Day">For One Day</option>
+                                    <option value="7" data-i18n="For One Week">For One Week</option>
+                                    <option value="30" data-i18n="For One Month">For One Month</option>
+                                    <option value="365" data-i18n="For One Year">For One Year</option>
+                                    <option value="0" data-i18n="Forever">Forever</option>
+                                    <option value="-1" data-i18n="Custom">Custom</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Filmoj pli aĝaj ol la difinita daŭro estas aŭtomate forigitaj por liberigi stokadon.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="movies older than the specified duration are automatically deleted to free up storage space." title="movies older than the specified duration are automatically deleted to free up storage space.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="3650" depends="preserveMovies=-1" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Filmoj Vivdaŭro") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled number movies camera-config" id="moviesLifetimeEntry"><span class="settings-item-unit">{{ _("tagoj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Agordas la nombron da tagoj post kiuj la filmoj estos forigitaj aŭtomate.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movies Lifetime">Movies Lifetime</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled number movies camera-config" id="moviesLifetimeEntry"><span class="settings-item-unit" data-i18n="days">days</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of days after which the movies will be deleted automatically." title="sets the number of days after which the movies will be deleted automatically.">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('movies', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -941,118 +969,118 @@
                     <!-- Motion Detection -->
                     <div class="settings-section-title" id="motionDetectionSectionDiv">
                         <input type="checkbox" class="styled section motion-detection camera-config" id="motionDetectionEnabledSwitch">
-                        <span class="help-mark" title="{{ _("Aktivigu ĉi tion, por uzi kaj agordi la mekanismon por detekti movadon.") }}">?</span>
-                        <a class="settings-section-title">{{ _("Movado-Detekto") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this to use and configure the motion detection mechanism." title="enable this to use and configure the motion detection mechanism.">?</span>
+                        <a class="settings-section-title" data-i18n="Motion Detection">Motion Detection</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" min="0" max="20" snap="0" ticksnum="5" decimals="1" unit="%" depends="!autoThresholdTuning">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kadra ŝanĝo sojlo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame Change Threshold">Frame Change Threshold</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled motion-detection camera-config" id="frameChangeThresholdSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Indikas la minimuman procenton de la bildo, kiu devas ŝanĝi inter du pluaj kadroj por detekti movadon (pli malgrandaj valoroj donas pli sentivan detekton, sed inklinas al falsaj pozitivoj).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="indicates the minimal percent of the image that must change between two successive frames in order for motion to be detected (smaller values give a more sensitive detection, but are prone to false positives)." title="indicates the minimal percent of the image that must change between two successive frames in order for motion to be detected (smaller values give a more sensitive detection, but are prone to false positives).">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" required="true" depends="!autoThresholdTuning">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Maksimuma ŝanĝo sojlo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Maximum Change Threshold">Maximum Change Threshold</span></td>
                             <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="maxFrameChangeThresholdEntry"><span class="settings-item-unit">pixels</span></td>
-                            <td><span class="help-mark" title="{{ _("Starigas la nombron da rastrumeroj ŝanĝitaj inter kadroj super kiuj movo ne plu ekigas (0 malŝaltas la limon).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of pixels changed between frames above which motion is no longer triggered (0 disables the limit)." title="sets the number of pixels changed between frames above which motion is no longer triggered (0 disables the limit).">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtomata sojla agordo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Automatic Threshold Tuning">Automatic Threshold Tuning</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="autoThresholdTuningSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu tion aŭtomate ĝustigi la sojlon.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this to automatically adjust the threshold." title="enable this to automatically adjust the threshold.">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aŭtomata bruo-detekto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Automatic Noise Detection">Automatic Noise Detection</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="autoNoiseDetectSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu tion por aŭtomate ĝustigi la nivelon de bruo.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this to automatically adjust the noise level." title="enable this to automatically adjust the noise level.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="25" snap="0" ticksnum="6" decimals="0" unit="%" depends="!autoNoiseDetect">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Bruo-nivelo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Noise Level">Noise Level</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled motion-detection camera-config" id="noiseLevelSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Permane agordas la bruan nivelon al fiksita valoro.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="manually sets the noise level to a fixed value." title="manually sets the noise level to a fixed value.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Detekto de lumaj ŝanĝoj") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Light Switch Detection">Light Switch Detection</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled motion-detection camera-config" id="lightSwitchDetectSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la procenton de la bildo, kiu bezonas ŝanĝi, por ke la evento estu traktata kiel subita luma ŝanĝo anstataŭ moviĝo (0%% malebligas la funkcion).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the percentage of the image that needs to change so that the event is treated as a sudden light change instead of motion (0%% disables the function)." title="sets the percentage of the image that needs to change so that the event is treated as a sudden light change instead of motion (0%% disables the function).">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Makula filtrilo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Despeckle Filter">Despeckle Filter</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="despeckleFilterSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu tion apliki makulan filtrilon al kadroj antaŭ ol detekti movadon.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this to apply a despeckle filter to frames before detecting motion." title="enable this to apply a despeckle filter to frames before detecting motion.">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" min="0" max="86400" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Senmovada daŭro") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="eventGapEntry"><span class="settings-item-unit">{{ _("sekundoj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Agordas la nombron da sekundoj da silento (t.e. neniu moviĝo), kiuj markas la finon de movada okazaĵo.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Motion Gap">Motion Gap</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="eventGapEntry"><span class="settings-item-unit" data-i18n="seconds">seconds</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of seconds of silence (i.e. no motion) that mark the end of a motion event." title="sets the number of seconds of silence (i.e. no motion) that mark the end of a motion event.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="1000" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kaptita Antaŭe") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="preCaptureEntry"><span class="settings-item-unit">{{ _("kadroj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Starigas la nombron de kadroj kaptitaj (kaj inkluzivitaj en la filmo) antaŭ ol moviĝokazaĵo estas detektita.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Captured Before">Captured Before</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="preCaptureEntry"><span class="settings-item-unit" data-i18n="frames">frames</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of frames to be captured (and included in the movie) before a motion event is detected." title="sets the number of frames to be captured (and included in the movie) before a motion event is detected.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="1000" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Kaptita Post") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="postCaptureEntry"><span class="settings-item-unit">{{ _("kadroj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Starigas la nombron de kadroj kaptotaj (kaj inkluzivitaj en la filmo) post la fino de movada evento.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Captured After">Captured After</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="postCaptureEntry"><span class="settings-item-unit" data-i18n="frames">frames</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the number of frames to be captured (and included in the movie) after the end of a motion event." title="sets the number of frames to be captured (and included in the movie) after the end of a motion event.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="1000" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Minimumaj movaj kadroj") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="minimumMotionFramesEntry"><span class="settings-item-unit">{{ _("kadroj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la minimuman nombron da pluaj movaj kadroj necesaj por komenci moviĝan eventon.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Minimum Motion Frames">Minimum Motion Frames</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled motion-detection camera-config" id="minimumMotionFramesEntry"><span class="settings-item-unit" data-i18n="frames">frames</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the minimum number of successive motion frames required to start a motion event." title="sets the minimum number of successive motion frames required to start a motion event.">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Masko") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Mask">Mask</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="motionMaskSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligas bildigan maskeradon por pli selektema kaj preciza moviĝo-detekto.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enables image masking for a more selective and precise motion detection." title="enables image masking for a more selective and precise motion detection.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionMask">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Tipo de masko") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Mask Type">Mask Type</span></td>
                             <td class="settings-item-value">
                                 <select class="styled motion-detection camera-config" id="motionMaskTypeSelect">
-                                    <option value="smart">{{ _("Inteligenta") }}</option>
-                                    <option value="editable">"{{ _("Redaktebla") }}"</option>
+                                    <option value="smart" data-i18n="Smart">Smart</option>
+                                    <option value="editable">"<span data-i18n="Editable">Editable</span>"</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("La ""Inteligenta"" opcio aŭtomate detektas regionojn per regula movado kaj dinamike kreas internan maskon, dum la ""Redaktebla"" opcio permesas permane konstrui ĝin mem.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the smart option automatically detects regions with regular motion and dynamically builds an internal mask, while the editable mask allows you to manually build it yourself." title="the smart option automatically detects regions with regular motion and dynamically builds an internal mask, while the editable mask allows you to manually build it yourself.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="10" snap="1" ticksnum="10" decimals="0" unit="" depends="motionMask motionMaskType=smart">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Inteligenta-maska Malrapideco") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Smart Mask Sluggishness">Smart Mask Sluggishness</span></td>
                             <td class="settings-item-value"><input type="text" class="range styled motion-detection camera-config" id="smartMaskSluggishnessSlider"></td>
-                            <td><span class="help-mark" title="{{ _("Pli altaj valoroj donas pli daŭran maskon kun pli malrapida konstruprocezo.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="higher values result in a longer-lasting smart mask with a slower building process." title="higher values result in a longer-lasting smart mask with a slower building process.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionMask motionMaskType=editable">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
                             <td class="settings-item-value">
-                                <div class="button normal-button edit-mask-button" id="motionMaskEditButton">{{ _("Redakti maskon") }}</div>
-                                <div class="button normal-button save-mask-button" id="motionMaskSaveButton">{{ _("Konservi maskon") }}</div>
+                                <div class="button normal-button edit-mask-button" id="motionMaskEditButton" data-i18n="Edit Mask">Edit Mask</div>
+                                <div class="button normal-button save-mask-button" id="motionMaskSaveButton" data-i18n="Save Mask">Save Mask</div>
                                 <input type="text" class="motion-detection camera-config" id="motionMaskLinesEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Alklaku ĉi tiun butonon por ebligi/malebligi la maskan redaktilon.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to clear the current mask." title="click this button to clear the current mask.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionMask motionMaskType=editable">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button clear-mask-button" id="motionMaskClearButton">{{ _("Purigi maskon") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("Alklaku ĉi tiun butonon por malplenigi la nunan maskon.") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button clear-mask-button" id="motionMaskClearButton" data-i18n="Clear Mask">Clear Mask</div></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to clear the current mask." title="click this button to clear the current mask.">?</span></td>
                         </tr>
                         <tr class="settings-item">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Montri Kadro-Ŝanĝojn") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Show Frame Changes">Show Frame Changes</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="showFrameChangesSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Se ĉi tio estas aktiva, la bilda ŝanĝojn (nombro de pikseloj kaj la modifita areo) estas montritaj en la video; provizore ebligigu ĉi tion por ĝustigi agordojn de moviĝo-detekto.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="if this is enabled, frame changes (number of pixels as well as the changed area) are shown on the video; temporarily enable this option to help adjust the motion detection parameters." title="if this is enabled, frame changes (number of pixels as well as the changed area) are shown on the video; temporarily enable this option to help adjust the motion detection parameters.">?</span></td>
                         </tr>
                         <tr class="settings-item">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Krei debug media files") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Create Debug Media Files">Create Debug Media Files</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled motion-detection camera-config" id="createDebugMediaSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Kiam ebligite, kreas specialajn filmojn kaj bildojn, kiuj helpas elpurigi problemojn de moviĝo-detekto.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="when enabled, creates special movies and pictures that help debugging motion detection problems." title="when enabled, creates special movies and pictures that help debugging motion detection problems.">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('motion-detection', {}).get('configs', []) %}
                             {{config_item(config)}}
@@ -1061,8 +1089,8 @@
 
                     <!-- Motion Notifications -->
                     <div class="settings-section-title" id="notificationsSectionDiv">
-                        <span class="help-mark" title="{{ _("Ebligu tion se vi volas esti sciigita kiam moviĝo estas detektita.") }}">?</span>
-                        <a class="settings-section-title">{{ _("Moviĝaj sciigoj") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want to be notified when motion is detected." title="enable this if you want to be notified when motion is detected.">?</span>
+                        <a class="settings-section-title" data-i18n="Motion Notifications">Motion Notifications</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
@@ -1074,97 +1102,97 @@
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Sendi retpoŝton") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Send An Email">Send An Email</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="emailNotificationsEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Aktivigu ĉi tiun opcion, se vi volas ricevi retpoŝton ĉiufoje kiam moviĝokazaĵo estas detektita.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want to receive an email whenever a motion event is detected." title="enable this if you want to receive an email whenever a motion event is detected.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="emailNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Retpoŝtadresoj") }}</span></td>
-                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="emailAddressesEntry" placeholder="{{ _("retpoŝtadresoj…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Retpoŝtadresoj (apartigitaj per komo) aldonitaj ĉi tie ricevos sciigojn kiam ajn moviĝokazaĵo estas detektita.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Email Addresses">Email Addresses</span></td>
+                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="emailAddressesEntry" placeholder="<span data-i18n="Email addresses…">Email addresses…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="email addresses (separated by comma) that are added here will receive notifications whenever a motion event is detected." title="email addresses (separated by comma) that are added here will receive notifications whenever a motion event is detected.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="emailNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Servilo SMTP") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="smtpServerEntry" placeholder="{{ _("ekz. smtp.gmail.com") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Enigu la hostname aŭ IP-adreson de via SMTP-servilo (por uzado de Gmail smtp.gmail.com).") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="SMTP Server">SMTP Server</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="smtpServerEntry" placeholder="<span data-i18n="e.g. smtp.gmail.com">e.g. smtp.gmail.com</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="enter the hostname or IP address of your SMTP server (for Gmail use smtp.gmail.com)." title="enter the hostname or IP address of your SMTP server (for Gmail use smtp.gmail.com).">?</span></td>
                         </tr>
                         <tr class="settings-item" min="1" max="65535" depends="emailNotificationsEnabled motionDetectionEnabled" required="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("SMTP Haveno") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled number notifications camera-config" id="smtpPortEntry" placeholder="{{ _("ekz. 587") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Eniru la havenon uzatan de via SMTP-servilo (kutime 465 por ne-TLS-ligoj kaj 587 por TLS-ligoj).") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="SMTP Port">SMTP Port</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled number notifications camera-config" id="smtpPortEntry" placeholder="<span data-i18n="e.g. 587">e.g. 587</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="enter the port used by your SMTP server (usually 465 for non-TLS connections and 587 for TLS connections)." title="enter the port used by your SMTP server (usually 465 for non-TLS connections and 587 for TLS connections).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="emailNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("SMTP-Konto") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="smtpAccountEntry" placeholder="{{ _("konto@gmail.com…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Enigu vian SMTPan konton (kutime via retpoŝta adreso).") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="SMTP Account">SMTP Account</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="smtpAccountEntry" placeholder="<span data-i18n="account@gmail.com…">account@gmail.com…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="enter your SMTP account (normally your email address)." title="enter your SMTP account (normally your email address).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="emailNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("SMTP Pasvorto") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="SMTP Password">SMTP Password</span></td>
                             <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled notifications camera-config" id="smtpPasswordEntry"></td>
-                            <td><span class="help-mark" title="{{ _("Enigu vian SMTPan pasvorton (por Gmail uzu vian Google-pasvorton aŭ app-specifan generitan pasvorton).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enter your SMTP account password (for Gmail use your Google password or an app-specific generated password)." title="enter your SMTP account password (for Gmail use your Google password or an app-specific generated password).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="emailNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("De adreso") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="emailFromEntry" placeholder="{{ _("retpoŝta adreso…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Agordi kutimon De adreso, se via SMTP-servo postulas unu (la unua destina retpoŝta adreso estos uzata se lasita malplena).") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="From Address">From Address</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="emailFromEntry" placeholder="<span data-i18n="Email address…">Email address…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="set a custom From address, if your SMTP service requires one (the first destination email address will be used if left blank)." title="set a custom From address, if your SMTP service requires one (the first destination email address will be used if left blank).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="emailNotificationsEnabled motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Uzi TLS") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Use TLS">Use TLS</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="smtpTlsSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu tion, se via SMTP-servilo postulas TLS (Gmail bezonas ĉi tion por ebligi).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if your SMTP server requires TLS (Gmail needs this to be enabled)." title="enable this if your SMTP server requires TLS (Gmail needs this to be enabled).">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="60" required="true" depends="emailNotificationsEnabled motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Aldonitaj bildoj tempo-intervalo") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="number styled notifications camera-config" id="emailPictureTimeSpanEntry"><span class="settings-item-unit">{{ _("sekundoj") }}</span></td>
-                            <td><span class="help-mark" title="{{ _("Difinas la tempo-serĉan intervalon por uzi dum kreado de retpoŝtaj ligiloj (pli altaj valoroj generas retpoŝtojn kun pli da bildoj koste de pliigita prokrasta sciigo); agordi al 0 por malebligi aldonitabildojn; vi ankaŭ devas rajtigi «Kaptitaj bildoj» por ke ĉi tio funkciu.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Attached Pictures Time Span">Attached Pictures Time Span</span></td>
+                            <td class="settings-item-value"><input type="text" class="number styled notifications camera-config" id="emailPictureTimeSpanEntry"><span class="settings-item-unit" data-i18n="seconds">seconds</span></td>
+                            <td><span class="help-mark" data-i18n-title="defines the picture search time interval to use when creating email attachments (higher values generate emails with more pictures at the cost of an increased notification delay); set to 0 to disable picture attachments; you must also enable Still Images for this to work." title="defines the picture search time interval to use when creating email attachments (higher values generate emails with more pictures at the cost of an increased notification delay); set to 0 to disable picture attachments; you must also enable Still Images for this to work.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="emailNotificationsEnabled motionDetectionEnabled">
                             <td class="settings-item-label"><span class="settings-item-label"></span></td>
-                            <td class="settings-item-value"><div class="button normal-button test-button" id="emailTestButton">{{ _("Testi retpoŝto") }}</div></td>
-                            <td><span class="help-mark" title="{{ _("Alklaku ĉi tiun butonon por testi retpoŝtajn sciigojn post kiam vi plenigis la postulatajn detalojn.") }}">?</span></td>
+                            <td class="settings-item-value"><div class="button normal-button test-button" id="emailTestButton" data-i18n="Test Email">Test Email</div></td>
+                            <td><span class="help-mark" data-i18n-title="click this button to test email notifications after you have filled in the required details." title="click this button to test email notifications after you have filled in the required details.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Sendu Telegraman Sciigon") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Send Telegram Notification">Send Telegram Notification</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="telegramNotificationsEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("ebligu tion se vi volas ricevi telegraman mesaĝon kiam ajn moviĝa evento estas detektita") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want to receive a telegram message whenever a moving event is detected" title="enable this if you want to receive a telegram message whenever a moving event is detected">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="telegramNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("HTTP API ĵetono") }}</span></td>
-                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="telegramAPIEntry" placeholder="{{ _("Ekzemplo: 93847672:AACdSn843hsjJsh32bSmdN3sHsh2bsh0xRs_32dbcr1W") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Kreante la telegram-bot-babilejon, vi ricevos API-ĵetonon, kiun vi devas enigi ĉi tie. Alklaku la API-butonon sube por paŝo-post-paŝa gvidilo pri kiel akiri vian API-ĵetonon. Ankaŭ nepre babili kun via lastatempe kreita «bot» post kiam via ŝlosilo estas generita, por certigi, ke vi ricevas mesaĝojn.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="HTTP API token">HTTP API token</span></td>
+                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="telegramAPIEntry" placeholder="<span data-i18n="Example: 93847672:AACdSn843hsjJsh32bSmdN3sHsh2bsh0xRs_32dbcr1W">Example: 93847672:AACdSn843hsjJsh32bSmdN3sHsh2bsh0xRs_32dbcr1W</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="By creating the Telegram-Bot chat, you will get an API token that you need to enter here. Click the API button below for a step-by-step guide on how to get your API token. Also be sure to chat with your newly created &quot;bot&quot; after your key is generated, to make sure you get messages." title="By creating the Telegram-Bot chat, you will get an API token that you need to enter here. Click the API button below for a step-by-step guide on how to get your API token. Also be sure to chat with your newly created &quot;bot&quot; after your key is generated, to make sure you get messages.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="telegramNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Babileja ID") }}</span></td>
-                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="telegramCIDEntry" placeholder="{{ _("Ekzemplo: 938272312") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Kreu novan babilejon al id_chatbot (@id_chatbot) kaj elektu starti. La babilejo redonos la necesan numeron por ĉi tiu kampo.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Chat ID">Chat ID</span></td>
+                            <td class="settings-item-value"><input type="text" autocomplete="new-password" class="styled notifications camera-config" id="telegramCIDEntry" placeholder="<span data-i18n="Example: 938272312">Example: 938272312</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="Create a new chat to id_chatbot (@id_chatbot) and choose to start. The chat will return the required number for this field." title="Create a new chat to id_chatbot (@id_chatbot) and choose to start. The chat will return the required number for this field.">?</span></td>
                         </tr>
                         <tr class="settings-item" min="0" max="60" required="true" depends="telegramNotificationsEnabled motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alkroĉitaj Bildoj Tempo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Attached Images Time">Attached Images Time</span></td>
                             <td class="settings-item-value"><input type="text" class="number styled notifications camera-config" id="telegramPictureTimeSpanEntry"><span class="settings-item-unit">seconds</span></td>
-                            <td><span class="help-mark" title="{{ _("difinas la bildan serĉtempan intervalon por krei telegramajn aldonojn (pli altaj valoroj generas pli da bildoj koste de pliigita sciiga prokrasto); agordi al 0 por malebligi bildajn aldonaĵojn; vi devas ankaŭ ebligi Senmovajn Bildojn por ke ĉi tio funkciu; vi volos ludi per ĉi tiu numero ĝis bildo estos sendita. Bona komenca numero estas 30 se vi agordas senmovajn bildojn al unu bildmoviĝo ekigita. Por norma movado ekigita, starigu ĉi tion multe pli malalte.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="defines the image search time interval to create telegram attachments (higher values generate more images at the cost of increased notification delay); set to 0 to disable image attachments; you must also enable Still Images for this to work; you will want to play with this number until an image is sent. A good starting number is 30 if you set still images to one motion triggered. For a standard move triggered, set this much lower." title="defines the image search time interval to create telegram attachments (higher values generate more images at the cost of increased notification delay); set to 0 to disable image attachments; you must also enable Still Images for this to work; you will want to play with this number until an image is sent. A good starting number is 30 if you set still images to one motion triggered. For a standard move triggered, set this much lower.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="telegramNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><a href="https://core.telegram.org/bots#6-botfather" target="_blank"><div class="button normal-button test-button" id="apiInstructionButton" style="opacity: 1; display: inline-block;">{{ _("API-Informoj") }}</div></a></td>
-                            <td class="settings-item-label"><div class="button normal-button test-button" id="telegramTestButton" style="opacity: 1; display: inline-block;">{{ _("Testo") }}</div></td>
+                            <td class="settings-item-label"><a href="https://core.telegram.org/bots#6-botfather" target="_blank"><div class="button normal-button test-button" id="apiInstructionButton" style="opacity: 1; display: inline-block;" data-i18n="API Information">API Information</div></a></td>
+                            <td class="settings-item-label"><div class="button normal-button test-button" id="telegramTestButton" style="opacity: 1; display: inline-block;" data-i18n="Test">Test</div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alvoki URL") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Call A Web Hook">Call A Web Hook</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="webHookNotificationsEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas, ke URL estu petata kiam ajn moviĝokazaĵo estas detektita.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want a URL to be requested whenever a motion event is detected." title="enable this if you want a URL to be requested whenever a motion event is detected.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="webHookNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Reteja URL") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="webHookNotificationsUrlEntry" placeholder="{{ _("ekz. http://ekzemplo.com/sciigi/") }}"></td>
-                            <td><span class="help-mark" title="{{ _("URL por esti petita kiam moviĝo estas detektita; la sekvaj specialaj ŝparvojoj estas akceptitaj: %%Y = jaro, %%m = monato, %%d = tago, %%H = horo, %%M = minuto, %%S = sekundo, %%q = kadro-numero, %%v = okaza numero") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Web Hook URL">Web Hook URL</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="webHookNotificationsUrlEntry" placeholder="<span data-i18n="e.g. http://example.com/notify/">e.g. http://example.com/notify/</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="a URL to be requested when motion is detected; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number" title="a URL to be requested when motion is detected; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="webHookNotificationsEnabled motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Metodo HTTP") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="HTTP method">HTTP method</span></td>
                             <td class="settings-item-value">
                                 <select class="styled notifications camera-config" id="webHookNotificationsHttpMethodSelect">
                                     <option value="GET">GET</option>
@@ -1173,20 +1201,20 @@
                                     <option value="POSTj">POST (json)</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("La HTTP-metodo por uzi kiam vi petas URL (la donitaj URL-parametroj estos transdonitaj kiel indikite ĉi tie).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here)." title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Lanĉi komando") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Run A Command">Run A Command</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="commandNotificationsEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas lanĉi komandon ĉiufoje kiam moviĝokazaĵo estas detektita.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want to execute a command whenever a motion event is detected." title="enable this if you want to execute a command whenever a motion event is detected.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="commandNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Komando") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="commandNotificationsEntry" placeholder="{{ _("komando…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Komando por esti lanĉa kiam moviĝo estas detektita; multnombraj komandoj povas esti apartigitaj per dupunkto; ne uzu punktokomojn per komandoj; la sekvaj specialaj tokensoj estas akceptitaj: %%Y = jaro, %%m = monato, %%d = tago, %%H = horo, %%M = minuto, %%S = sekundo, %%q = kadro-numero, %%v = okaza numero") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Command">Command</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="commandNotificationsEntry" placeholder="<span data-i18n="Command…">Command…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="a command to be executed when motion is detected; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number" title="a command to be executed when motion is detected; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
@@ -1199,17 +1227,17 @@
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Alvoki URL") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Call A Web Hook">Call A Web Hook</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="webHookEndNotificationsEnabledSwitch"></td>
                             <td><span class="help-mark" title="enable this if you want a URL to be requested whenever a motion event ends">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="webHookEndNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Reteja URL") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Web Hook URL">Web Hook URL</span></td>
                             <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="webHookEndNotificationsUrlEntry" placeholder="e.g. http://example.com/notify/"></td>
                             <td><span class="help-mark" title="a single URL to be requested when motion event ends; the following special tokens are accepted: %Y = year, %m = month, %d = day, %H = hour, %M = minute, %S = second, %q = frame number, %v = event number">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="webHookEndNotificationsEnabled motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Metodo HTTP") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="HTTP method">HTTP method</span></td>
                             <td class="settings-item-value">
                                 <select class="styled notifications camera-config" id="webHookEndNotificationsHttpMethodSelect">
                                     <option value="GET">GET</option>
@@ -1218,20 +1246,20 @@
                                     <option value="POSTj">POST (json)</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("La HTTP-metodo por uzi kiam vi petas URL (la donitaj URL-parametroj estos transdonitaj kiel indikite ĉi tie).") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here)." title="the HTTP method to use when requesting the web hook URL (the given URL-encoded parameters will in fact be transmitted as indicated here).">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
                             <td colspan="100"><div class="settings-item-separator"></div></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Lanĉi komando") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Run A Command">Run A Command</span></td>
                             <td class="settings-item-value"><input type="checkbox" class="styled notifications camera-config" id="commandEndNotificationsEnabledSwitch"></td>
-                            <td><span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas lanĉi komandon ĉiufoje kiam movada evento finiĝos.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="enable this if you want to execute a command whenever a motion event ends." title="enable this if you want to execute a command whenever a motion event ends.">?</span></td>
                         </tr>
                         <tr class="settings-item" required="true" depends="commandEndNotificationsEnabled motionDetectionEnabled" strip="true">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Komando") }}</span></td>
-                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="commandEndNotificationsEntry" placeholder="{{ _("komando…") }}"></td>
-                            <td><span class="help-mark" title="{{ _("Komando por esti lanĉa kiam moviĝokazaĵo finiĝas; multnombraj komandoj povas esti apartigitaj per dupunkto; ne uzu punktokompojn per komandoj; la sekvaj specialaj tokensoj estas akceptitaj: %%Y = jaro, %%m = monato, %%d = dato, %%H = horo, %%M = minuto, %%S = sekundo, %%q = kadra nombro.") }}">?</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Command">Command</span></td>
+                            <td class="settings-item-value"><input type="text" class="styled notifications camera-config" id="commandEndNotificationsEntry" placeholder="<span data-i18n="Command…">Command…</span>"></td>
+                            <td><span class="help-mark" data-i18n-title="a command to be executed when motion event ends; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = date, %%H = hour, %%M = minute, %%S = second, %%q = frame number." title="a command to be executed when motion event ends; multiple commands can be separated by a semicolon; don't use semicolons inside commands; the following special tokens are accepted: %%Y = year, %%m = month, %%d = date, %%H = hour, %%M = minute, %%S = second, %%q = frame number.">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('notifications', {}).get('configs', []) %}
                             {{config_item(config, "motionDetectionEnabled")}}
@@ -1241,83 +1269,83 @@
                     <!-- Working Schedule -->
                     <div class="settings-section-title" depends="motionDetectionEnabled" id="workingScheduleSectionDiv">
                         <input type="checkbox" class="styled section working-schedule camera-config" id="workingScheduleEnabledSwitch">
-                        <span class="help-mark" title="{{ _("Ebligu ĉi tion, se vi volas difini ĉiusemajnan horaron por detekto de moviĝo.") }}">?</span>
-                        <a class="settings-section-title">{{ _("Laboranta horaro") }}</a>
+                        <span class="help-mark" data-i18n-title="enable this if you want to define a weekly working schedule for motion detection." title="enable this if you want to define a weekly working schedule for motion detection.">?</span>
+                        <a class="settings-section-title" data-i18n="Working Schedule">Working Schedule</a>
                         <span class="minimize"></span>
                     </div>
                     <table class="settings">
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Lundo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Monday">Monday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="mondayEnabledSwitch">
-                                <span class="settings-item-unit time">{{ _("de") }}</span><input type="text" class="styled working-schedule time camera-config" id="mondayFromEntry">
-                                <span class="settings-item-unit time">{{ _("ĝis") }}</span><input type="text" class="styled working-schedule time camera-config" id="mondayToEntry">
+                                <span class="settings-item-unit time" data-i18n="from">from</span><input type="text" class="styled working-schedule time camera-config" id="mondayFromEntry">
+                                <span class="settings-item-unit time" data-i18n="to">to</span><input type="text" class="styled working-schedule time camera-config" id="mondayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por lundoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Mondays." title="sets the working schedule time interval for Mondays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Mardo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Tuesday">Tuesday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="tuesdayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="tuesdayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="tuesdayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por mardoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Tuesdays." title="sets the working schedule time interval for Tuesdays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Merkredo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Wednesday">Wednesday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="wednesdayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="wednesdayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="wednesdayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por merkredoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Wednesdays." title="sets the working schedule time interval for Wednesdays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Ĵaŭdo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Thursday">Thursday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="thursdayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="thursdayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="thursdayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por ĵaŭdoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Thursdays." title="sets the working schedule time interval for Thursdays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Vendredo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Friday">Friday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="fridayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="fridayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="fridayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por vendredoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Fridays." title="sets the working schedule time interval for Fridays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Sabato") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Saturday">Saturday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="saturdayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="saturdayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="saturdayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por sabatoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Saturdays." title="sets the working schedule time interval for Saturdays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Dimanĉo") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Sunday">Sunday</span></td>
                             <td class="settings-item-value">
                                 <input type="checkbox" class="styled working-schedule camera-config" id="sundayEnabledSwitch">
                                 <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="sundayFromEntry">
                                 <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="sundayToEntry">
                             </td>
-                            <td><span class="help-mark" title="{{ _("Fiksas la labortagan tempintervalon por dimanĉoj.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Sundays." title="sets the working schedule time interval for Sundays.">?</span></td>
                         </tr>
                         <tr class="settings-item" depends="motionDetectionEnabled">
-                            <td class="settings-item-label"><span class="settings-item-label">{{ _("Detekti movadon") }}</span></td>
+                            <td class="settings-item-label"><span class="settings-item-label" data-i18n="Detect Motion">Detect Motion</span></td>
                             <td class="settings-item-value">
                                 <select class="styled working-schedule camera-config" id="workingScheduleTypeSelect">
-                                    <option value="during">{{ _("Dum laborista horaro") }}</option>
-                                    <option value="outside">{{ _("Ekster laborista horaro") }}</option>
+                                    <option value="during" data-i18n="During Working Schedule">During Working Schedule</option>
+                                    <option value="outside" data-i18n="Outside Working Schedule">Outside Working Schedule</option>
                                 </select>
                             </td>
-                            <td><span class="help-mark" title="{{ _("Difinas, ĉu moviĝodetekto devas esti aktiva dum aŭ ekster la laborista horaro.") }}">?</span></td>
+                            <td><span class="help-mark" data-i18n-title="sets whether motion detection should be active during or outside the working schedule." title="sets whether motion detection should be active during or outside the working schedule.">?</span></td>
                         </tr>
                         {% for config in camera_sections.get('working-schedule', {}).get('configs', []) %}
                             {{config_item(config, "motionDetectionEnabled")}}

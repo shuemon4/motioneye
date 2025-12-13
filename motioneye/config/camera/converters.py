@@ -326,6 +326,7 @@ def motion_camera_ui_to_dict(
         'stream_quality': max(1, int(ui['streaming_quality'])),
         '@webcam_resolution': max(1, int(ui['streaming_resolution'])),
         '@webcam_server_resize': ui['streaming_server_resize'],
+        '@streaming_direct_mode': ui.get('streaming_direct_mode', True),
         'stream_motion': ui['streaming_motion'],
         'stream_auth_method': {'disabled': 0, 'basic': 1, 'digest': 2}.get(
             ui['streaming_auth_mode'], 0
@@ -886,6 +887,7 @@ def motion_camera_dict_to_ui(
         'streaming_quality': int(data.get('stream_quality', 85)),
         'streaming_resolution': int(data['@webcam_resolution']),
         'streaming_server_resize': data['@webcam_server_resize'],
+        'streaming_direct_mode': data.get('@streaming_direct_mode', True),
         'streaming_port': int(data.get('stream_port', 8081)),
         'streaming_auth_mode': {0: 'disabled', 1: 'basic', 2: 'digest'}.get(
             data.get('stream_auth_method'), 'disabled'

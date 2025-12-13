@@ -359,7 +359,7 @@ function makeTextValidator($input, required) {
             return true;
         }
 
-        var msg = i18n.gettext("Ĉi tiu kampo estas deviga");
+        var msg = motionEyeI18n.t("This field is required");
 
         function validate() {
             var strVal = $this.val();
@@ -416,7 +416,7 @@ function makeComboValidator($select, required) {
             return true;
         }
 
-        var msg = i18n.gettext("Ĉi tiu kampo estas deviga");
+        var msg = motionEyeI18n.t("This field is required");
 
         function validate() {
             var strVal = $this.val() || '';
@@ -500,24 +500,24 @@ function makeNumberValidator($input, minVal, maxVal, floating, sign, required) {
 
         var msg = '';
 	if (!sign && floating)
-            msg = i18n.gettext("enigu pozitivan nombron");
+            msg = motionEyeI18n.t("enter a positive number");
 	else if (!sign && !floating)
-            msg = i18n.gettext("enigu pozitivan entjeran nombron");
+            msg = motionEyeI18n.t("enter a positive integer");
 	else if (sign && floating)
-            msg = i18n.gettext("enigu nombron");
+            msg = motionEyeI18n.t("enter a number");
 	else
-            msg = i18n.gettext("enigu entjeran nombron");
+            msg = motionEyeI18n.t("enter an integer");
         if (isFinite(minVal)) {
             if (isFinite(maxVal)) {
-                msg += i18n.gettext(" inter ") + minVal + i18n.gettext(" kaj ") + maxVal;
+                msg += motionEyeI18n.t(" between ") + minVal + motionEyeI18n.t(" and ") + maxVal;
             }
             else {
-                msg += i18n.gettext(" pli ol ") + minVal;
+                msg += motionEyeI18n.t(" greater than ") + minVal;
             }
         }
         else {
             if (isFinite(maxVal)) {
-                msg += i18n.gettext(" malpli ol ") + maxVal;
+                msg += motionEyeI18n.t(" less than ") + maxVal;
             }
         }
 
@@ -570,7 +570,7 @@ function makeTimeValidator($input) {
             return strVal.match(new RegExp('^[0-2][0-9]:[0-5][0-9]$')) != null;
         }
 
-        var msg = i18n.gettext("enigu validan tempon en la sekva formato: HH:MM");
+        var msg = motionEyeI18n.t("enter a valid time in the following format: HH:MM");
 
         function validate() {
             var strVal = $this.val();
@@ -627,7 +627,7 @@ function makeUrlValidator($input) {
             return strVal.match(new RegExp('^([a-zA-Z]+)://([\\w\-.]+)(:\\d+)?(/.*)?$')) != null;
         }
 
-        var msg = i18n.gettext("enigu validan URL (ekz. http://ekzemplo.com:8080/cams/)");
+        var msg = motionEyeI18n.t("enter a valid URL (e.g. http://example.com:8080/cams/)");
 
         function validate() {
             var strVal = $this.val();
@@ -684,7 +684,7 @@ function makeFileValidator($input, required) {
             return true;
         }
 
-        var msg = i18n.gettext("Ĉi tiu kampo estas deviga");
+        var msg = motionEyeI18n.t("This field is required");
 
         function validate() {
             var strVal = $this.val();
@@ -968,7 +968,7 @@ function makeModalDialogTitleBar(options) {
     titleBar.append(titleSpan);
 
     if (options.closeButton) {
-        var closeButton = $('<div class="button icon modal-close-button mouse-effect" title="'+i18n.gettext("fermi")+'"></div>');
+        var closeButton = $('<div class="button icon modal-close-button mouse-effect" title="'+motionEyeI18n.t("close")+'"></div>');
         closeButton.on('click', hideModalDialog);
         titleBar.append(closeButton);
     }
@@ -1014,26 +1014,26 @@ function runModalDialog(options) {
     /* add buttons */
     if (options.buttons === 'yesno') {
         options.buttons = [
-            {caption: i18n.gettext("Ne"), click: options.onNo},
-            {caption: i18n.gettext("Jes"), isDefault: true, click: options.onYes}
+            {caption: motionEyeI18n.t("No"), click: options.onNo},
+            {caption: motionEyeI18n.t("Yes"), isDefault: true, click: options.onYes}
         ];
     }
     if (options.buttons === 'yesnocancel') {
         options.buttons = [
-            {caption: i18n.gettext("Nuligi"), isCancel: true, click: options.onCancel},
-            {caption: i18n.gettext("Ne"), click: options.onNo},
-            {caption: i18n.gettext("Jes"), isDefault: true, click: options.onYes}
+            {caption: motionEyeI18n.t("Cancel"), isCancel: true, click: options.onCancel},
+            {caption: motionEyeI18n.t("No"), click: options.onNo},
+            {caption: motionEyeI18n.t("Yes"), isDefault: true, click: options.onYes}
         ];
     }
     else if (options.buttons === 'okcancel') {
         options.buttons = [
-            {caption: i18n.gettext("Nuligi"), isCancel:true, click: options.onCancel},
-            {caption: i18n.gettext("Bone"), isDefault: true, click: options.onOk}
+            {caption: motionEyeI18n.t("Cancel"), isCancel:true, click: options.onCancel},
+            {caption: motionEyeI18n.t("OK"), isDefault: true, click: options.onOk}
         ];
     }
     else if (options.buttons === 'ok') {
         options.buttons = [
-            {caption: i18n.gettext("Bone"), isDefault: true, click: options.onOk}
+            {caption: motionEyeI18n.t("OK"), isDefault: true, click: options.onOk}
         ];
     }
 

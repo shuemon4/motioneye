@@ -518,3 +518,142 @@ No database migrations or config file format changes required.
 
 **Reviewer Notes**: _(To be filled by reviewer)_
 
+---
+
+## Implementation Log
+
+### Phase 1 Implementation - 2025-12-13
+
+**Status**: ✅ COMPLETED
+
+#### Research Findings
+
+1. **Motion 5.0 stream endpoint**: Verified - correct endpoint is `/1/mjpg/stream` (not `/1/stream` as plan suggested)
+2. **Authentication**: Motion stream has no auth configured - direct access works without MotionEye auth
+3. **Line numbers**: Verified accurate in plan document
+
+#### Changes Made to `motioneye/static/js/main.js`
+
+**Phase 1.1 - Page Visibility API** (Lines 42-51)
+- Added `pageVisible` global variable
+- Added `visibilitychange` event listener
+- Modified `refreshCameraFrames()` to skip work when page hidden (line 5494-5496)
+
+**Phase 1.2 - Intersection Observer** (Lines 81-98)
+- Added `cameraVisibility` tracking object
+- Added `intersectionObserver` with 0.1 threshold
+- Added `initIntersectionObserver()` function
+- Camera frames observed on creation (line 4932-4936)
+- Visibility check added to `refreshCameraFrame()` (line 5489-5492)
+
+**Phase 1.3 - Exponential Backoff** (Lines 53-79)
+- Added `cameraBackoff` tracking object
+- Added `MAX_BACKOFF_MS = 30000` constant
+- Added `getBackoffDelay()`, `incrementBackoff()`, `resetBackoff()` functions
+- `incrementBackoff()` called in error handler (line 5067-5068)
+- `resetBackoff()` called in load handler (line 5079-5080)
+- Backoff check added to `refreshCameraFrame()` (line 5484-5487)
+
+**Phase 1.4 - RequestAnimationFrame** (Lines 100-120)
+- Added `lastRefreshTime` and `useRAF` variables
+- Added `scheduleRefresh()` function that uses RAF when visible, setTimeout when hidden
+- `initIntersectionObserver()` called on document ready (line 5607-5608)
+- Main refresh loop now uses `scheduleRefresh()` (line 5598)
+
+#### Deployment Verification
+
+- Deployed to Pi 5 at 192.168.1.176
+- Service restarted successfully
+- Motion MJPEG stream verified working at `/1/mjpg/stream`
+- JavaScript changes verified deployed in `/usr/local/lib/python3.11/dist-packages/motioneye/static/js/main.js`
+
+#### Browser Testing Required
+
+The following test cases require manual browser testing:
+
+| Test Case | How to Test | Expected Result |
+|-----------|-------------|-----------------|
+| Tab visibility | Switch tabs, monitor network tab | Requests stop when tab hidden |
+| Tab resume | Return to tab | Refresh resumes immediately |
+| Viewport visibility | Scroll in grid view | Off-screen cameras stop refreshing |
+| Error backoff | Disconnect camera | Backoff increases: 1s, 2s, 4s, 8s, 16s, 30s |
+| Error recovery | Reconnect camera | Backoff resets, immediate refresh |
+| RAF smoothness | Watch camera feed | Smoother rendering, less jank |
+
+#### Next Steps
+
+- ~~Phase 2 implementation (Direct MJPEG mode)~~ ✅ COMPLETED
+- ~~Status endpoint for motion detection in direct mode~~ ✅ COMPLETED
+
+---
+
+### Phase 2 Implementation - 2025-12-13
+
+**Status**: ✅ COMPLETED
+
+#### Design Decisions
+
+1. **Motion 5.0 stream endpoint**: `/1/mjpg/stream` (verified)
+2. **Status polling frequency**: 1 second (user approved)
+3. **Default mode**: Direct Streaming ON by default (opt-out)
+
+#### Changes Made
+
+**Phase 2.1 - UI Toggle**
+
+- `motioneye/templates/main.html` (line 714-718): Added "Direct Streaming" checkbox in Video Streaming settings
+- `motioneye/static/js/main.js` (line 2106): Added `streaming_direct_mode` to config dictionary
+- `motioneye/static/js/main.js` (line 2452): Added config loading for `streamingDirectModeSwitch`
+- `motioneye/config/camera/converters.py` (line 329): Added `@streaming_direct_mode` to motion config conversion
+- `motioneye/config/camera/converters.py` (line 890): Added `streaming_direct_mode` to UI config conversion
+
+**Phase 2.2 - Direct MJPEG Streaming**
+
+- `motioneye/static/js/main.js` (lines 5589-5596): Direct mode detection and MJPEG URL setup
+  - Constructs URL: `http://{hostname}:{streaming_port}/1/mjpg/stream`
+  - Sets `this.directMode = true` flag
+  - Starts status polling
+
+**Phase 2.3 - Status Endpoint**
+
+- `motioneye/handlers/status.py` (NEW FILE): Lightweight JSON endpoint
+  - Route: `/status/<camera_id>`
+  - Returns: `{motion_detected, capture_fps, monitor_info}`
+  - Supports both local and remote cameras
+- `motioneye/server.py` (line 49, 199): Import and route registration
+- `motioneye/static/js/main.js` (lines 122-154): Status polling functions
+  - `pollDirectModeStatus()`: Fetches status and updates UI
+  - `startDirectModeStatusPolling()`: Starts 1-second interval
+
+#### Deployment Verification
+
+```bash
+# Status endpoint test
+curl -s 'http://localhost:8765/status/1'
+# Response: {"motion_detected": false, "capture_fps": 0, "monitor_info": ""}
+```
+
+- Service restarted successfully
+- Status endpoint returns valid JSON
+- JavaScript changes deployed
+
+#### Browser Testing Required
+
+| Test Case | How to Test | Expected Result |
+|-----------|-------------|-----------------|
+| Direct mode enabled | Open camera with streaming_direct_mode=true | Stream connects to Motion port directly |
+| Direct mode disabled | Uncheck "Direct Streaming" and save | Falls back to snapshot polling |
+| Motion detection | Trigger motion event | Red border appears on camera frame |
+| FPS display | Monitor camera-fps span | Updates every 1 second |
+| Network tab | Open DevTools → Network | Status endpoint polled every 1s |
+
+#### Files Changed Summary
+
+| File | Type | Changes |
+|------|------|---------|
+| `main.html` | Template | +5 lines (UI toggle) |
+| `main.js` | JavaScript | +45 lines (direct mode + status polling) |
+| `converters.py` | Python | +2 lines (config option) |
+| `status.py` | Python | NEW FILE (status endpoint) |
+| `server.py` | Python | +2 lines (import + route) |
+

@@ -39,6 +39,120 @@ var cameraFramesTime = 0;
 var qualifyURLElement;
 var cameraFrameRatios = [];
 
+/* Page Visibility API - pause refresh when tab is hidden */
+var pageVisible = true;
+
+document.addEventListener('visibilitychange', function() {
+    pageVisible = !document.hidden;
+    if (pageVisible) {
+        /* Resume immediately when tab becomes visible */
+        refreshCameraFrames();
+    }
+});
+
+/* Exponential backoff for camera errors */
+var cameraBackoff = {}; /* {cameraId: {count: N, nextRetry: timestamp}} */
+var MAX_BACKOFF_MS = 30000; /* Max 30 seconds between retries */
+
+function getBackoffDelay(cameraId) {
+    var backoff = cameraBackoff[cameraId];
+    if (!backoff) return 0;
+
+    var now = new Date().getTime();
+    if (now < backoff.nextRetry) {
+        return backoff.nextRetry - now;
+    }
+    return 0;
+}
+
+function incrementBackoff(cameraId) {
+    var backoff = cameraBackoff[cameraId] || {count: 0};
+    backoff.count++;
+    /* Exponential: 1s, 2s, 4s, 8s, 16s, 30s (capped) */
+    var delay = Math.min(1000 * Math.pow(2, backoff.count - 1), MAX_BACKOFF_MS);
+    backoff.nextRetry = new Date().getTime() + delay;
+    cameraBackoff[cameraId] = backoff;
+}
+
+function resetBackoff(cameraId) {
+    delete cameraBackoff[cameraId];
+}
+
+/* Intersection Observer - viewport-aware refresh */
+var cameraVisibility = {}; /* {cameraId: boolean} */
+var intersectionObserver = null;
+
+function initIntersectionObserver() {
+    if (!('IntersectionObserver' in window)) {
+        return; /* Fallback: refresh all cameras */
+    }
+
+    intersectionObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            var cameraId = entry.target.id.substring(6); /* 'camera1' -> '1' */
+            cameraVisibility[cameraId] = entry.isIntersecting;
+        });
+    }, {
+        threshold: 0.1 /* Consider visible if 10% in view */
+    });
+}
+
+/* RequestAnimationFrame - sync with browser paint cycle */
+var lastRefreshTime = 0;
+var useRAF = 'requestAnimationFrame' in window;
+
+function scheduleRefresh() {
+    if (useRAF && pageVisible) {
+        requestAnimationFrame(function(timestamp) {
+            /* Throttle to match refreshInterval */
+            if (timestamp - lastRefreshTime >= refreshInterval) {
+                lastRefreshTime = timestamp;
+                refreshCameraFrames();
+            } else {
+                /* Not enough time passed, schedule another RAF */
+                scheduleRefresh();
+            }
+        });
+    } else {
+        /* Fallback to setTimeout when hidden or RAF not available */
+        setTimeout(refreshCameraFrames, pageVisible ? refreshInterval : 500);
+    }
+}
+
+/* Direct mode status polling - polls status endpoint for motion detection */
+var directModeStatusInterval = null;
+
+function pollDirectModeStatus() {
+    if (!pageVisible) return;
+
+    var cameraFrames = getCameraFrames();
+    cameraFrames.each(function() {
+        if (!this.directMode) return;
+
+        var cameraId = this.id.substring(6);
+        var frame = $(this);
+
+        $.getJSON(basePath + 'status/' + cameraId, function(data) {
+            if (data.motion_detected) {
+                frame.addClass('motion-detected');
+            } else {
+                frame.removeClass('motion-detected');
+            }
+            if (data.capture_fps !== undefined) {
+                frame.find('span.camera-fps').html(data.capture_fps.toFixed(1) + ' fps');
+            }
+        }).fail(function() {
+            /* Status endpoint failed, remove motion indicator */
+            frame.removeClass('motion-detected');
+        });
+    });
+}
+
+function startDirectModeStatusPolling() {
+    if (directModeStatusInterval) return;
+    directModeStatusInterval = setInterval(pollDirectModeStatus, 1000);
+}
+
 
     /* Object utilities */
 
@@ -607,61 +721,61 @@ function initUI() {
     /* custom validators */
     makeCustomValidator($('#adminPasswordEntry, #normalPasswordEntry'), function (value) {
         if (!value.toLowerCase().match(new RegExp('^[\x21-\x7F]*$'))) {
-            return i18n.gettext("specialaj signoj ne rajtas en pasvorto");
+            return motionEyeI18n.t("special characters are not allowed in password");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#deviceNameEntry'), function (value) {
         if (!value) {
-            return i18n.gettext("Ĉi tiu kampo estas deviga");
+            return motionEyeI18n.t("This field is required");
         }
 
         if (!value.match(deviceNameValidRegExp)) {
-            return i18n.gettext("specialaj signoj ne rajtas en la nomo de kamerao");
+            return motionEyeI18n.t("special characters are not allowed in camera's name");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#customWidthEntry, #customHeightEntry'), function (value) {
         if (!value) {
-            return i18n.gettext("Ĉi tiu kampo estas deviga");
+            return motionEyeI18n.t("This field is required");
         }
 
         value = Number(value);
         if (value % 8) {
-            return i18n.gettext("valoro devas esti multoblo de 8");
+            return motionEyeI18n.t("value must be a multiple of 8");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#rootDirectoryEntry'), function (value) {
         if (!value.match(dirnameValidRegExp)) {
-            return i18n.gettext("specialaj signoj ne rajtas en radika voja nomo");
+            return motionEyeI18n.t("special characters are not allowed in root directory name");
         }
         if ($('#storageDeviceSelect').val() == 'custom-path' && String(value).trim() == '/') {
-            return i18n.gettext("dosieroj ne povas esti kreitaj rekte en la radiko de via sistemo");
+            return motionEyeI18n.t("files cannot be created directly on the root of your system");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#emailFromEntry'), function (value) {
         if (value && !value.match(emailValidRegExp)) {
-            return i18n.gettext("enigu validan retpoŝtadreson");
+            return motionEyeI18n.t("enter a valid email address");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#emailAddressesEntry'), function (value) {
         if (!value.match(emailValidRegExp)) {
-            return i18n.gettext("enigu liston de koma apartaj validaj retpoŝtadresoj");
+            return motionEyeI18n.t("enter a list of comma-separated valid email addresses");
         }
 
         return true;
     }, '');
     makeCustomValidator($('#imageFileNameEntry, #movieFileNameEntry'), function (value) {
         if (!value.match(filenameValidRegExp)) {
-            return i18n.gettext("specialaj signoj ne rajtas en dosiernomo");
+            return motionEyeI18n.t("special characters are not allowed in filename");
         }
 
         return true;
@@ -684,11 +798,11 @@ function initUI() {
 
         makeCustomValidator($this, function (value) {
             if (!value && required) {
-                return i18n.gettext("Ĉi tiu kampo estas deviga");
+                return motionEyeI18n.t("This field is required");
             }
 
             if (!value.toLowerCase().match(new RegExp(validate))) {
-                return i18n.gettext("enigu validan valoron");
+                return motionEyeI18n.t("enter a valid value");
             }
 
             return true;
@@ -844,8 +958,8 @@ function initUI() {
         var folder = $('#uploadLocationEntry').val();
         console.log('cleanCloudEnabled', enabled, folder);
         if (enabled) {
-            runAlertDialog(( i18n.gettext('Ĉi rekursie forigos ĉiujn dosierojn ĉeestantajn en la nuba dosierujo "') + folder +
-                    i18n.gettext('", ne nur tiuj alŝutitaj de motionEye!')));
+            runAlertDialog(motionEyeI18n.t('This will recursively remove all files present in the cloud folder "') + folder +
+                    motionEyeI18n.t('", not just those uploaded by motionEye!'));
         }
     });
 
@@ -939,8 +1053,8 @@ function initUI() {
         var value = $(this).val();
         if (value != '0' && this._prevValue == '0') {
             var rootDir = rootDirectoryEntry.val();
-            runAlertDialog((i18n.gettext('Ĉi rekursie forigos ĉiujn malnovajn amaskomunikilajn dosierojn en la dosierujo "') + rootDir +
-                    i18n.gettext('", ne nur tiuj kreitaj de motionEye!')));
+            runAlertDialog(motionEyeI18n.t('This will recursively remove all old media files present in the directory "') + rootDir +
+                    motionEyeI18n.t('", not just those created by motionEye!'));
         }
     });
 
@@ -1006,7 +1120,7 @@ function initUI() {
         var cameraId = $('#cameraSelect').val();
         var img = getCameraFrame(cameraId).find('img.camera')[0];
         if (!img._naturalWidth || !img._naturalHeight) {
-            return runAlertDialog(i18n.gettext("Ne eblas redakti la maskon sen valida kameraa bildo!"));
+            return runAlertDialog(motionEyeI18n.t("Cannot edit the mask without a valid camera image!"));
         }
 
         var maskClass = event.target.id.substring(0, event.target.id.indexOf('MaskEditButton'));
@@ -1047,8 +1161,8 @@ function addVideoControl(name, min, max, step) {
     });
 
     title = title.substr(0, 1).toUpperCase() + title.substr(1);
-    /* translate name. See l10n/v4l2.js for original texts */
-    title = i18n.gettext(title);
+    /* translate name if translation exists, otherwise use as-is */
+    title = motionEyeI18n.t(title);
 
     controlLabel.text(title);
 
@@ -2023,6 +2137,7 @@ function cameraUi2Dict() {
         'streaming_resolution': $('#streamingResolutionSlider').val(),
         'streaming_server_resize': $('#streamingServerResizeSwitch')[0].checked,
         'streaming_port': $('#streamingPortEntry').val(),
+        'streaming_direct_mode': $('#streamingDirectModeSwitch')[0].checked,
         'streaming_auth_mode': $('#streamingAuthModeSelect').val() || 'disabled', /* compatibility with old motion */
         'streaming_motion': $('#streamingMotion')[0].checked,
 
@@ -2259,7 +2374,7 @@ function dict2CameraUi(dict) {
         dict['available_resolutions'].forEach(function (resolution) {
             $('#resolutionSelect').append('<option value="' + resolution + '">' + resolution + '</option>');
         });
-        $('#resolutionSelect').append('<option value="custom">'+i18n.gettext("Propra")+'</option>');
+        $('#resolutionSelect').append('<option value="custom">'+motionEyeI18n.t("Custom")+'</option>');
     }
     $('#resolutionSelect').val(dict['resolution']); markHideIfNull('available_resolutions', 'resolutionSelect');
     if (dict['resolution']) {
@@ -2300,9 +2415,9 @@ function dict2CameraUi(dict) {
             $('#storageDeviceSelect').append('<option value="' + option + '">' + label + '</option>');
         });
     });
-    $('#storageDeviceSelect').append('<option value="custom-path">'+i18n.gettext("Propra dosierindiko")+'</option>');
+    $('#storageDeviceSelect').append('<option value="custom-path">'+motionEyeI18n.t("Custom Path")+'</option>');
     if (dict['smb_shares']) {
-        $('#storageDeviceSelect').append('<option value="network-share">'+i18n.gettext("Retan kunlokon")+'</option>');
+        $('#storageDeviceSelect').append('<option value="network-share">'+motionEyeI18n.t("Network Share")+'</option>');
     }
 
     if (storageDeviceOptions[dict['storage_device']]) {
@@ -2368,6 +2483,7 @@ function dict2CameraUi(dict) {
     $('#streamingResolutionSlider').val(dict['streaming_resolution']); markHideIfNull('streaming_resolution', 'streamingResolutionSlider');
     $('#streamingServerResizeSwitch')[0].checked = dict['streaming_server_resize']; markHideIfNull('streaming_server_resize', 'streamingServerResizeSwitch');
     $('#streamingPortEntry').val(dict['streaming_port']); markHideIfNull('streaming_port', 'streamingPortEntry');
+    $('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false; markHideIfNull('streaming_direct_mode', 'streamingDirectModeSwitch');
     $('#streamingAuthModeSelect').val(dict['streaming_auth_mode']); markHideIfNull('streaming_auth_mode', 'streamingAuthModeSelect');
     $('#streamingMotion')[0].checked = dict['streaming_motion']; markHideIfNull('streaming_motion', 'streamingMotion');
 
@@ -2662,7 +2778,7 @@ function deleteFile(path, callback) {
 
 function uploadFile(path, input, callback) {
     if (!window.FormData) {
-        showErrorMessage(i18n.gettext("Via retumilo ne efektivigas ĉi tiun funkcion!"));
+        showErrorMessage(motionEyeI18n.t("Your browser doesn't implement this function!"));
         callback();
     }
 
@@ -2678,7 +2794,7 @@ function uploadFile(path, input, callback) {
 
 function showApply() {
     var applyButton = $('#applyButton');
-    applyButton.html(i18n.gettext("Apliki"));
+    applyButton.html(motionEyeI18n.t("Apply"));
     applyButton.css('display', 'inline-block');
     applyButton.removeClass('progress');
     setTimeout(function () {
@@ -2705,7 +2821,7 @@ function isApplyVisible() {
 
 function doApply() {
     if (!configUiValid()) {
-        runAlertDialog(i18n.gettext("Certigu, ke ĉiuj agordaj opcioj validas!"));
+        runAlertDialog(motionEyeI18n.t("Make sure all configuration options are valid!"));
         return;
     }
 
@@ -2807,7 +2923,7 @@ function doApply() {
     }
 
     if (pushConfigReboot) {
-        runConfirmDialog(i18n.gettext("Ĉi tio rekomencos la sistemon. Daŭrigi?"), function () {
+        runConfirmDialog(motionEyeI18n.t("This will reboot the system. Continue?"), function () {
             actualApply();
         });
     }
@@ -2817,7 +2933,7 @@ function doApply() {
 }
 
 function doShutDown() {
-    runConfirmDialog(i18n.gettext("Vere fermiti sistemon?"), function () {
+    runConfirmDialog(motionEyeI18n.t("Really shut down?"), function () {
         ajax('POST', basePath + 'power/shutdown/');
         setTimeout(function () {
             refreshInterval = 1000000;
@@ -2829,7 +2945,7 @@ function doShutDown() {
                         setTimeout(checkServer, 1000);
                     },
                     function () {
-                        showModalDialog(i18n.gettext("Malŝaltita"));
+                        showModalDialog(motionEyeI18n.t("Powered Off"));
                         setTimeout(function () {
                             $('div.modal-glass').animate({'opacity': '1', 'background-color': '#212121'}, 200);
                         },100);
@@ -2844,7 +2960,7 @@ function doShutDown() {
 }
 
 function doReboot() {
-    runConfirmDialog(i18n.gettext("Ĉu vere restartigi ?"), function () {
+    runConfirmDialog(motionEyeI18n.t("Really reboot?"), function () {
         ajax('POST', basePath + 'power/reboot/');
         setTimeout(function () {
             refreshInterval = 1000000;
@@ -2858,7 +2974,7 @@ function doReboot() {
                             setTimeout(checkServer, 1000);
                         }
                         else {
-                            runAlertDialog(i18n.gettext("La sistemo rekomencis!"), function () {
+                            runAlertDialog(motionEyeI18n.t("The system has been rebooted!"), function () {
                                 window.location.reload(true);
                             });
                         }
@@ -2878,18 +2994,18 @@ function doReboot() {
 
 function doRemCamera() {
     if (Object.keys(pushConfigs).length) {
-        return runAlertDialog(i18n.gettext("Bonvolu apliki unue la modifitajn agordojn!"));
+        return runAlertDialog(motionEyeI18n.t("Please apply the modified settings first!"));
     }
 
     var cameraId = $('#cameraSelect').val();
     if (cameraId == null || cameraId === 'add') {
-        runAlertDialog(i18n.gettext("Neniu fotilo por forigi!"));
+        runAlertDialog(motionEyeI18n.t("No camera to remove!"));
         return;
     }
 
     var deviceName = $('#cameraSelect').find('option[value=' + cameraId + ']').text();
 
-    runConfirmDialog(i18n.gettext("Ĉu forigi kameraon ") + deviceName + '?', function () {
+    runConfirmDialog(motionEyeI18n.t("Remove camera ") + deviceName + '?', function () {
         /* disable further refreshing of this camera */
         var img = $('div.camera-frame#camera' + cameraId).find('img.camera');
         if (img.length) {
@@ -2911,16 +3027,16 @@ function doRemCamera() {
 
 function doUpdate() {
     if (Object.keys(pushConfigs).length) {
-        return runAlertDialog(i18n.gettext("Bonvolu apliki unue la modifitajn agordojn!"));
+        return runAlertDialog(motionEyeI18n.t("Please apply the modified settings first!"));
     }
 
     showModalDialog('<div class="modal-progress"></div>');
     ajax('GET', basePath + 'update/', null, function (data) {
         if (data.update_version == null) {
-            runAlertDialog(i18n.gettext("motionEye estas ĝisdatigita (aktuala versio: ") + data.current_version + ')');
+            runAlertDialog(motionEyeI18n.t("motionEye is up to date (current version: ") + data.current_version + ')');
         }
         else {
-            runConfirmDialog(i18n.gettext("Nova versio havebla: ") + data.update_version + i18n.gettext(". Ĝisdatigi?"), function () {
+            runConfirmDialog(motionEyeI18n.t("New version available: ") + data.update_version + motionEyeI18n.t(". Update?"), function () {
                 refreshInterval = 1000000;
                 showModalDialog('<div style="text-align: center;"><span>Updating. This may take a few minutes.</span><div class="modal-progress"></div></div>');
                 ajax('POST', basePath + 'update/?version=' + data.update_version, null, function () {
@@ -2928,7 +3044,7 @@ function doUpdate() {
                     function checkServer() {
                         ajax('GET', basePath + 'config/0/get/', null,
                             function () {
-                                runAlertDialog(i18n.gettext("motionEye estis sukcese ĝisdatigita!"), function () {
+                                runAlertDialog(motionEyeI18n.t("motionEye was successfully updated!"), function () {
                                     window.location.reload(true);
                                 });
                             },
@@ -2938,7 +3054,7 @@ function doUpdate() {
                                     setTimeout(checkServer, 5000);
                                 }
                                 else {
-                                    runAlertDialog(i18n.gettext("Ĝisdatigo malsukcesis!"), function () {
+                                    runAlertDialog(motionEyeI18n.t("Update failed!"), function () {
                                         window.location.reload(true);
                                     });
                                 }
@@ -2949,7 +3065,7 @@ function doUpdate() {
                     setTimeout(checkServer, 15000);
 
                 }, function (e) { /* error */
-                    runAlertDialog(i18n.gettext("La ĝisdatiga procezo malsukcesis!"), function () {
+                    runAlertDialog(motionEyeI18n.t("The update process failed!"), function () {
                         window.location.reload(true);
                     });
                 });
@@ -2968,9 +3084,9 @@ function doRestore() {
     var content =
             $('<table class="restore-dialog">' +
                 '<tr>' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Rezerva dosiero")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Backup File")+'</span></td>' +
                     '<td class="dialog-item-value"><form><input type="file" class="styled" id="fileInput"></form></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("La rezervan dosieron, kiun vi antaŭe elŝutis.")+'">?</span></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the backup file you have previously downloaded.")+'">?</span></td>' +
                 '</tr>' +
             '</table>');
 
@@ -2999,7 +3115,7 @@ function doRestore() {
     }
 
     runModalDialog({
-        title: i18n.gettext("Restaŭrigi Agordon"),
+        title: motionEyeI18n.t("Restore Configuration"),
         closeButton: true,
         buttons: 'okcancel',
         content: content,
@@ -3011,14 +3127,14 @@ function doRestore() {
             refreshInterval = 1000000;
 
             setTimeout(function () {
-                showModalDialog('<div style="text-align: center;"><span>'+i18n.gettext("Restaŭriganta agordon ...")+'</span><div class="modal-progress"></div></div>');
+                showModalDialog('<div style="text-align: center;"><span>'+motionEyeI18n.t("Restoring configuration ...")+'</span><div class="modal-progress"></div></div>');
                 uploadFile(basePath + 'config/restore/', fileInput, function (data) {
                     if (data && data.ok) {
                         var count = 0;
                         function checkServer() {
                             ajax('GET', basePath + 'config/0/get/', null,
                                 function () {
-                                    runAlertDialog(i18n.gettext("La agordo restaŭrigis!"), function () {
+                                    runAlertDialog(motionEyeI18n.t("The configuration has been restored!"), function () {
                                         window.location.reload(true);
                                     });
                                 },
@@ -3028,7 +3144,7 @@ function doRestore() {
                                         setTimeout(checkServer, 2000);
                                     }
                                     else {
-                                        runAlertDialog(i18n.gettext("Malsukcesis restaŭri la agordon!"), function () {
+                                        runAlertDialog(motionEyeI18n.t("Failed to restore configuration!"), function () {
                                             window.location.reload(true);
                                         });
                                     }
@@ -3047,7 +3163,7 @@ function doRestore() {
                     }
                     else {
                         hideModalDialog();
-                        showErrorMessage(i18n.gettext("Malsukcesis restaŭri la agordon!"));
+                        showErrorMessage(motionEyeI18n.t("Failed to restore configuration!"));
                     }
                 });
             }, 10);
@@ -3066,7 +3182,7 @@ function doTestUpload() {
     });
 
     if (!valid) {
-        return runAlertDialog(i18n.gettext("Certigu, ke ĉiuj agordaj opcioj validas!"));
+        return runAlertDialog(motionEyeI18n.t("Make sure all configuration options are valid!"));
     }
 
     showModalDialog('<div class="modal-progress"></div>', null, null, true);
@@ -3102,10 +3218,10 @@ function doTestUpload() {
 
         hideModalDialog(); /* progress */
         if (data.error) {
-            showErrorMessage(i18n.gettext("Aliri la alŝutan servon malsukcesis: ") + data.error + '!');
+            showErrorMessage(motionEyeI18n.t("Accessing the upload service failed: ") + data.error + '!');
         }
         else {
-            showPopupMessage(i18n.gettext("Aliri la alŝutan servon sukcesis!")+data, 'info');
+            showPopupMessage(motionEyeI18n.t("Accessing the upload service succeeded!")+data, 'info');
         }
     });
 }
@@ -3121,7 +3237,7 @@ function doTestEmail() {
     });
 
     if (!valid) {
-        return runAlertDialog(i18n.gettext("Certigu, ke ĉiuj agordaj opcioj validas!"));
+        return runAlertDialog(motionEyeI18n.t("Make sure all configuration options are valid!"));
     }
 
     showModalDialog('<div class="modal-progress"></div>', null, null, true);
@@ -3142,10 +3258,10 @@ function doTestEmail() {
     ajax('POST', basePath + 'config/' + cameraId + '/test/', data, function (data) {
         hideModalDialog(); /* progress */
         if (data.error) {
-            showErrorMessage(i18n.gettext("Sciiga retpoŝto fiaskis:") + data.error + '!');
+            showErrorMessage(motionEyeI18n.t("Notification email failed:") + data.error + '!');
         }
         else {
-            showPopupMessage(i18n.gettext("Notification email succeeded!"), 'info');
+            showPopupMessage(motionEyeI18n.t("Notification email succeeded!"), 'info');
         }
     });
 }
@@ -3161,7 +3277,7 @@ function doTestTelegram() {
     });
 
     if (!valid) {
-        return runAlertDialog(i18n.gettext("Certiĝu, ke ĉiuj agordaj opcioj estas validaj!"));
+        return runAlertDialog(motionEyeI18n.t("Make sure all configuration options are valid!"));
     }
 
     showModalDialog('<div class="modal-progress"></div>', null, null, true);
@@ -3177,10 +3293,10 @@ function doTestTelegram() {
     ajax('POST', basePath + 'config/' + cameraId + '/test/', data, function (data) {
         hideModalDialog(); /* progress */
         if (data.error) {
-            showErrorMessage(i18n.gettext("Sciiga Telegramo fiaskis:") + data.error + '!');
+            showErrorMessage(motionEyeI18n.t("Notification Telegram failed:") + data.error + '!');
         }
         else {
-            showPopupMessage(i18n.gettext("Sciiga Telegramo sukcesis!"), 'info');
+            showPopupMessage(motionEyeI18n.t("Notification Telegram succeeded!"), 'info');
         }
     });
 }
@@ -3196,7 +3312,7 @@ function doTestNetworkShare() {
     });
 
     if (!valid) {
-        return runAlertDialog(i18n.gettext("Certigu, ke ĉiuj agordaj opcioj validas!"));
+        return runAlertDialog(motionEyeI18n.t("Make sure all configuration options are valid!"));
     }
 
     showModalDialog('<div class="modal-progress"></div>', null, null, true);
@@ -3216,10 +3332,10 @@ function doTestNetworkShare() {
     ajax('POST', basePath + 'config/' + cameraId + '/test/', data, function (data) {
         hideModalDialog(); /* progress */
         if (data.error) {
-            showErrorMessage(i18n.gettext("Aliro al retdividado fiaskis: ") + data.error + '!');
+            showErrorMessage(motionEyeI18n.t("Accessing network share failed: ") + data.error + '!');
         }
         else {
-            showPopupMessage(i18n.gettext("Aliro al retdividado sukcesis!"), 'info');
+            showPopupMessage(motionEyeI18n.t("Accessing network share succeeded!"), 'info');
         }
     });
 }
@@ -3243,7 +3359,7 @@ function doDeleteFile(path, callback) {
     var parts = url.split('/');
     url = parts.slice(0, 3).join('/') + path;
 
-    runConfirmDialog(i18n.gettext("Ĉu vere forigi ĉi tiun dosieron?"), function () {
+    runConfirmDialog(motionEyeI18n.t("Really delete this file?"), function () {
         showModalDialog('<div class="modal-progress"></div>', null, null, true);
         ajax('POST', url, null, function (data) {
             hideModalDialog(); /* progress */
@@ -3267,18 +3383,18 @@ function doDeleteAllFiles(mediaType, cameraId, groupKey, callback) {
     var msg;
     if (groupKey) {
         if (mediaType == 'picture') {
-            msg = i18n.gettext('Ĉu vere forigi ĉiujn bildojn de "%(group)s"?').format({group: groupKey});
+            msg = motionEyeI18n.t('Really delete all pictures from "{group}"?').format({group: groupKey});
         }
         else {
-            msg = i18n.gettext('Ĉu vere forigi ĉiujn filmojn de "%(group)s"?').format({group: groupKey});
+            msg = motionEyeI18n.t('Really remove all movies from "{group}"?').format({group: groupKey});
         }
     }
     else {
         if (mediaType == 'picture') {
-            msg = i18n.gettext("Ĉu vere forigi ĉiujn ne grupigitajn bildojn?");
+            msg = motionEyeI18n.t("Really delete all ungrouped pictures?");
         }
         else {
-            msg = i18n.gettext("Ĉu vere forigi ĉiujn ne grupigitajn filmojn?");
+            msg = motionEyeI18n.t("Really delete all ungrouped movies?");
         }
     }
 
@@ -3392,7 +3508,7 @@ function fetchCurrentConfig(onFetch) {
                 }
 
                 if (!query.camera_ids) {
-                    cameraSelect.append('<option value="add">'+i18n.gettext("aldonadi kameraon...")+'</option>');
+                    cameraSelect.append('<option value="add">'+motionEyeI18n.t("add camera ...")+'</option>');
                 }
 
                 var enabledCameras = cameras.filter(function (camera) {return camera['enabled'];});
@@ -3617,18 +3733,18 @@ function runLoginDialog(retry) {
                 '</tr>' +
                 '<tr>' +
                     '<td class="dialog-item-label"><span class="dialog-item-label">'
-			+i18n.gettext("Uzantnomo") + '</span></td>' +
+			+motionEyeI18n.t("Username") + '</span></td>' +
                     '<td class="dialog-item-value"><input type="text" name="username" class="styled" id="usernameEntry" autofocus></td>' +
                 '</tr>' +
                 '<tr>' +
                     '<td class="dialog-item-label"><span class="dialog-item-label">'
-			+i18n.gettext("Pasvorto") + '</span></td>' +
+			+motionEyeI18n.t("Password") + '</span></td>' +
                     '<td class="dialog-item-value"><input type="password" name="password" class="styled" id="passwordEntry"></td>' +
                     '<input type="submit" style="display: none;" name="login" value="login">' +
                 '</tr>' +
                 '<tr>' +
                     '<td class="dialog-item-label"><span class="dialog-item-label">'
-			+i18n.gettext("Memoru min")+'</span></td>' +
+			+motionEyeI18n.t("Remember me")+'</span></td>' +
                     '<td class="dialog-item-value"><input type="checkbox" name="remember" class="styled" id="rememberCheck"></td>' +
                 '</tr>' +
             '</table></form>');
@@ -3646,13 +3762,13 @@ function runLoginDialog(retry) {
     }
 
     var params = {
-        title: i18n.gettext('Ensaluti'),
+        title: motionEyeI18n.t('Login'),
         content: form,
         buttons: [
-            {caption: i18n.gettext('Nuligi'), isCancel: true, click: function () {
+            {caption: motionEyeI18n.t('Cancel'), isCancel: true, click: function () {
                 tempFrame.remove();
             }},
-            {caption: i18n.gettext('Ensaluti'), isDefault: true, click: function () {
+            {caption: motionEyeI18n.t('Login'), isDefault: true, click: function () {
                 window.username = usernameEntry.val();
                 window.passwordHash = sha1(passwordEntry.val()).toLowerCase();
                 window._loginDialogSubmitted = true;
@@ -3691,40 +3807,40 @@ function runPictureDialog(entries, pos, mediaType, onDelete) {
         /* Reference: https://html.spec.whatwg.org/multipage/embedded-content.html#error-codes */
         switch (err.target.error.code) {
             case err.target.error.MEDIA_ERR_ABORTED:
-                msg = i18n.gettext('Vi abortis la filmeton.');
+                msg = motionEyeI18n.t('You aborted the video.');
                 break;
             case err.target.error.MEDIA_ERR_NETWORK:
-                msg = i18n.gettext('Reto eraro okazis.');
+                msg = motionEyeI18n.t('A network error occurred.');
                 break;
             case err.target.error.MEDIA_ERR_DECODE:
-                msg = i18n.gettext('Malkodado-eraro aŭ neprogresinta funkcio.');
+                msg = motionEyeI18n.t('Media decode error or unsupported media features.');
                 break;
             case err.target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                msg = i18n.gettext('Formato ne subtenata aŭ neatingebla/netaŭga por ludado.');
+                msg = motionEyeI18n.t('Format not supported or inaccessible/unsuitable for playback.');
                 break;
             default:
-                msg = i18n.gettext('Nekonata eraro okazis.');
+                msg = motionEyeI18n.t('Unknown error occurred.');
         }
 
-        showErrorMessage(i18n.gettext('Eraro : ') + msg);
+        showErrorMessage(motionEyeI18n.t('Error : ') + msg);
     });
     video_container.hide();
     content.append(video_container);
 
-    var prevArrow = $('<div class="picture-dialog-prev-arrow button mouse-effect" title="'+i18n.gettext("antaŭa bildo")+'"></div>');
+    var prevArrow = $('<div class="picture-dialog-prev-arrow button mouse-effect" title="'+motionEyeI18n.t("previous picture")+'"></div>');
     content.append(prevArrow);
 
     var playButtonContainer = $('<div class="picture-dialog-playbuttons"></div>');
 
-      var playButton = $('<div class="picture-dialog-play button mouse-effect" title="'+i18n.gettext("ludi")+'"></div>');
+      var playButton = $('<div class="picture-dialog-play button mouse-effect" title="'+motionEyeI18n.t("play")+'"></div>');
       playButtonContainer.append(playButton);
 
-      var timelapseButton = $('<div class="picture-dialog-timelapse button mouse-effect" title="'+i18n.gettext("ludi * 5 kaj enĉenigi")+'"></div>');
+      var timelapseButton = $('<div class="picture-dialog-timelapse button mouse-effect" title="'+motionEyeI18n.t("play * 5 and chain")+'"></div>');
       playButtonContainer.append(timelapseButton);
 
     content.append(playButtonContainer);
 
-    var nextArrow = $('<div class="picture-dialog-next-arrow button mouse-effect" title="'+i18n.gettext("sekva bildo")+'"></div>');
+    var nextArrow = $('<div class="picture-dialog-next-arrow button mouse-effect" title="'+motionEyeI18n.t("next picture")+'"></div>');
     content.append(nextArrow);
     var progressImg = $('<div class="picture-dialog-progress">');
 
@@ -3847,8 +3963,8 @@ function runPictureDialog(entries, pos, mediaType, onDelete) {
     img.on('load', updateModalDialogPosition);
 
     var buttons = [
-            {caption: i18n.gettext("Fermi")},
-            {caption: i18n.gettext("Elŝuti"), isDefault: true, click: function () {
+            {caption: motionEyeI18n.t("Close")},
+            {caption: motionEyeI18n.t("Download"), isDefault: true, click: function () {
                 var entry = entries[pos];
                 downloadFile(mediaType + '/' + entry.cameraId + '/download' + entry.path);
 
@@ -3856,7 +3972,7 @@ function runPictureDialog(entries, pos, mediaType, onDelete) {
             }}];
     if (isAdmin()) {
         buttons.push({
-                caption: i18n.gettext("Forigi"),
+                caption: motionEyeI18n.t("Remove"),
                 isDefault: false,
                 className: 'delete',
                 click: function () {
@@ -3894,41 +4010,41 @@ function runPictureDialog(entries, pos, mediaType, onDelete) {
 
 function runAddCameraDialog() {
     if (Object.keys(pushConfigs).length) {
-        return runAlertDialog(i18n.gettext("Bonvolu apliki unue la modifitajn agordojn!"));
+        return runAlertDialog(motionEyeI18n.t("Please apply the modified settings first!"));
     }
 
     var content =
             $('<table class="add-camera-dialog">' +
                 '<tr>' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Kamerao tipo")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Camera Type")+'</span></td>' +
                     '<td class="dialog-item-value"><select class="styled" id="typeSelect">' +
-                        (hasLocalCamSupport ? '<option value="v4l2">'+i18n.gettext("Loka V4L2-kamerao")+'</option>' : '') +
-                        (hasLocalCamSupport ? '<option value="mmal">'+i18n.gettext("Loka MMAL-kamerao")+'</option>' : '') +
-                        (hasNetCamSupport ? '<option value="netcam">'+i18n.gettext("Reta kamerao")+'</option>' : '') +
-                        '<option value="motioneye">'+i18n.gettext("Fora motionEye kamerao")+'</option>' +
-                        '<option value="mjpeg">'+i18n.gettext("Simpla MJPEG-kamerao")+'</option>' +
+                        (hasLocalCamSupport ? '<option value="v4l2">'+motionEyeI18n.t("Local V4L2 Camera")+'</option>' : '') +
+                        (hasLocalCamSupport ? '<option value="mmal">'+motionEyeI18n.t("Local MMAL Camera")+'</option>' : '') +
+                        (hasNetCamSupport ? '<option value="netcam">'+motionEyeI18n.t("Network Camera")+'</option>' : '') +
+                        '<option value="motioneye">'+motionEyeI18n.t("Remote motionEye Camera")+'</option>' +
+                        '<option value="mjpeg">'+motionEyeI18n.t("Simple MJPEG Camera")+'</option>' +
                     '</select></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("la speco de kamerao, kiun vi volas aldoni")+'">?</span></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the type of camera you wish to add")+'">?</span></td>' +
                 '</tr>' +
                 '<tr class="motioneye netcam mjpeg">' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("URL")+'</span></td>' +
-                    '<td class="dialog-item-value"><input type="text" class="styled" id="urlEntry" placeholder="'+i18n.gettext("http://ekzemplo.com:8765/cams/...")+'"></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("la kameraa URL (ekz. http://ekzemplo.com:8080/cam/)")+'">?</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("URL")+'</span></td>' +
+                    '<td class="dialog-item-value"><input type="text" class="styled" id="urlEntry" placeholder="'+motionEyeI18n.t("http://example.com:8765/cams/...")+'"></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the camera URL (eg http://example.com:8080/cam/)")+'">?</span></td>' +
                 '</tr>' +
                 '<tr class="motioneye netcam mjpeg">' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Uzantnomo")+'</span></td>' +
-                    '<td class="dialog-item-value"><input type="text" class="styled" id="usernameEntry" placeholder="'+i18n.gettext("uzantnomo...")+'"></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("la uzantnomo por la URL, se bezonata (ekz. administranto)")+'">?</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Username")+'</span></td>' +
+                    '<td class="dialog-item-value"><input type="text" class="styled" id="usernameEntry" placeholder="'+motionEyeI18n.t("username ...")+'"></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the username for the URL, if needed (eg admin)")+'">?</span></td>' +
                 '</tr>' +
                 '<tr class="motioneye netcam mjpeg">' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Pasvorto")+'</span></td>' +
-                    '<td class="dialog-item-value"><input type="password" class="styled" id="passwordEntry" placeholder="'+i18n.gettext("pasvorto...")+'"></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("la pasvorto por la URL, se bezonata")+'">?</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Password")+'</span></td>' +
+                    '<td class="dialog-item-value"><input type="password" class="styled" id="passwordEntry" placeholder="'+motionEyeI18n.t("password ...")+'"></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the password for the URL, if needed")+'">?</span></td>' +
                 '</tr>' +
                 '<tr class="v4l2 motioneye netcam mjpeg mmal">' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Kamerao")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Camera")+'</span></td>' +
                     '<td class="dialog-item-value"><select class="styled" id="addCameraSelect"></select><span id="cameraMsgLabel"></span></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("la kameraon, kiun vi volas aldoni")+'">?</span></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("the camera you want to add")+'">?</span></td>' +
                 '</tr>' +
                 '<tr class="v4l2 motioneye netcam mjpeg mmal">' +
                     '<td colspan="100"><div class="dialog-item-separator"></div></td>' +
@@ -3964,7 +4080,7 @@ function runAddCameraDialog() {
             usernameEntry.val('admin');
             usernameEntry.attr('readonly', 'readonly');
             addCameraInfo.html(
-                    i18n.gettext("Fora motionEye kamerao estas kameraoj instalitaj malantaŭ alia servilo de MotionEye. Aldonante ilin ĉi tie permesos vin rigardi kaj administri ilin de malproksime."));
+                    motionEyeI18n.t("Remote motionEye cameras are cameras installed behind another motionEye server. Adding them here will allow you to view and manage them remotely."));
         }
         else if (typeSelect.val() == 'netcam') {
             usernameEntry.removeAttr('readonly');
@@ -3979,12 +4095,12 @@ function runAddCameraDialog() {
 
             content.find('tr.netcam').css('display', 'table-row');
             addCameraInfo.html(
-		i18n.gettext("Retaj kameraoj (aŭ IP-kameraoj) estas aparatoj, kiuj denaske fluas RTSP/RTMP aŭ MJPEG-filmetojn aŭ simplajn JPEG-bildojn. Konsultu la manlibron de via aparato por ekscii la ĝustan URL RTSP, RTMP, MJPEG aŭ JPEG."));
+		motionEyeI18n.t("Network cameras (or IP cameras) are devices that natively stream RTSP/RTMP or MJPEG videos or plain JPEG images. Consult your device's manual to find out the correct RTSP, RTMP, MJPEG or JPEG URL."));
         }
         else if (typeSelect.val() == 'mmal') {
             content.find('tr.mmal').css('display', 'table-row');
             addCameraInfo.html(
-		i18n.gettext("Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."));
+		motionEyeI18n.t("Local MMAL cameras are devices that are connected directly to your motionEye system. These are usually board-specific cameras."));
         }
         else if (typeSelect.val() == 'mjpeg') {
             usernameEntry.removeAttr('readonly');
@@ -3999,12 +4115,12 @@ function runAddCameraDialog() {
 
             content.find('tr.mjpeg').css('display', 'table-row');
             addCameraInfo.html(
-		i18n.gettext("Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."));
+		motionEyeI18n.t("Adding your device as a simple MJPEG camera instead of as a network camera will improve the framerate, but no motion detection, picture capturing or movie recording will be available for it. The camera must be accessible to both your server and your browser. This type of camera is not compatible with Internet Explorer."));
         }
         else { /* assuming v4l2 */
             content.find('tr.v4l2').css('display', 'table-row');
             addCameraInfo.html(
-                    i18n.gettext("Lokaj V4L2-kameraoj estas kameraaj aparatoj konektitaj rekte al via motionEye-sistemo, kutime per USB."));
+                    motionEyeI18n.t("Local V4L2 cameras are camera devices that are connected directly to your motionEye system, usually via USB."));
         }
 
         updateModalDialogPosition();
@@ -4155,7 +4271,7 @@ function runAddCameraDialog() {
     passwordEntry.change(updateUi);
 
     runModalDialog({
-        title: i18n.gettext('Aldonadi kameraon...'),
+        title: motionEyeI18n.t('Add Camera ...'),
         closeButton: true,
         buttons: 'okcancel',
         content: content,
@@ -4227,30 +4343,30 @@ function runTimelapseDialog(cameraId, groupKey, group) {
             $('<table class="timelapse-dialog">' +
                 '<tr><td colspan="2" class="timelapse-warning"></td></tr>' +
                 '<tr>' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Grupo")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Group")+'</span></td>' +
                     '<td class="dialog-item-value">' + groupKey + '</td>' +
                 '</tr>' +
                 '<tr>' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Inkluzivi foton prenitan ĉiun")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Include a picture taken every")+'</span></td>' +
                     '<td class="dialog-item-value">' +
                         '<select class="styled timelapse" id="intervalSelect">' +
-                            '<option value="1">'+i18n.gettext("sekundo")+'</option>' +
-                            '<option value="5">'+i18n.gettext("5 sekundoj")+'</option>' +
-                            '<option value="10">'+i18n.gettext("10 sekundoj")+'</option>' +
-                            '<option value="30">'+i18n.gettext("30 sekundoj")+'</option>' +
-                            '<option value="60">'+i18n.gettext("minuto")+'</option>' +
-                            '<option value="300">'+i18n.gettext("5 minutoj")+'</option>' +
-                            '<option value="600">'+i18n.gettext("10 minutoj")+'</option>' +
-                            '<option value="1800">'+i18n.gettext("30 minutoj")+'</option>' +
-                            '<option value="3600">'+i18n.gettext("horo")+'</option>' +
+                            '<option value="1">'+motionEyeI18n.t("second")+'</option>' +
+                            '<option value="5">'+motionEyeI18n.t("5 seconds")+'</option>' +
+                            '<option value="10">'+motionEyeI18n.t("10 seconds")+'</option>' +
+                            '<option value="30">'+motionEyeI18n.t("30 seconds")+'</option>' +
+                            '<option value="60">'+motionEyeI18n.t("minute")+'</option>' +
+                            '<option value="300">'+motionEyeI18n.t("5 minutes")+'</option>' +
+                            '<option value="600">'+motionEyeI18n.t("10 minutes")+'</option>' +
+                            '<option value="1800">'+motionEyeI18n.t("30 minutes")+'</option>' +
+                            '<option value="3600">'+motionEyeI18n.t("hour")+'</option>' +
                         '</select>' +
                     '</td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("Elektu la intervalon de tempo inter du elektitaj bildoj.")+'">?</span></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("choose the interval of time between two selected pictures.")+'">?</span></td>' +
                 '</tr>' +
                 '<tr>' +
-                    '<td class="dialog-item-label"><span class="dialog-item-label">'+i18n.gettext("Filmo framfrekvenco")+'</span></td>' +
+                    '<td class="dialog-item-label"><span class="dialog-item-label">'+motionEyeI18n.t("Movie framerate")+'</span></td>' +
                     '<td class="dialog-item-value"><input type="text" class="styled range" id="framerateSlider"></td>' +
-                    '<td><span class="help-mark" title="'+i18n.gettext("Elektu kiom rapide vi volas ke la akselita video estu.")+'">?</span></td>' +
+                    '<td><span class="help-mark" title="'+motionEyeI18n.t("choose how fast you want the timelapse playback to be.")+'">?</span></td>' +
                 '</tr>' +
             '</table>');
 
@@ -4259,7 +4375,7 @@ function runTimelapseDialog(cameraId, groupKey, group) {
     var timelapseWarning = content.find('td.timelapse-warning');
 
     if (group.length > 1440) { /* one day worth of pictures, taken 1 minute apart */
-        timelapseWarning.html(i18n.gettext("Konsiderante la grandan nombron da bildoj, krei vian video povus daŭri iom da tempo!"));
+        timelapseWarning.html(motionEyeI18n.t("Given the large number of pictures, creating your timelapse might take a while!"));
         timelapseWarning.css('display', 'table-cell');
     }
 
@@ -4276,7 +4392,7 @@ function runTimelapseDialog(cameraId, groupKey, group) {
     framerateSlider.val(20).each(function () {this.update()});
 
     runModalDialog({
-        title: i18n.gettext("Krei akselita video"),
+        title: motionEyeI18n.t("Create Timelapse Movie"),
         closeButton: true,
         buttons: 'okcancel',
         content: content,
@@ -4285,7 +4401,7 @@ function runTimelapseDialog(cameraId, groupKey, group) {
             makeProgressBar(progressBar);
 
             runModalDialog({
-                title: i18n.gettext("Filmo kreanta en progreso..."),
+                title: motionEyeI18n.t("Creating Timelapse Movie..."),
                 content: progressBar,
                 stack: true,
                 noKeys: true
@@ -4409,10 +4525,10 @@ function runMediaDialog(cameraId, mediaType) {
                     entryDiv.append(previewImg);
                     previewImg[0]._src = addAuthParams('GET', basePath + mediaType + '/' + cameraId + '/preview' + entry.path + '?height=' + height);
 
-                    var downloadButton = $('<div class="media-list-download-button button">'+i18n.gettext("Elŝuti")+'</div>');
+                    var downloadButton = $('<div class="media-list-download-button button">'+motionEyeI18n.t("Download")+'</div>');
                     entryDiv.append(downloadButton);
 
-                    var deleteButton = $('<div class="media-list-delete-button button">'+i18n.gettext("Forigi")+'</div>');
+                    var deleteButton = $('<div class="media-list-delete-button button">'+motionEyeI18n.t("Remove")+'</div>');
                     if (isAdmin()) {
                         entryDiv.append(deleteButton);
                     }
@@ -4536,7 +4652,7 @@ function runMediaDialog(cameraId, mediaType) {
     }
 
     if (mediaType == 'picture') {
-        var zippedButton = $('<div class="media-dialog-button">'+i18n.gettext("Zipitaj")+'</div>');
+        var zippedButton = $('<div class="media-dialog-button">'+motionEyeI18n.t("Zipped")+'</div>');
         buttonsDiv.append(zippedButton);
 
         zippedButton.on('click', function () {
@@ -4545,7 +4661,7 @@ function runMediaDialog(cameraId, mediaType) {
             }
         });
 
-        var timelapseButton = $('<div class="media-dialog-button">'+i18n.gettext("Akselita video")+'</div>');
+        var timelapseButton = $('<div class="media-dialog-button">'+motionEyeI18n.t("Timelapse")+'</div>');
         buttonsDiv.append(timelapseButton);
 
         timelapseButton.on('click', function () {
@@ -4556,7 +4672,7 @@ function runMediaDialog(cameraId, mediaType) {
     }
 
     if (isAdmin()) {
-        var deleteAllButton = $('<div class="media-dialog-button media-dialog-delete-all-button">'+i18n.gettext("Forigi ĉiujn")+'</div>');
+        var deleteAllButton = $('<div class="media-dialog-button media-dialog-delete-all-button">'+motionEyeI18n.t("Delete all")+'</div>');
         buttonsDiv.append(deleteAllButton);
 
         deleteAllButton.on('click', function () {
@@ -4698,10 +4814,10 @@ function runMediaDialog(cameraId, mediaType) {
             title = data.cameraName;
         }
         else if (mediaType === 'picture') {
-            title = i18n.gettext("Bildoj prenitaj de ") + data.cameraName;
+            title = motionEyeI18n.t("Pictures taken by ") + data.cameraName;
         }
         else {
-            title = i18n.gettext("Filmoj registritaj de ") + data.cameraName;
+            title = motionEyeI18n.t("Movies recorded by ") + data.cameraName;
         }
 
         runModalDialog({
@@ -4769,12 +4885,12 @@ function addCameraFrameUi(cameraConfig) {
                                 '</div>' +
                             '</div>' +
                             '<div class="camera-top-buttons">' +
-                                '<div class="button icon camera-top-button mouse-effect full-screen" title="' + i18n.gettext("montru ĉi tiun fotilon plenekranan") +'"></div>' +
-                                '<div class="button icon camera-top-button mouse-effect multi-camera" title="' + i18n.gettext("montri ĉiujn fotilojn") +'"></div>' +
-                                '<div class="button icon camera-top-button mouse-effect single-camera" title="' + i18n.gettext("montru nur ĉi tiun fotilon") +'"></div>' +
-                                '<div class="button icon camera-top-button mouse-effect media-pictures" title="' + i18n.gettext("malfermaj bildoj retumilo") + '"></div>' +
-                                '<div class="button icon camera-top-button mouse-effect media-movies" title="' + i18n.gettext("malferma videoj retumilo") + '"></div>' +
-                                '<div class="button icon camera-top-button mouse-effect configure" title="' + i18n.gettext("agordi ĉi tiun kameraon") + '"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect full-screen" title="' + motionEyeI18n.t("Show this camera fullscreen") +'"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect multi-camera" title="' + motionEyeI18n.t("Show all cameras") +'"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect single-camera" title="' + motionEyeI18n.t("Show only this camera") +'"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect media-pictures" title="' + motionEyeI18n.t("open pictures browser") + '"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect media-movies" title="' + motionEyeI18n.t("open movies browser") + '"></div>' +
+                                '<div class="button icon camera-top-button mouse-effect configure" title="' + motionEyeI18n.t("configure this camera") + '"></div>' +
                             '</div>' +
                         '</div>' +
                         '<div class="camera-monitoring">' +
@@ -4790,7 +4906,7 @@ function addCameraFrameUi(cameraConfig) {
                             '<div class="button icon camera-action-button mouse-effect light-off" title="turn light off"></div>' +
                             '<div class="button icon camera-action-button mouse-effect alarm-on" title="turn alarm on"></div>' +
                             '<div class="button icon camera-action-button mouse-effect alarm-off" title="turn alarm off"></div>' +
-                            '<div class="button icon camera-action-button mouse-effect snapshot" title="' + i18n.gettext("preni instantaron") + '"></div>' +
+                            '<div class="button icon camera-action-button mouse-effect snapshot" title="' + motionEyeI18n.t("take a snapshot") + '"></div>' +
                             '<div class="button icon camera-action-button mouse-effect record-start" title="toggle continuous recording mode"></div>' +
                             '<div class="button icon camera-action-button mouse-effect up" title="up"></div>' +
                             '<div class="button icon camera-action-button mouse-effect down" title="down"></div>' +
@@ -4870,6 +4986,12 @@ function addCameraFrameUi(cameraConfig) {
     cameraFrameDiv[0].refreshDivider = 0;
     cameraFrameDiv[0].config = cameraConfig;
     nameSpan.html(cameraConfig.name);
+
+    /* Observe camera frame for viewport visibility */
+    if (intersectionObserver) {
+        intersectionObserver.observe(cameraFrameDiv[0]);
+        cameraVisibility[cameraId] = true; /* Assume visible until observed */
+    }
     progressImg.attr('src', staticPath + 'img/camera-progress.gif');
 
     cameraImg.on('click', function () {
@@ -5025,6 +5147,9 @@ function addCameraFrameUi(cameraConfig) {
         this.error = true;
         this.loading_count = 0;
 
+        /* Increment exponential backoff on error */
+        incrementBackoff(cameraId);
+
         cameraImg.addClass('error').removeClass('initializing');
         cameraImg.height(Math.round(cameraImg.width() * 0.75));
         cameraPlaceholder.css('opacity', 1);
@@ -5034,6 +5159,9 @@ function addCameraFrameUi(cameraConfig) {
     };
     cameraImg[0].onload = function () {
         if (this.error) {
+            /* Reset exponential backoff on successful load */
+            resetBackoff(cameraId);
+
             cameraImg.removeClass('error');
             cameraPlaceholder.css('opacity', 0);
             cameraImg.css('height', '');
@@ -5183,7 +5311,7 @@ function recreateCameraFrames(cameras) {
             /* invite the user to add a camera */
             var addCameraLink = $('<div class="add-camera-message">' +
                     '<a href="javascript:runAddCameraDialog()">' +
-                    i18n.gettext('Vi ankoraŭ ne agordis iun kameraon. Alklaku ĉi tie por aldoni unu ...') +
+                    motionEyeI18n.t('You have not configured any camera yet. Click here to add one...') +
                     '</a></div>');
             getPageContainer().append(addCameraLink);
         }
@@ -5399,10 +5527,25 @@ function refreshCameraFrames() {
         return setTimeout(refreshCameraFrames, 1000);
     }
 
+    /* Skip all refresh work when page is hidden */
+    if (!pageVisible) {
+        return scheduleRefresh();
+    }
+
     function refreshCameraFrame(cameraId, img, serverSideResize) {
         if (refreshDisabled[cameraId]) {
             /* camera refreshing disabled, retry later */
 
+            return;
+        }
+
+        /* Skip if in exponential backoff */
+        if (getBackoffDelay(cameraId) > 0) {
+            return;
+        }
+
+        /* Skip if camera is not visible in viewport */
+        if (cameraVisibility[cameraId] === false) {
             return;
         }
 
@@ -5442,7 +5585,17 @@ function refreshCameraFrames() {
     cameraFrames.each(function () {
         if (!this.img) {
             this.img = $(this).find('img.camera')[0];
-            if (this.config['proto'] == 'mjpeg') {
+
+            /* Check for Direct Streaming mode (connects directly to Motion's MJPEG stream) */
+            if (this.config['streaming_direct_mode'] && this.config['streaming_port'] && this.config['proto'] != 'mjpeg') {
+                var directUrl = 'http://' + window.location.hostname + ':' +
+                                this.config['streaming_port'] + '/1/mjpg/stream';
+                directUrl += '?_=' + new Date().getTime();
+                this.img.src = directUrl;
+                this.directMode = true;
+                startDirectModeStatusPolling(); /* Start polling for motion detection status */
+            }
+            else if (this.config['proto'] == 'mjpeg') {
                 var url = this.config['url'].replace('127.0.0.1', window.location.host.split(':')[0]);
                 url += (url.indexOf('?') > 0 ? '&' : '?') + '_=' + new Date().getTime();
 
@@ -5454,8 +5607,9 @@ function refreshCameraFrames() {
             }
         }
 
-        if (this.config['proto'] == 'mjpeg') {
-            return; /* no manual refresh for simple mjpeg cameras */
+        /* Skip manual refresh for direct mode and simple mjpeg cameras */
+        if (this.directMode || this.config['proto'] == 'mjpeg') {
+            return;
         }
 
         var count = parseInt(1000 / (refreshInterval * this.config['streaming_framerate']));
@@ -5487,7 +5641,8 @@ function refreshCameraFrames() {
         cameraFrameRatios[cameraId] = this.img.naturalWidth > 0 ? this.img.naturalHeight / this.img.naturalWidth : 1;
     });
 
-    setTimeout(refreshCameraFrames, refreshInterval);
+    /* Schedule next refresh using RAF when visible, setTimeout when hidden */
+    scheduleRefresh();
 }
 
 function checkCameraErrors() {
@@ -5523,6 +5678,9 @@ function doAuth() {
 $(document).ready(function () {
     modalContainer = $('div.modal-container');
     qualifyURLElement = document.createElement('a');
+
+    /* Initialize Intersection Observer for viewport-aware refresh */
+    initIntersectionObserver();
 
     /* detect base path */
     if (frame) {
