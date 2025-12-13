@@ -420,7 +420,7 @@ def make_app(debug: bool = False) -> Application:
 
 def run():
     import motioneye
-    from motioneye import cleanup, mjpgclient, motionctl, tasks, wsswitch
+    from motioneye import cleanup, mjpgclient, motionctl, rpicam_rtsp, tasks, wsswitch
     from motioneye.controls import smbctl
 
     configure_signals()
@@ -428,6 +428,13 @@ def run():
 
     test_requirements()
     make_media_folders()
+
+    # Start RTSP bridge if conditions are met (Pi 5 with rpicam)
+    if rpicam_rtsp.should_start():
+        if rpicam_rtsp.start():
+            logging.info('RTSP bridge started')
+        else:
+            logging.warning('RTSP bridge failed to start')
 
     if settings.SMB_SHARES:
         stop, start = smbctl.update_mounts()  # @UnusedVariable
@@ -483,6 +490,12 @@ def run():
     if motionctl.running():
         motionctl.stop()
         logging.info(_('motion haltis'))
+
+    # Stop RTSP bridge if running
+    if rpicam_rtsp.is_running():
+        rpicam_rtsp.stop()
+        logging.info('RTSP bridge stopped')
+
     if settings.SMB_SHARES:
         smbctl.stop()
         logging.info('smb mounts stopped')

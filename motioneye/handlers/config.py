@@ -40,7 +40,7 @@ from motioneye import (
     uploadservices,
     utils,
 )
-from motioneye.controls import libcamctl, mmalctl, pictl, smbctl, tzctl, v4l2ctl
+from motioneye.controls import mmalctl, pictl, rpicamctl, smbctl, tzctl, v4l2ctl
 from motioneye.controls.powerctl import PowerControl
 from motioneye.handlers.base import BaseHandler
 from motioneye.utils.mjpeg import test_mjpeg_url
@@ -485,7 +485,7 @@ class ConfigHandler(BaseHandler):
                         'name': d[1],
                         'supports_autofocus': d[2].get('supports_autofocus', False),
                     }
-                    for d in libcamctl.list_devices()
+                    for d in rpicamctl.list_devices()
                     if d[0] not in configured_devices
                 ]
             else:
@@ -494,6 +494,30 @@ class ConfigHandler(BaseHandler):
                     for d in mmalctl.list_devices()
                     if (d[0] not in configured_devices)
                 ]
+
+            return self.finish_json({'cameras': cameras})
+
+        elif proto == 'rpicam':
+            # RPi Camera listing for RTSP bridge mode
+            configured_devices = set()
+            for camera_id in config.get_camera_ids():
+                data = config.get_camera(camera_id)
+                if utils.is_rpicam_camera(data):
+                    configured_devices.add(data.get('@rpicam_device'))
+                elif utils.is_libcamera_device(data):
+                    configured_devices.add(data['libcam_device'])
+
+            cameras = [
+                {
+                    'id': d[0],
+                    'name': d[1],
+                    'supports_autofocus': d[2].get('supports_autofocus', False),
+                    'sensor': d[2].get('sensor'),
+                    'index': d[2].get('index'),
+                }
+                for d in rpicamctl.list_devices()
+                if d[0] not in configured_devices
+            ]
 
             return self.finish_json({'cameras': cameras})
 

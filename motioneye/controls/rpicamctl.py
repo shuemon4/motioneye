@@ -15,11 +15,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-libcamera camera detection and control.
+RPi Camera detection and control via rpicam-apps (libcamera).
+
+Named rpicamctl.py to match the official Raspberry Pi naming (rpicam-apps).
 Used on Pi 5 and systems with libcamera support.
 
-This module enumerates cameras using libcamera-hello and provides
-device information for configuration generation.
+This module:
+- Enumerates cameras using rpicam-hello (or libcamera-hello for legacy)
+- Provides device information for configuration generation
+- Handles both new (rpicam-*) and old (libcamera-*) command names
+
+Tool Detection Priority:
+1. rpicam-vid / rpicam-hello (Bookworm+, preferred)
+2. libcamera-vid / libcamera-hello (Bullseye, legacy fallback)
 """
 
 import logging
@@ -28,12 +36,14 @@ from subprocess import CalledProcessError
 
 from motioneye import utils
 
-# Raspberry Pi OS Bookworm uses 'rpicam-hello', older versions use 'libcamera-hello'
-_LIBCAMERA_COMMANDS = ['rpicam-hello', 'libcamera-hello']
+# Raspberry Pi OS Bookworm uses 'rpicam-*', older versions use 'libcamera-*'
+_RPICAM_HELLO_COMMANDS = ['rpicam-hello', 'libcamera-hello']
+_RPICAM_VID_COMMANDS = ['rpicam-vid', 'libcamera-vid']
 
-# Cached libcamera command - detected once at startup/first use
+# Cached command detection - detected once at startup/first use
 # None = not yet detected, '' = no command available, 'cmd' = the command to use
-_libcamera_command_cache: str | None = None
+_rpicam_hello_cache: str | None = None
+_rpicam_vid_cache: str | None = None
 
 # Known sensor models and their display names
 # Note: Sensor names may have suffixes like _wide, _noir, _wide_noir
@@ -67,75 +77,129 @@ def _get_base_sensor_name(sensor: str) -> str:
     return sensor
 
 
-def _find_libcamera_command() -> str | None:
+def _find_rpicam_tool(tool_type: str) -> str | None:
     """
-    Find the available libcamera command (rpicam-hello or libcamera-hello).
+    Find the available rpicam tool (rpicam-* or libcamera-* fallback).
 
     Uses cached result after first detection to avoid repeated subprocess calls.
+
+    Args:
+        tool_type: Either 'hello' or 'vid'
 
     Returns:
         Command name if found, None otherwise
     """
-    global _libcamera_command_cache
+    global _rpicam_hello_cache, _rpicam_vid_cache
+
+    if tool_type == 'hello':
+        cache = _rpicam_hello_cache
+        commands = _RPICAM_HELLO_COMMANDS
+    elif tool_type == 'vid':
+        cache = _rpicam_vid_cache
+        commands = _RPICAM_VID_COMMANDS
+    else:
+        raise ValueError(f"Unknown tool type: {tool_type}")
 
     # Return cached result if already detected
-    if _libcamera_command_cache is not None:
-        return _libcamera_command_cache if _libcamera_command_cache else None
+    if cache is not None:
+        return cache if cache else None
 
     # Detect command on first call
-    for cmd in _LIBCAMERA_COMMANDS:
+    for cmd in commands:
         try:
             utils.call_subprocess(['which', cmd])
-            _libcamera_command_cache = cmd
-            logging.info(f'libcamera command detected: {cmd}')
+            if tool_type == 'hello':
+                _rpicam_hello_cache = cmd
+            else:
+                _rpicam_vid_cache = cmd
+            logging.info(f'rpicam-{tool_type} command detected: {cmd}')
             return cmd
         except CalledProcessError:
             continue
 
     # No command found - cache empty string to indicate "checked but not found"
-    _libcamera_command_cache = ''
-    logging.debug('No libcamera command available (checked: rpicam-hello, libcamera-hello)')
+    if tool_type == 'hello':
+        _rpicam_hello_cache = ''
+    else:
+        _rpicam_vid_cache = ''
+    logging.debug(f'No rpicam-{tool_type} command available (checked: {", ".join(commands)})')
     return None
 
 
-def init_libcamera() -> bool:
+def find_rpicam_tools() -> dict:
     """
-    Initialize libcamera detection at startup.
+    Locate rpicam-vid/rpicam-hello (preferred) or
+    libcamera-vid/libcamera-hello (legacy fallback).
 
-    Call this during application startup to detect the libcamera command
+    Returns:
+        Dict with paths: {'vid': path_or_none, 'hello': path_or_none}
+    """
+    return {
+        'vid': _find_rpicam_tool('vid'),
+        'hello': _find_rpicam_tool('hello'),
+    }
+
+
+def init_rpicam() -> bool:
+    """
+    Initialize rpicam detection at startup.
+
+    Call this during application startup to detect the rpicam commands
     early and log the result. This avoids detection delays on first camera
     enumeration.
 
     Returns:
-        True if libcamera command is available, False otherwise
+        True if rpicam-hello (or libcamera-hello) is available, False otherwise
     """
-    cmd = _find_libcamera_command()
+    cmd = _find_rpicam_tool('hello')
     return cmd is not None
 
 
-def get_libcamera_command() -> str | None:
+# Backwards compatibility alias
+init_libcamera = init_rpicam
+
+
+def get_rpicam_hello_command() -> str | None:
     """
-    Get the detected libcamera command name.
+    Get the detected rpicam-hello command name.
 
     Returns:
         'rpicam-hello' or 'libcamera-hello' if available, None otherwise
     """
-    return _find_libcamera_command()
+    return _find_rpicam_tool('hello')
 
 
-def is_libcamera_available() -> bool:
+# Backwards compatibility alias
+get_libcamera_command = get_rpicam_hello_command
+
+
+def get_rpicam_vid_command() -> str | None:
     """
-    Check if a libcamera command is available on the system.
+    Get the detected rpicam-vid command name.
+
+    Returns:
+        'rpicam-vid' or 'libcamera-vid' if available, None otherwise
+    """
+    return _find_rpicam_tool('vid')
+
+
+def is_rpicam_available() -> bool:
+    """
+    Check if rpicam tools are available on the system.
 
     Returns:
         True if rpicam-hello or libcamera-hello binary is found
     """
-    return _find_libcamera_command() is not None
+    return _find_rpicam_tool('hello') is not None
+
+
+# Backwards compatibility alias
+is_libcamera_available = is_rpicam_available
 
 
 def list_devices() -> list:
     """
-    Enumerate cameras using libcamera-hello --list-cameras.
+    Enumerate cameras using rpicam-hello --list-cameras.
 
     Returns:
         List of (device_id, display_name, properties) tuples.
@@ -155,9 +219,9 @@ def list_devices() -> list:
             }),
         ]
     """
-    logging.debug('Detecting libcamera cameras')
+    logging.debug('Detecting rpicam/libcamera cameras')
 
-    cmd = _find_libcamera_command()
+    cmd = _find_rpicam_tool('hello')
     if not cmd:
         logging.debug('No libcamera command found (rpicam-hello or libcamera-hello)')
         return []
@@ -281,3 +345,73 @@ def supports_autofocus(sensor: str) -> bool:
     """
     base_sensor = _get_base_sensor_name(sensor)
     return base_sensor.lower() in _AUTOFOCUS_SENSORS
+
+
+def get_camera_modes(index: int) -> list:
+    """
+    Get supported resolutions and framerates for a camera.
+
+    Parses the "Modes" section from rpicam-hello --list-cameras output.
+
+    Args:
+        index: Camera index (0, 1, etc.)
+
+    Returns:
+        List of dicts with 'resolution', 'fps', 'format' keys.
+        Example: [{'resolution': '1920x1080', 'fps': 30.0, 'format': 'SRGGB10_CSI2P'}]
+    """
+    cmd = _find_rpicam_tool('hello')
+    if not cmd:
+        return []
+
+    try:
+        output = utils.call_subprocess(
+            [cmd, '--list-cameras', '-t', '1'],
+            timeout=10
+        )
+    except (CalledProcessError, Exception) as e:
+        logging.debug(f'Failed to get camera modes: {e}')
+        return []
+
+    output = utils.make_str(output)
+    modes = []
+
+    # Find the camera section
+    camera_section_pattern = re.compile(rf'^{index}\s*:', re.MULTILINE)
+    camera_match = camera_section_pattern.search(output)
+    if not camera_match:
+        return []
+
+    # Find the start of next camera section (or end of output)
+    next_camera_pattern = re.compile(rf'^{index + 1}\s*:', re.MULTILINE)
+    next_match = next_camera_pattern.search(output, camera_match.end())
+    end_pos = next_match.start() if next_match else len(output)
+
+    camera_section = output[camera_match.start():end_pos]
+
+    # Parse mode lines like:
+    # 'SRGGB10_CSI2P' : 1536x864 [120.13 fps - (0, 0)/4608x2592 crop]
+    mode_pattern = re.compile(
+        r"'(\w+)'\s*:\s*(\d+)x(\d+)\s*\[(\d+\.?\d*)\s*fps"
+    )
+
+    for match in mode_pattern.finditer(camera_section):
+        fmt, width, height, fps = match.groups()
+        modes.append({
+            'resolution': f'{width}x{height}',
+            'fps': float(fps),
+            'format': fmt,
+        })
+
+    return modes
+
+
+def clear_cache():
+    """
+    Clear the cached rpicam command detection.
+
+    Useful for testing or when system state changes.
+    """
+    global _rpicam_hello_cache, _rpicam_vid_cache
+    _rpicam_hello_cache = None
+    _rpicam_vid_cache = None

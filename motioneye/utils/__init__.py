@@ -221,6 +221,18 @@ def is_libcamera_device(config):
     return bool(config.get('libcam_device'))
 
 
+def is_rpicam_camera(config):
+    """
+    Tells if a camera is an RPi camera using the RTSP bridge.
+
+    RPi cameras on Pi 5 are configured via rpicam-vid + mediamtx RTSP bridge,
+    making them appear as netcam sources to Motion.
+
+    The @rpicam marker distinguishes these from regular netcams.
+    """
+    return bool(config.get('@rpicam'))
+
+
 def is_net_camera(config):
     """Tells if a camera is a network camera managed by the local motion instance."""
     return bool(config.get('netcam_url'))

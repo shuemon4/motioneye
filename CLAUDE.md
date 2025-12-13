@@ -199,3 +199,7 @@ The following documents live directly in `/docs/`:
 - `Update-Motion-MotionEye.md` - Motion/MotionEye update procedures
 
 These are stable, long-lived documents that don't require datetime suffixes.
+
+## Reading Files
+
+**Caution** Some files in this project are very large intentionally

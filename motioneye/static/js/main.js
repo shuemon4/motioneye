@@ -738,6 +738,8 @@ function initUI() {
     $('#textOverlayEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
     $('#videoStreamingEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
     $('#streamingServerResizeSwitch').change(updateConfigUI);
+    $('#autofocusModeSelect').change(updateConfigUI);
+    $('#autofocusRangeSelect').change(updateConfigUI);
     $('#stillImagesEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
     $('#preservePicturesSelect').change(updateConfigUI);
     $('#moviesEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
@@ -861,9 +863,11 @@ function initUI() {
     });
 
     /* capture mode and recording mode are not completely independent:
-     * all-frames capture mode implies continuous recording (and vice-versa) */
+     * all-frames capture mode implies continuous recording (and vice-versa)
+     * motion-triggered modes require motion detection to be enabled */
     $('#captureModeSelect').change(function (val) {
-        if ($('#captureModeSelect').val() == 'all-frames') {
+        var captureMode = $('#captureModeSelect').val();
+        if (captureMode == 'all-frames') {
             $('#recordingModeSelect').val('continuous');
         }
         else {
@@ -872,16 +876,27 @@ function initUI() {
             }
         }
 
+        /* auto-enable motion detection for motion-triggered capture modes */
+        if (captureMode == 'motion-triggered' || captureMode == 'motion-triggered-one') {
+            $('#motionDetectionEnabledSwitch')[0].checked = true;
+        }
+
         updateConfigUI();
     });
     $('#recordingModeSelect').change(function (val) {
-        if ($('#recordingModeSelect').val() == 'continuous') {
+        var recordingMode = $('#recordingModeSelect').val();
+        if (recordingMode == 'continuous') {
             $('#captureModeSelect').val('all-frames');
         }
         else {
             if ($('#captureModeSelect').val() == 'all-frames') {
                 $('#captureModeSelect').val('motion-triggered');
             }
+        }
+
+        /* auto-enable motion detection for motion-triggered recording mode */
+        if (recordingMode == 'motion-triggered') {
+            $('#motionDetectionEnabledSwitch')[0].checked = true;
         }
 
         updateConfigUI();
@@ -1934,6 +1949,10 @@ function cameraUi2Dict() {
         'auto_brightness': $('#autoBrightnessSwitch')[0].checked,
         'rotation': $('#rotationSelect').val(),
         'framerate': $('#framerateSlider').val(),
+        'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
+        'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
+        'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
+        'lens_position': parseFloat($('#lensPositionSlider').val()) || 0.0,
         'privacy_mask': $('#privacyMaskSwitch')[0].checked,
         'privacy_mask_lines': $('#privacyMaskLinesEntry').val() ? $('#privacyMaskLinesEntry').val().split(',').map(function (l) {return parseInt(l);}) : [],
         'extra_options': $('#extraOptionsEntry').val().split(new RegExp('(\n)|(\r\n)|(\n\r)')).map(function (o) {
@@ -2221,6 +2240,10 @@ function dict2CameraUi(dict) {
         case 'mjpeg':
             prettyType = 'Simple MJPEG Camera';
             break;
+
+        case 'libcamera':
+            prettyType = 'libcamera Camera';
+            break;
     }
 
     $('#videoDeviceEnabledSwitch')[0].checked = dict['enabled']; markHideIfNull('enabled', 'videoDeviceEnabledSwitch');
@@ -2246,6 +2269,9 @@ function dict2CameraUi(dict) {
 
     $('#rotationSelect').val(dict['rotation']); markHideIfNull('rotation', 'rotationSelect');
     $('#framerateSlider').val(dict['framerate']); markHideIfNull('framerate', 'framerateSlider');
+    $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
+    $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
+    $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
     $('#privacyMaskSwitch')[0].checked = dict['privacy_mask']; markHideIfNull('privacy_mask', 'privacyMaskSwitch');
     $('#privacyMaskLinesEntry').val((dict['privacy_mask_lines'] || []).join(',')); markHideIfNull('privacy_mask_lines', 'privacyMaskLinesEntry');
     $('#extraOptionsEntry').val(dict['extra_options'] ? (dict['extra_options'].map(function (o) {
@@ -3523,7 +3549,7 @@ function getCameraIdsByInstance() {
     var cameraIdsByInstance = {};
     getCameraFrames().each(function () {
         var instance;
-        if (this.config.proto == 'netcam' || this.config.proto == 'v4l2' || this.config.proto == 'mmal') {
+        if (this.config.proto == 'netcam' || this.config.proto == 'v4l2' || this.config.proto == 'mmal' || this.config.proto == 'libcamera') {
             instance = '';
         }
         else if (this.config.proto == 'motioneye') {

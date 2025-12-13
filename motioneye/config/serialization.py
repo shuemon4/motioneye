@@ -182,6 +182,12 @@ def _dict_to_conf(lines, data, list_names=None):
         if name in list_names:
             new_value = data.get(name)
             if new_value is not None:
+                # Ensure new_value is a list - if it's a string, wrap it
+                if isinstance(new_value, str):
+                    new_value = [new_value]
+                elif not isinstance(new_value, (list, tuple)):
+                    new_value = [new_value]
+
                 for v in new_value:
                     if v is None:
                         continue
@@ -211,6 +217,12 @@ def _dict_to_conf(lines, data, list_names=None):
             continue  # ignore additional configs
 
         if name in list_names:
+            # Ensure value is a list - if it's a string, wrap it
+            if isinstance(value, str):
+                value = [value]
+            elif not isinstance(value, (list, tuple)):
+                value = [value]
+
             for v in value:
                 if v is None:
                     continue

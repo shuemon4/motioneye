@@ -13,7 +13,13 @@
       "Bash(for file in motioneye/controls/smbctl.py motioneye/controls/tzctl.py motioneye/controls/wifictl.py motioneye/handlers/*.py)",
       "Bash(git:*)",
       "Bash(where sshpass:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(python3 -m py_compile:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3:*)",
+      "Bash(rsync:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

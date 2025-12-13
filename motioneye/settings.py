@@ -146,3 +146,15 @@ HTTP_BASIC_AUTH = False
 
 # provides the possibility to override the hostname
 SERVER_NAME = socket.gethostname()
+
+# RPi Camera RTSP Bridge settings (for Pi 5+ with libcamera)
+# Set to True/False to explicitly enable/disable, or None for auto-detect
+RPICAM_RTSP_ENABLED = None
+
+# TCP port for the RTSP bridge server (mediamtx)
+RPICAM_RTSP_PORT = 8554
+
+# Default camera stream settings for RPi cameras
+RPICAM_DEFAULT_WIDTH = 1920
+RPICAM_DEFAULT_HEIGHT = 1080
+RPICAM_DEFAULT_FRAMERATE = 30
