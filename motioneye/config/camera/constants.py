@@ -100,3 +100,153 @@ MOTION_50_REMOVED_PARAMS = {
     'auto_brightness',
     'setup_mode',
 }
+
+# Parameters that can be updated at runtime without daemon restart (Motion 5.0+)
+HOT_RELOAD_PARAMS = {
+    # Motion Detection (Tier 1 - most frequently adjusted)
+    'threshold',
+    'threshold_maximum',
+    'threshold_tune',
+    'noise_level',
+    'noise_tune',
+    'despeckle_filter',
+    'minimum_motion_frames',
+    'event_gap',
+    'lightswitch_percent',
+    'lightswitch_frames',
+    'static_object_time',
+    'smart_mask_speed',
+    'emulate_motion',
+
+    # Text Overlays (Tier 2)
+    'text_left',
+    'text_right',
+    'text_scale',
+    'text_changes',
+    'text_event',
+    'locate_motion_mode',
+    'locate_motion_style',
+
+    # Event Handlers (Tier 3)
+    'on_event_start',
+    'on_event_end',
+    'on_motion_detected',
+    'on_movie_start',
+    'on_movie_end',
+    'on_picture_save',
+    'on_action_user',
+    'on_area_detected',
+    'on_camera_found',
+    'on_camera_lost',
+    'on_secondary_detect',
+
+    # Capture Control
+    'pre_capture',
+    'post_capture',
+    'snapshot_interval',
+
+    # Picture Output
+    'picture_output',
+    'picture_output_motion',
+    'picture_quality',
+    'picture_exif',
+    'picture_filename',
+
+    # Movie Settings (runtime adjustable)
+    'movie_filename',
+    'movie_bps',
+    'movie_quality',
+    'movie_max_time',
+    'movie_extpipe_use',
+    'movie_extpipe',
+
+    # Timelapse
+    'timelapse_interval',
+    'timelapse_mode',
+    'timelapse_fps',
+    'timelapse_container',
+    'timelapse_filename',
+
+    # Secondary Detection
+    'secondary_interval',
+    'secondary_method',
+    'secondary_params',
+
+    # Streaming (safe subset)
+    'stream_preview_scale',
+    'stream_preview_newline',
+    'stream_preview_method',
+    'stream_preview_pps',
+    'stream_quality',
+    'stream_grey',
+    'stream_motion',
+    'stream_maxrate',
+    'stream_limit',
+
+    # Device Settings (safe subset)
+    'device_name',
+    'target_dir',
+    'watchdog_tmo',
+    'watchdog_kill',
+    'pause',
+
+    # PTZ Control
+    'ptz_auto_track',
+    'ptz_wait',
+    'ptz_move_track',
+    'ptz_pan_left',
+    'ptz_pan_right',
+    'ptz_tilt_up',
+    'ptz_tilt_down',
+    'ptz_zoom_in',
+    'ptz_zoom_out',
+
+    # SQL Database
+    'sql_event_start',
+    'sql_event_end',
+    'sql_movie_start',
+    'sql_movie_end',
+    'sql_pic_save',
+}
+
+# Parameters that always require daemon restart
+RESTART_REQUIRED_PARAMS = {
+    # System
+    'daemon', 'pid_file', 'log_level', 'log_file', 'log_type_str',
+
+    # Device
+    'libcam_device', 'libcam_options', 'v4l2_device', 'v4l2_params',
+    'netcam_url', 'netcam_params', 'netcam_high_url', 'netcam_userpass',
+
+    # Resolution
+    'width', 'height', 'framerate', 'rotate', 'flip_axis',
+
+    # Webcontrol
+    'webcontrol_port', 'webcontrol_ipv6', 'webcontrol_localhost',
+    'webcontrol_parms', 'webcontrol_interface', 'webcontrol_auth_method',
+    'webcontrol_authentication', 'webcontrol_tls', 'webcontrol_cert',
+    'webcontrol_key', 'webcontrol_header_params', 'webcontrol_cors_header',
+
+    # Streaming
+    'stream_port', 'stream_localhost', 'stream_tls',
+    'stream_cors_header', 'stream_authentication',
+
+    # Recording
+    'movie_output', 'movie_output_motion', 'movie_container',
+    'movie_codec', 'movie_passthrough', 'movie_retain',
+
+    # Database
+    'database_type', 'database_dbname', 'database_host',
+    'database_port', 'database_user', 'database_password',
+    'database_busy_timeout',
+
+    # Masks (file-based)
+    'mask_file', 'mask_privacy',
+
+    # Audio
+    'sound_device', 'sound_params', 'sound_trigger',
+    'sound_alerts', 'sound_window', 'sound_show', 'sound_file',
+
+    # Pipes
+    'video_pipe', 'video_pipe_motion', 'extpipe_use', 'extpipe',
+}

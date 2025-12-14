@@ -20,12 +20,14 @@ Functions: find_motion(), start(), stop(), restart(), check_enable_disable(), ch
 """
 
 import errno
+import json
 import logging
 import os.path
 import re
 import signal
 import subprocess
 import time
+import urllib.parse
 from shlex import quote
 
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
@@ -557,3 +559,197 @@ def _get_pid():
 
     except (OSError, ValueError):
         return None
+
+
+async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
+    """
+    Set a Motion parameter at runtime via hot reload API.
+
+    Args:
+        camera_id: MotionEye camera ID
+        param: Motion parameter name
+        value: New value for the parameter
+
+    Returns:
+        dict with keys:
+            - success: bool
+            - hot_reload: bool (True if applied without restart)
+            - old_value: str (previous value, if available)
+            - error: str (error message, if failed)
+    """
+    from motioneye.config.camera.constants import HOT_RELOAD_PARAMS
+
+    # Early check - if not in our known hot-reload list, don't try
+    if param not in HOT_RELOAD_PARAMS:
+        return {
+            'success': False,
+            'hot_reload': False,
+            'error': 'Parameter requires daemon restart'
+        }
+
+    # Check Motion version
+    if not is_motion_50():
+        return {
+            'success': False,
+            'hot_reload': False,
+            'error': 'Motion 5.0+ required for hot reload'
+        }
+
+    motion_camera_id = camera_id_to_motion_camera_id(camera_id)
+    if motion_camera_id is None:
+        return {
+            'success': False,
+            'hot_reload': False,
+            'error': f'Could not find motion camera id for camera {camera_id}'
+        }
+
+    # URL encode the value
+    encoded_value = urllib.parse.quote(str(value), safe='')
+    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/config/set?{param}={encoded_value}'
+
+    try:
+        request = HTTPRequest(
+            url,
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+        resp = await AsyncHTTPClient().fetch(request)
+
+        if resp.code == 200:
+            try:
+                data = json.loads(resp.body.decode('utf-8'))
+
+                if data.get('status') == 'ok' and data.get('hot_reload'):
+                    logging.debug(f'Hot reload: {param}={value} on camera {camera_id}')
+                    return {
+                        'success': True,
+                        'hot_reload': True,
+                        'old_value': data.get('old_value', '')
+                    }
+                else:
+                    # Motion reported the parameter needs restart
+                    return {
+                        'success': False,
+                        'hot_reload': False,
+                        'error': data.get('error', 'Parameter requires daemon restart')
+                    }
+            except json.JSONDecodeError:
+                # Fallback for non-JSON response (older API format)
+                logging.debug(f'Hot reload (non-JSON): {param}={value} on camera {camera_id}')
+                return {
+                    'success': True,
+                    'hot_reload': True,
+                    'old_value': ''
+                }
+        else:
+            return {
+                'success': False,
+                'hot_reload': False,
+                'error': f'HTTP {resp.code}'
+            }
+
+    except Exception as e:
+        logging.error(f'Failed to hot-reload {param}: {e}')
+        return {
+            'success': False,
+            'hot_reload': False,
+            'error': str(e)
+        }
+
+
+async def apply_config_changes(camera_id: int, old_config: dict, new_config: dict) -> dict:
+    """
+    Intelligently apply configuration changes using hot reload where possible.
+
+    Args:
+        camera_id: MotionEye camera ID
+        old_config: Previous Motion configuration dict
+        new_config: New Motion configuration dict
+
+    Returns:
+        dict with keys:
+            - hot_reloaded: list of param names that were hot-reloaded
+            - needs_restart: bool (True if any changes require restart)
+            - restart_params: list of param names that need restart
+            - errors: list of error messages
+    """
+    from motioneye.config.camera.constants import HOT_RELOAD_PARAMS
+
+    hot_reloaded = []
+    restart_params = []
+    errors = []
+
+    # Find changed parameters (only Motion parameters, not @ prefixed MotionEye internal ones)
+    all_params = set(old_config.keys()) | set(new_config.keys())
+    motion_params = [p for p in all_params if not p.startswith('@')]
+
+    for param in motion_params:
+        old_val = old_config.get(param)
+        new_val = new_config.get(param)
+
+        # Skip unchanged parameters
+        if old_val == new_val:
+            continue
+
+        # Skip None -> None
+        if old_val is None and new_val is None:
+            continue
+
+        # Convert values to string for comparison (Motion API uses strings)
+        old_str = str(old_val) if old_val is not None else ''
+        new_str = str(new_val) if new_val is not None else ''
+
+        if old_str == new_str:
+            continue
+
+        if param in HOT_RELOAD_PARAMS:
+            # Try hot reload
+            result = await set_config_hot(camera_id, param, new_str)
+
+            if result['success']:
+                hot_reloaded.append(param)
+                logging.debug(f'Camera {camera_id}: Hot-reloaded {param}={new_str}')
+            else:
+                # Hot reload failed, will need restart
+                restart_params.append(param)
+                if result.get('error'):
+                    errors.append(f"{param}: {result['error']}")
+                logging.debug(f'Camera {camera_id}: {param} requires restart: {result.get("error")}')
+        else:
+            # Parameter requires restart
+            restart_params.append(param)
+            logging.debug(f'Camera {camera_id}: {param} requires restart (not in HOT_RELOAD_PARAMS)')
+
+    return {
+        'hot_reloaded': hot_reloaded,
+        'needs_restart': len(restart_params) > 0,
+        'restart_params': restart_params,
+        'errors': errors
+    }
+
+
+async def is_hot_reload_available() -> bool:
+    """
+    Check if Motion's hot reload API is available.
+
+    Returns:
+        True if Motion 5.0+ with hot reload API is running
+    """
+    if not is_motion_50():
+        return False
+
+    if not running():
+        return False
+
+    try:
+        # Test with a safe parameter query
+        url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/0/config/list'
+        request = HTTPRequest(
+            url,
+            connect_timeout=2,
+            request_timeout=2,
+        )
+        resp = await AsyncHTTPClient().fetch(request)
+        return resp.code == 200
+    except Exception:
+        return False

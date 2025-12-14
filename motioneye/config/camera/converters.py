@@ -979,7 +979,17 @@ def motion_camera_dict_to_ui(
         ui['libcam_buffer_count'] = data.get('libcam_buffer_count', 4)
 
         # Autofocus controls for Camera v3 (imx708)
-        if data.get('@supports_autofocus'):
+        # Check stored flag first, then detect dynamically for existing cameras
+        supports_af = data.get('@supports_autofocus')
+        if supports_af is None:
+            # Detect autofocus support dynamically from libcamera device
+            from motioneye.controls import rpicamctl
+            device_id = data.get('libcam_device', 'camera0')
+            props = rpicamctl.get_camera_properties(device_id)
+            if props:
+                supports_af = props.get('supports_autofocus', False)
+
+        if supports_af:
             ui['autofocus_mode'] = data.get('@af_mode', 2)
             ui['autofocus_range'] = data.get('@af_range', 0)
             ui['lens_position'] = data.get('@lens_position', 0.0)
@@ -1370,3 +1380,58 @@ FILENAME_REGEX = r'^([A-Za-z0-9 ()/._-]|%[CYmdHMSqv])+$'
 DIRNAME_REGEX = r'^[A-Za-z0-9 ()/._-]+$'
 EMAIL_REGEX = r'^[A-Za-z0-9 _+.@^~<>,-]+$'
 WEBHOOK_URL_REGEX = r"^[^;']+$"
+
+
+# Mapping from UI parameter names to Motion parameter names
+UI_TO_MOTION_PARAMS = {
+    'frame_change_threshold': 'threshold',
+    'max_frame_change_threshold': 'threshold_maximum',
+    'auto_threshold_tuning': 'threshold_tune',
+    'noise_level': 'noise_level',
+    'auto_noise_detect': 'noise_tune',
+    'despeckle_filter': 'despeckle_filter',
+    'minimum_motion_frames': 'minimum_motion_frames',
+    'event_gap': 'event_gap',
+    'light_switch_detect': 'lightswitch_percent',
+    'text_scale': 'text_scale',
+    'streaming_framerate': 'stream_maxrate',
+    'streaming_quality': 'stream_quality',
+    'streaming_motion': 'stream_motion',
+    'image_quality': 'picture_quality',
+    'movie_quality': 'movie_quality',
+    'movie_file_name': 'movie_filename',
+    'max_movie_length': 'movie_max_time',
+    'pre_capture': 'pre_capture',
+    'post_capture': 'post_capture',
+    'snapshot_interval': 'snapshot_interval',
+    # Parameters that require restart
+    'resolution': ['width', 'height'],  # Special: maps to two params
+    'rotation': 'rotate',
+    'movie_format': 'movie_codec',
+    'streaming_port': 'stream_port',
+}
+
+
+def ui_param_requires_restart(ui_param: str) -> bool:
+    """
+    Check if a UI parameter change will require daemon restart.
+
+    Args:
+        ui_param: The UI parameter name (from frontend)
+
+    Returns:
+        True if changing this parameter requires restart
+    """
+    from motioneye.config.camera.constants import RESTART_REQUIRED_PARAMS, HOT_RELOAD_PARAMS
+
+    motion_param = UI_TO_MOTION_PARAMS.get(ui_param)
+
+    if motion_param is None:
+        # Unknown mapping - assume restart needed for safety
+        return True
+
+    if isinstance(motion_param, list):
+        # Multiple Motion params - restart if any require it
+        return any(p in RESTART_REQUIRED_PARAMS or p not in HOT_RELOAD_PARAMS for p in motion_param)
+
+    return motion_param in RESTART_REQUIRED_PARAMS or motion_param not in HOT_RELOAD_PARAMS

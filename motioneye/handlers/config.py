@@ -160,11 +160,43 @@ class ConfigHandler(BaseHandler):
 
             local_config = config.get_camera(camera_id)
             if utils.is_local_motion_camera(local_config):
-                local_config = config.motion_camera_ui_to_dict(ui_config, local_config)
+                # Get old config before update
+                old_motion_config = dict(local_config)
 
-                config.set_camera(camera_id, local_config)
+                # Convert UI to new Motion config
+                new_motion_config = config.motion_camera_ui_to_dict(ui_config, local_config)
 
-                on_finish(None, True)  # (no error, motion needs restart)
+                # Try to apply changes using hot-reload where possible
+                needs_restart = True  # Default to restart for safety
+
+                if motionctl.is_motion_50() and motionctl.running():
+                    try:
+                        result = await motionctl.apply_config_changes(
+                            camera_id, old_motion_config, new_motion_config
+                        )
+
+                        if result['hot_reloaded']:
+                            logging.info(
+                                f'Camera {camera_id}: Hot-reloaded {len(result["hot_reloaded"])} parameters: '
+                                f'{", ".join(result["hot_reloaded"][:5])}{"..." if len(result["hot_reloaded"]) > 5 else ""}'
+                            )
+
+                        needs_restart = result['needs_restart']
+
+                        if result['restart_params']:
+                            logging.info(
+                                f'Camera {camera_id}: Restart needed for: '
+                                f'{", ".join(result["restart_params"][:5])}{"..." if len(result["restart_params"]) > 5 else ""}'
+                            )
+
+                    except Exception as e:
+                        logging.error(f'Hot-reload failed for camera {camera_id}: {e}')
+                        needs_restart = True  # Fall back to restart on error
+
+                # Always persist to disk
+                config.set_camera(camera_id, new_motion_config)
+
+                on_finish(None, needs_restart)
 
             elif utils.is_remote_camera(local_config):
                 # update the camera locally
