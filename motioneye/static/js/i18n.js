@@ -39,8 +39,9 @@
                 basePath += '/';
             }
 
-            // English needs no translation file - it's the source language
-            if (currentLang === 'en') {
+            // Esperanto (eo) is the source language - no translation needed
+            // English and Esperanto both use the source text
+            if (currentLang === 'en' || currentLang === 'eo') {
                 loaded = true;
                 if (callback) callback();
                 return;
@@ -79,7 +80,7 @@
         t: function(key, vars) {
             var result;
 
-            if (currentLang === 'en' || !translations[key]) {
+            if (currentLang === 'en' || currentLang === 'eo' || !translations[key]) {
                 result = key;
             } else {
                 result = translations[key];
@@ -102,7 +103,7 @@
          * Call this after page load and after dynamic content is added
          */
         translatePage: function() {
-            if (currentLang === 'en') return; // No translation needed for English
+            if (currentLang === 'en' || currentLang === 'eo') return; // No translation needed for source languages
 
             // Translate text content
             var elements = document.querySelectorAll('[data-i18n]');
@@ -152,7 +153,7 @@
          * @param {HTMLElement} container - The container element to translate
          */
         translateElement: function(container) {
-            if (currentLang === 'en' || !container) return;
+            if (currentLang === 'en' || currentLang === 'eo' || !container) return;
 
             var elements = container.querySelectorAll('[data-i18n]');
             for (var i = 0; i < elements.length; i++) {

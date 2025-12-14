@@ -1,0 +1,33 @@
+<!-- Preferences -->
+<div class="settings-section-title" id="preferencesDiv">
+    <span class="help-mark" data-i18n-title="user preferences" title="user preferences">?</span>
+    <a class="settings-section-title" data-i18n="Preferences">Preferences</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" min="1" max="4" snap="1" ticksnum="4" decimals="0" id="layoutColumnsRow">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Layout Columns">Layout Columns</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled prefs" id="layoutColumnsSlider"></td>
+        <td><span class="help-mark" data-i18n-title="configures the number of columns used to lay out the camera frames" title="configures the number of columns used to lay out the camera frames">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Fit Frames Vertically">Fit Frames Vertically</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled prefs" id="fitFramesVerticallySwitch"></td>
+        <td><span class="help-mark" data-i18n-title="controls whether frame sizes can be reduced to vertically fit the window or not" title="controls whether frame sizes can be reduced to vertically fit the window or not">?</span></td>
+    </tr>
+    <tr class="settings-item" min="1" max="4" snap="1" ticksnum="4" decimals="0" id="layoutRows" depends="fitFramesVertically">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Layout Rows">Layout Rows</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled prefs" id="layoutRowsSlider"></td>
+        <td><span class="help-mark" data-i18n-title="configures the number of rows used to lay out the camera frames" title="configures the number of rows used to lay out the camera frames">?</span></td>
+    </tr>
+    <tr class="settings-item" min="0" max="100" snap="0" ticksnum="6" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame Rate Dimmer">Frame Rate Dimmer</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled prefs" id="framerateDimmerSlider"></td>
+        <td><span class="help-mark" data-i18n-title="dims the global frame rate to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)" title="dims the global frame rate to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)">?</span></td>
+    </tr>
+    <tr class="settings-item" min="1" max="100" snap="0" ticks="1|20|40|60|80|100" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Resolution Dimmer">Resolution Dimmer</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled prefs" id="resolutionDimmerSlider"></td>
+        <td><span class="help-mark" data-i18n-title="dims the actual resolution of all cameras to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)" title="dims the actual resolution of all cameras to save network bandwidth and traffic (doesn't work on simple MJPEG cameras)">?</span></td>
+    </tr>
+</table>

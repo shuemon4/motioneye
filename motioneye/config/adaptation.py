@@ -166,8 +166,10 @@ def camera_name_to_device_name(v, data):
 _LEGACY_FORMAT_MAPPING = {
     'mpeg4': 'mp4',
     'msmpeg4': 'mp4',
-    'swf': 'flv',
+    'swf': 'mp4',
+    'flv': 'mp4',
     'ffv1': 'mkv',
+    'ogg': 'mp4',
 }
 
 
@@ -176,8 +178,10 @@ def movie_codec_to_container(v, data):
 
     Also migrates legacy formats that were removed in Motion 5.0:
     - mpeg4, msmpeg4 -> mp4
-    - swf -> flv
+    - swf, flv, ogg -> mp4
     - ffv1 -> mkv
+
+    Note: Minimal migration support only. Project targets fresh Pi 5 installs.
     """
     container = _LEGACY_FORMAT_MAPPING.get(v, v)
     return {'movie_container': container}

@@ -1,0 +1,133 @@
+<div class="settings-section-title" id="deviceSectionDiv">
+    <input type="checkbox" class="styled section device camera-config" id="videoDeviceEnabledSwitch">
+    <span class="help-mark" data-i18n-title="enable this if you want to use this camera device" title="enable this if you want to use this camera device">?</span>
+    <a class="settings-section-title" data-i18n="Video Device">Video Device</a>
+    <span class="minimize open"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" required="true" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Name">Camera Name</span></td>
+        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceNameEntry" placeholder="<span data-i18n="Camera name …">Camera name …</span>"></td>
+        <td><span class="help-mark" data-i18n-title="an alias for this camera device" title="an alias for this camera device">?</span></td>
+    </tr>
+    <tr class="settings-item" required="true" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera ID">Camera ID</span></td>
+        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceIdEntry" readonly="readonly"></td>
+        <td><span class="help-mark" data-i18n-title="the camera identifier number" title="the camera identifier number">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera device">Camera device</span></td>
+        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceUrlEntry" readonly="readonly"></td>
+        <td><span class="help-mark" data-i18n-title="Input device (eg: /dev/video) or URL (eg: rtsp://192.168.1.1/stream)" title="Input device (eg: /dev/video) or URL (eg: rtsp://192.168.1.1/stream)">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Type">Camera Type</span></td>
+        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceTypeEntry" readonly="readonly"></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Automatic Brightness">Automatic Brightness</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled device camera-config" id="autoBrightnessSwitch"></td>
+        <td><span class="help-mark" data-i18n-title="enables software automatic brightness (only recommended for cameras without autobrightness)" title="enables software automatic brightness (only recommended for cameras without autobrightness)">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Video resolution">Video resolution</span></td>
+        <td class="settings-item-value">
+            <select class="video-resolution styled device camera-config" id="resolutionSelect">
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="the video resolution (larger values produce better quality, but require more CPU power, larger storage space and bandwidth)" title="the video resolution (larger values produce better quality, but require more CPU power, larger storage space and bandwidth)">?</span></td>
+    </tr>
+    <tr class="settings-item" min="96" max="4096" required="true" depends="resolution=custom">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Width">Width</span></td>
+        <td class="settings-item-value"><input type="text" class="styled number device camera-config" id="customWidthEntry"></td>
+        <td><span class="help-mark" data-i18n-title="enter a custom resolution width" title="enter a custom resolution width">?</span></td>
+    </tr>
+    <tr class="settings-item" min="96" max="4096" required="true" depends="resolution=custom">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Height">Height</span></td>
+        <td class="settings-item-value"><input type="text" class="styled number device camera-config" id="customHeightEntry"></td>
+        <td><span class="help-mark" data-i18n-title="enter a custom resolution height" title="enter a custom resolution height">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Video Rotation">Video Rotation</span></td>
+        <td class="settings-item-value">
+            <select class="rotation styled device camera-config" id="rotationSelect">
+                <option value="0">0&deg;</option>
+                <option value="90">90&deg;</option>
+                <option value="180">180&deg;</option>
+                <option value="270">270&deg;</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="use this to rotate the captured image if your camera is not positioned correctly" title="use this to rotate the captured image if your camera is not positioned correctly">?</span></td>
+    </tr>
+    <tr class="settings-item" min="2" max="30" snap="0" ticks="2|5|10|15|20|25|30" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame rate">Frame rate</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="framerateSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)" title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Mode">Autofocus Mode</span></td>
+        <td class="settings-item-value">
+            <select class="styled device camera-config" id="autofocusModeSelect">
+                <option value="0" data-i18n="Manual">Manual</option>
+                <option value="1" data-i18n="Auto (Single)">Auto (Single)</option>
+                <option value="2" data-i18n="Continuous">Continuous</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="select the autofocus mode: manual (fixed focus distance), auto (focuses once), or continuous (always focusing)" title="select the autofocus mode: manual (fixed focus distance), auto (focuses once), or continuous (always focusing)">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="autofocusMode!=0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Range">Autofocus Range</span></td>
+        <td class="settings-item-value">
+            <select class="styled device camera-config" id="autofocusRangeSelect">
+                <option value="0" data-i18n="Normal">Normal</option>
+                <option value="1" data-i18n="Macro (Close-up)">Macro (Close-up)</option>
+                <option value="2" data-i18n="Full Range">Full Range</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="select the focus search range: normal for general use, macro for close objects, full for maximum range" title="select the focus search range: normal for general use, macro for close objects, full for maximum range">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="autofocusMode=0" min="0" max="10" snap="0" decimals="1">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Focus Position">Focus Position</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="lensPositionSlider"></td>
+        <td><span class="help-mark" data-i18n-title="manual focus position in dioptres: 0 = infinity, 2 = 0.5m, 10 = 0.1m (macro)" title="manual focus position in dioptres: 0 = infinity, 2 = 0.5m, 10 = 0.1m (macro)">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Privacy mask">Privacy mask</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled device camera-config" id="privacyMaskSwitch"></td>
+        <td><span class="help-mark" data-i18n-title="enables image masking to prevent some image areas from being recorded to protect privacy" title="enables image masking to prevent some image areas from being recorded to protect privacy">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="privacyMask">
+        <td class="settings-item-label"><span class="settings-item-label"></span></td>
+        <td class="settings-item-value">
+            <div class="button normal-button edit-mask-button" id="privacyMaskEditButton" data-i18n="Edit Mask">Edit Mask</div>
+            <div class="button normal-button save-mask-button" id="privacyMaskSaveButton" data-i18n="Save Mask">Save Mask</div>
+            <input type="text" class="device camera-config" id="privacyMaskLinesEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="click this button to enable/disable the mask editor" title="click this button to enable/disable the mask editor">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="privacyMask">
+        <td class="settings-item-label"><span class="settings-item-label"></span></td>
+        <td class="settings-item-value"><div class="button normal-button clear-mask-button" id="privacyMaskClearButton">Clear Mask</div></td>
+        <td><span class="help-mark" title="click this button to clear the current mask">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Extra Options">Extra Options</span></td>
+        <td class="settings-item-value"><textarea class="styled device camera-config" id="extraOptionsEntry" rows="3"></textarea></td>
+        <td><span class="help-mark" data-i18n-title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)" title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)">?</span></td>
+    </tr>
+    {% for config in camera_sections.get('device', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+</table>

@@ -824,6 +824,7 @@ def motion_camera_dict_to_ui(
     data,
     *,
     get_action_commands_func,
+    get_main_func=None,
 ):
     """
     Convert Motion config dict to camera UI format.
@@ -831,6 +832,7 @@ def motion_camera_dict_to_ui(
     Args:
         data: Motion configuration dictionary
         get_action_commands_func: Function to get action commands for camera
+        get_main_func: Function to get main configuration (for webcontrol_port in Motion 5.0)
 
     Returns:
         UI configuration dictionary
@@ -888,7 +890,11 @@ def motion_camera_dict_to_ui(
         'streaming_resolution': int(data['@webcam_resolution']),
         'streaming_server_resize': data['@webcam_server_resize'],
         'streaming_direct_mode': data.get('@streaming_direct_mode', True),
-        'streaming_port': int(data.get('stream_port', 8081)),
+        # Motion 5.0 removed stream_port; use webcontrol_port from main config
+        'streaming_port': int(
+            data.get('stream_port')
+            or (get_main_func() if get_main_func else {}).get('webcontrol_port', 8081)
+        ),
         'streaming_auth_mode': {0: 'disabled', 1: 'basic', 2: 'digest'}.get(
             data.get('stream_auth_method'), 'disabled'
         ),
@@ -985,15 +991,27 @@ def motion_camera_dict_to_ui(
             # Detect autofocus support dynamically from libcamera device
             from motioneye.controls import rpicamctl
             device_id = data.get('libcam_device', 'camera0')
+
+            # Handle "auto" device selection - use first available camera
+            if device_id == 'auto':
+                devices = rpicamctl.list_devices()
+                if devices:
+                    device_id = devices[0][0]  # Use first camera's ID
+                    logging.debug(f'Auto-detected camera: {device_id}')
+
+            logging.debug(f'Checking autofocus support for device: {device_id}')
             props = rpicamctl.get_camera_properties(device_id)
+            logging.debug(f'Camera properties: {props}')
             if props:
                 supports_af = props.get('supports_autofocus', False)
+                logging.debug(f'Autofocus support from properties: {supports_af}')
 
         if supports_af:
             ui['autofocus_mode'] = data.get('@af_mode', 2)
             ui['autofocus_range'] = data.get('@af_range', 0)
             ui['lens_position'] = data.get('@lens_position', 0.0)
             ui['supports_autofocus'] = True
+            logging.debug(f'Autofocus enabled in UI: mode={ui["autofocus_mode"]}, range={ui["autofocus_range"]}, lens={ui["lens_position"]}')
 
         resolutions = utils.COMMON_RESOLUTIONS
         resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]

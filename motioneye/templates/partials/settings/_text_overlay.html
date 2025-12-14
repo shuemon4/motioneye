@@ -1,0 +1,50 @@
+<div class="settings-section-title" id="textOverlaySectionDiv">
+    <input type="checkbox" class="styled section text-overlay camera-config" id="textOverlayEnabledSwitch">
+    <span class="help-mark" data-i18n-title="choose what information is displayed on the captured frames" title="choose what information is displayed on the captured frames">?</span>
+    <a class="settings-section-title" data-i18n="Text Overlay">Text Overlay</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Left Text">Left Text</span></td>
+        <td class="settings-item-value">
+            <select class="styled text-overlay camera-config" id="leftTextTypeSelect">
+                <option value="camera-name" data-i18n="Camera Name">Camera Name</option>
+                <option value="timestamp" data-i18n="Timestamp">Timestamp</option>
+                <option value="custom-text" data-i18n="Custom Text">Custom Text</option>
+                <option value="disabled" data-i18n="Disabled">Disabled</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the text displayed on the movies and images, on the lower left corner" title="sets the text displayed on the movies and images, on the lower left corner">?</span></td>
+    </tr>
+    <tr class="settings-item" required="true" depends="leftTextType=custom-text" strip="true">
+        <td class="settings-item-label"></td>
+        <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="leftTextEntry" placeholder="<span data-i18n="Custom text…">Custom text…</span>"></td>
+        <td><span class="help-mark" data-i18n-title="sets a custom left text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%T = HH:MM:SS, = new line" title="sets a custom left text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, %%T = HH:MM:SS, = new line">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Right Text">Right Text</span></td>
+        <td class="settings-item-value">
+            <select class="styled text-overlay camera-config" id="rightTextTypeSelect">
+                <option value="camera-name" data-i18n="Camera Name">Camera Name</option>
+                <option value="timestamp" data-i18n="Timestamp">Timestamp</option>
+                <option value="custom-text" data-i18n="Custom Text">Custom Text</option>
+                <option value="disabled" data-i18n="Disabled">Disabled</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="Sets the text displayed on the movies and pictures, in the lower right corner" title="Sets the text displayed on the movies and pictures, in the lower right corner">?</span></td>
+    </tr>
+    <tr class="settings-item" required="true" depends="rightTextType=custom-text" strip="true">
+        <td class="settings-item-label"></td>
+        <td class="settings-item-value"><input type="text" class="styled text-overlay camera-config" id="rightTextEntry" placeholder="<span data-i18n="Custom text…">Custom text…</span>"></td>
+        <td><span class="help-mark" data-i18n-title="sets a custom right text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = number of event, %%T = HH: MM: SS, = new line" title="sets a custom right text; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = number of event, %%T = HH: MM: SS, = new line">?</span></td>
+    </tr>
+    <tr class="settings-item" min="1" max="10" snap="1" ticksnum="10" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Text Scale">Text Scale</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled text-overlay camera-config" id="textScaleSlider"></td>
+        <td><span class="help-mark" data-i18n-title="sets the size of the overlay text" title="sets the size of the overlay text">?</span></td>
+    </tr>
+    {% for config in camera_sections.get('text-overlay', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+</table>

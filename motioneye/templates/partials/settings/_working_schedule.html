@@ -1,0 +1,84 @@
+<div class="settings-section-title" depends="motionDetectionEnabled" id="workingScheduleSectionDiv">
+    <input type="checkbox" class="styled section working-schedule camera-config" id="workingScheduleEnabledSwitch">
+    <span class="help-mark" data-i18n-title="enable this if you want to define a weekly working schedule for motion detection." title="enable this if you want to define a weekly working schedule for motion detection.">?</span>
+    <a class="settings-section-title" data-i18n="Working Schedule">Working Schedule</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Monday">Monday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="mondayEnabledSwitch">
+            <span class="settings-item-unit time" data-i18n="from">from</span><input type="text" class="styled working-schedule time camera-config" id="mondayFromEntry">
+            <span class="settings-item-unit time" data-i18n="to">to</span><input type="text" class="styled working-schedule time camera-config" id="mondayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Mondays." title="sets the working schedule time interval for Mondays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Tuesday">Tuesday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="tuesdayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="tuesdayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="tuesdayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Tuesdays." title="sets the working schedule time interval for Tuesdays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Wednesday">Wednesday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="wednesdayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="wednesdayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="wednesdayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Wednesdays." title="sets the working schedule time interval for Wednesdays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Thursday">Thursday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="thursdayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="thursdayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="thursdayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Thursdays." title="sets the working schedule time interval for Thursdays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Friday">Friday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="fridayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="fridayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="fridayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Fridays." title="sets the working schedule time interval for Fridays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Saturday">Saturday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="saturdayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="saturdayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="saturdayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Saturdays." title="sets the working schedule time interval for Saturdays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Sunday">Sunday</span></td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled working-schedule camera-config" id="sundayEnabledSwitch">
+            <span class="settings-item-unit time">from</span><input type="text" class="styled working-schedule time camera-config" id="sundayFromEntry">
+            <span class="settings-item-unit time">to</span><input type="text" class="styled working-schedule time camera-config" id="sundayToEntry">
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the working schedule time interval for Sundays." title="sets the working schedule time interval for Sundays.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="motionDetectionEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Detect Motion">Detect Motion</span></td>
+        <td class="settings-item-value">
+            <select class="styled working-schedule camera-config" id="workingScheduleTypeSelect">
+                <option value="during" data-i18n="During Working Schedule">During Working Schedule</option>
+                <option value="outside" data-i18n="Outside Working Schedule">Outside Working Schedule</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets whether motion detection should be active during or outside the working schedule." title="sets whether motion detection should be active during or outside the working schedule.">?</span></td>
+    </tr>
+    {% for config in camera_sections.get('working-schedule', {}).get('configs', []) %}
+        {{config_item(config, "motionDetectionEnabled")}}
+    {% endfor %}
+</table>

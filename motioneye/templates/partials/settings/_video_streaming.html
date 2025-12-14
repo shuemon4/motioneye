@@ -1,0 +1,87 @@
+<div class="settings-section-title" minimize-switch-independent="true" id="streamingSectionDiv">
+    <input type="checkbox" class="styled section streaming camera-config" id="videoStreamingEnabledSwitch">
+    <span class="help-mark" data-i18n-title="enable this if you want video streaming for this camera" title="enable this if you want video streaming for this camera">?</span>
+    <a class="settings-section-title" data-i18n="Video Streaming">Video Streaming</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" min="1" max="30" snap="0" ticks="1|5|10|15|20|25|30" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Frame Rate">Streaming Frame Rate</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingFramerateSlider"></td>
+        <td><span class="help-mark" data-i18n-title="sets the number of frames transmitted every second on the live streaming." title="sets the number of frames transmitted every second on the live streaming.">?</span></td>
+    </tr>
+    <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Quality">Streaming Quality</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingQualitySlider"></td>
+        <td><span class="help-mark" data-i18n-title="sets the live streaming quality (higher values produce a better video quality but require more bandwidth)." title="sets the live streaming quality (higher values produce a better video quality but require more bandwidth).">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Image Resizing">Streaming Image Resizing</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingServerResizeSwitch"></td>
+        <td><span class="help-mark" data-i18n-title="when this is enabled, the images are resized before they are sent to the browser (disable when running on a slow CPU)." title="when this is enabled, the images are resized before they are sent to the browser (disable when running on a slow CPU).">?</span></td>
+    </tr>
+    <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%" depends="streamingServerResize">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Resolution">Streaming Resolution</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled streaming camera-config" id="streamingResolutionSlider"></td>
+        <td><span class="help-mark" data-i18n-title="the streaming resolution given as percent of the video device resolution (higher values produce better video quality but require more bandwidth)" title="the streaming resolution given as percent of the video device resolution (higher values produce better video quality but require more bandwidth)">?</span></td>
+    </tr>
+    <tr class="settings-item" min="1024" max="65535" depends="videoStreamingEnabled" required="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Streaming Port">Streaming Port</span></td>
+        <td class="settings-item-value"><input type="text" class="styled streaming camera-config" id="streamingPortEntry"></td>
+        <td><span class="help-mark" data-i18n-title="sets the TCP port on which the webcam streaming server listens" title="sets the TCP port on which the webcam streaming server listens">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="videoStreamingEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Direct Streaming">Direct Streaming</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingDirectModeSwitch" checked></td>
+        <td><span class="help-mark" data-i18n-title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues." title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="videoStreamingEnabled">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Authentication mode">Authentication mode</span></td>
+        <td class="settings-item-value">
+            <select class="styled streaming camera-config" id="streamingAuthModeSelect">
+                <option value="disabled" data-i18n="Disabled">Disabled</option>
+                <option value="basic">Basic</option>
+                <option value="digest">Digest</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="the authentication method used by the stream (choose Basic instead of Digest if you encounter issues with third party apps); surveillance credentials will be used" title="the authentication method used by the stream (choose Basic instead of Digest if you encounter issues with third party apps); surveillance credentials will be used">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Motion Optimization">Motion Optimization</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingMotion"></td>
+        <td><span class="help-mark" data-i18n-title="enable this if you want a lower frame rate for the live streaming when no motion is detected" title="enable this if you want a lower frame rate for the live streaming when no motion is detected">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="videoStreamingEnabled">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Useful URLs">Useful URLs</span></td>
+        <td class="settings-item-value">
+            <div class="html styled streaming camera-config" id="streamingSnapshotUrlHtml">
+                <a href="javascript:showSnapshotUrl()" data-i18n="Snapshot URL">Snapshot URL</a>
+            </div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="a URL that provides a JPEG image with the most recent snapshot of the camera" title="a URL that provides a JPEG image with the most recent snapshot of the camera">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"></td>
+        <td class="settings-item-value">
+            <div class="html styled streaming camera-config" id="streamingMjpgUrlHtml">
+                <a href="javascript:showMjpgUrl()" data-i18n="Streaming URL">Streaming URL</a>
+            </div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="a URL that provides a MJPEG stream of the camera" title="a URL that provides a MJPEG stream of the camera">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"></td>
+        <td class="settings-item-value">
+            <div class="html styled streaming camera-config" id="streamingEmbedUrlHtml">
+                <a href="javascript:showEmbedUrl()" data-i18n="Embed URL">Embed URL</a>
+            </div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="a URL that provides a minimal HTML document containing the camera frame, ready to be embedded" title="a URL that provides a minimal HTML document containing the camera frame, ready to be embedded">?</span></td>
+    </tr>
+    {% for config in camera_sections.get('streaming', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+</table>

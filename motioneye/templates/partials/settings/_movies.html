@@ -1,0 +1,103 @@
+<div class="settings-section-title" id="moviesSectionDiv">
+    <input type="checkbox" class="styled section movies camera-config" id="moviesEnabledSwitch">
+    <span class="help-mark" data-i18n-title="enable this if you want to record movies" title="enable this if you want to record movies">?</span>
+    <a class="settings-section-title" data-i18n="Movies">Movies</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" required="true" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie File Name">Movie File Name</span></td>
+        <td class="settings-item-value"><input type="text" class="styled movies camera-config" id="movieFileNameEntry" placeholder="<span data-i18n="File name Template…">File name Template…</span>"></td>
+        <td><span class="help-mark" data-i18n-title="sets the name pattern for the movie files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder." title="sets the name pattern for the movie files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder.">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie Passthrough">Movie Passthrough</span></td>
+        <td class="settings-item-value"><input type="checkbox" class="styled movies camera-config" id="moviePassthroughSwitch"></td>
+        <td><span class="help-mark" data-i18n-title="Create movie files of the motion directly from the camera. This option should reduce CPU usage but does increase memory requirements. No image processing is performed so text overlays, privacy masks etc will not be on the resulting video." title="Create movie files of the motion directly from the camera. This option should reduce CPU usage but does increase memory requirements. No image processing is performed so text overlays, privacy masks etc will not be on the resulting video.">?</span></td>
+    </tr>
+    <tr class="settings-item" depends="!moviePassthrough">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie format">Movie format</span></td>
+        <td class="settings-item-value">
+            <select class="styled movies camera-config" id="movieFormatSelect">
+                <option value="mp4">H.264 (.mp4)</option>
+                <option value="mkv">Matroska Video (.mkv)</option>
+                <option value="mov">QuickTime (.mov)</option>
+                <option value="webm">WebM VP8 (.webm)</option>
+                {% if has_h264_nvenc_support %}
+                <option value="mp4:h264_nvenc">H.264/NVENC (.mp4)</option>
+                {% endif %}
+                {% if has_h264_nvmpi_support %}
+                <option value="mp4:h264_nvmpi">H.264/NVMPI (.mp4)</option>
+                {% endif %}
+                {% if has_h264_qsv_support %}
+                <option value="mp4:h264_qsv">H.264/QSV (.mp4)</option>
+                {% endif %}
+                {% if has_h264_omx_support %}
+                <option value="mp4:h264_omx">H.264/OMX (.mp4)</option>
+                {% endif %}
+                {% if has_h264_v4l2m2m_support %}
+                <option value="mp4:h264_v4l2m2m">H.264/V4L2M2M (.mp4)</option>
+                {% endif %}
+                <option value="hevc">HEVC (.mp4)</option>
+                {% if has_hevc_nvenc_support %}
+                <option value="mp4:hevc_nvenc">HEVC/NVENC (.mp4)</option>
+                {% endif %}
+                {% if has_hevc_nvmpi_support %}
+                <option value="mp4:hevc_nvmpi">HEVC/NVMPI (.mp4)</option>
+                {% endif %}
+                {% if has_hevc_qsv_support %}
+                <option value="mp4:hevc_qsv">HEVC/QSV (.mp4)</option>
+                {% endif %}
+                {% if has_h264_omx_support %}
+                <option value="mkv:h264_omx">Matroska Video/OMX (.mkv)</option>
+                {% endif %}
+                {% if has_h264_v4l2m2m_support %}
+                <option value="mkv:h264_v4l2m2m">Matroska Video/V4L2M2M (.mkv)</option>
+                {% endif %}
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player." title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player.">?</span></td>
+    </tr>
+    <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie Quality">Movie Quality</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled movies camera-config" id="movieQualitySlider"></td>
+        <td><span class="help-mark" data-i18n-title="sets the MPEG video quality (higher values produce a better video quality but require more storage space)." title="sets the MPEG video quality (higher values produce a better video quality but require more storage space).">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Recording Mode">Recording Mode</span></td>
+        <td class="settings-item-value">
+            <select class="styled movies camera-config" id="recordingModeSelect">
+                <option value="motion-triggered" data-i18n="Motion Triggered">Motion Triggered</option>
+                <option value="continuous" data-i18n="Continuous Recording">Continuous Recording</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="sets the recording mode: Motion Triggered = a new movie created whenever motion is detected, Continuous Recording = one big movie file." title="sets the recording mode: Motion Triggered = a new movie created whenever motion is detected, Continuous Recording = one big movie file.">?</span></td>
+    </tr>
+    <tr class="settings-item" min="0" max="86400" required="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Maximum Movie Length">Maximum Movie Length</span></td>
+        <td class="settings-item-value"><input type="text" class="number styled movies camera-config" id="maxMovieLengthEntry"><span class="settings-item-unit" data-i18n="seconds">seconds</span></td>
+        <td><span class="help-mark" data-i18n-title="sets the maximum length of movies, in seconds; if the motion event lasts longer, a new movie file is created; use 0 for unlimited length." title="sets the maximum length of movies, in seconds; if the motion event lasts longer, a new movie file is created; use 0 for unlimited length.">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Preserve Movies">Preserve Movies</span></td>
+        <td class="settings-item-value">
+            <select class="styled movies camera-config" id="preserveMoviesSelect">
+                <option value="1" data-i18n="For One Day">For One Day</option>
+                <option value="7" data-i18n="For One Week">For One Week</option>
+                <option value="30" data-i18n="For One Month">For One Month</option>
+                <option value="365" data-i18n="For One Year">For One Year</option>
+                <option value="0" data-i18n="Forever">Forever</option>
+                <option value="-1" data-i18n="Custom">Custom</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="movies older than the specified duration are automatically deleted to free up storage space." title="movies older than the specified duration are automatically deleted to free up storage space.">?</span></td>
+    </tr>
+    <tr class="settings-item" min="1" max="3650" depends="preserveMovies=-1" required="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movies Lifetime">Movies Lifetime</span></td>
+        <td class="settings-item-value"><input type="text" class="styled number movies camera-config" id="moviesLifetimeEntry"><span class="settings-item-unit" data-i18n="days">days</span></td>
+        <td><span class="help-mark" data-i18n-title="sets the number of days after which the movies will be deleted automatically." title="sets the number of days after which the movies will be deleted automatically.">?</span></td>
+    </tr>
+    {% for config in camera_sections.get('movies', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+</table>

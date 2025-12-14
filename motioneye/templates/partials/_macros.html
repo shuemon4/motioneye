@@ -1,0 +1,48 @@
+{% macro config_item(config, depends="") -%}
+    <tr class="settings-item additional-config"
+            {% if config.get('reboot') and enable_reboot %}reboot="true"{% endif %}
+            {% if config.get('required') %}required="true"{% endif %}
+            {% if config.get('strip') %}strip="true"{% endif %}
+            {% if config.get('depends') %}depends="{{' '.join(config['depends'])}}{% if depends %} {{depends}}{% endif %}"{% endif %}
+            {% if config.get('min') is not none %}min="{{config['min']}}"{% endif %}
+            {% if config.get('max') is not none %}max="{{config['max']}}"{% endif %}
+            {% if config.get('floating') %}floating="true"{% endif %}
+            {% if config.get('sign') %}sign="true"{% endif %}
+            {% if config.get('snap') is not none %}snap="{{config['snap']}}"{% endif %}
+            {% if config.get('ticks') %}ticks="{{config['ticks']}}"{% endif %}
+            {% if config.get('ticksnum') is not none %}ticksnum="{{config['ticksnum']}}"{% endif %}
+            {% if config.get('decimals') is not none %}decimals="{{config['decimals']}}"{% endif %}
+            {% if config.get('unit') %}unit="{{config['unit']}}"{% endif %}
+            {% if config.get('validate') %}validate="{{config['validate']}}"{% endif %}>
+        {% if config['type'] == 'separator' %}
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+        {% else %}
+        <td class="settings-item-label"><span class="settings-item-label">{{config['label']}}</span></td>
+        <td class="settings-item-value">
+            {% if config['type'] == 'str' %}
+                <input type="text" class="styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Entry">
+                {% if config['unit'] %}<span class="settings-item-unit">{{config['unit']}}</span>{% endif %}
+            {% elif config['type'] == 'pwd' %}
+                <input type="password" autocomplete="new-password" class="styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Entry">
+            {% elif config['type'] == 'number' %}
+                <input type="text" class="number styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Entry">
+                {% if config['unit'] %}<span class="settings-item-unit">{{config['unit']}}</span>{% endif %}
+            {% elif config['type'] == 'range' %}
+                <input type="text" class="range styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Slider">
+            {% elif config['type'] == 'bool' %}
+                <input type="checkbox" class="styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Switch">
+            {% elif config['type'] == 'choices' %}
+                <select class="styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Select">
+                    {% for choice in config['choices'] %}
+                    <option value="{{choice[0]}}">{{choice[1]}}</option>
+                    {% endfor %}
+                </select>
+                {% if config['unit'] %}<span class="settings-item-unit">{{config['unit']}}</span>{% endif %}
+            {% elif config['type'] == 'html' %}
+                <div class="html styled {{config['section']}} {% if config.get('camera') %}camera{% else %}main{% endif %}-config" id="{{config['name']}}Html"></div>
+            {% endif %}
+        </td>
+        <td>{% if config.get('description') %}<span class="help-mark" title="{{config['description']}}">?</span>{% endif %}</td>
+        {% endif %}
+    </tr>
+{%- endmacro %}

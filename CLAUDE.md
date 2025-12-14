@@ -192,6 +192,25 @@ All documentation files should follow this pattern:
 
 ---
 
+### `/directories/`
+**Purpose**: Navigation indexes for large files to help AI agents efficiently locate and modify code.
+
+**Contents**:
+- `main-html-index.md` - Comprehensive index of `motioneye/templates/main.html` (~1400 lines)
+  - Line number ranges for all UI sections
+  - Element ID reference tables
+  - CSS class documentation
+  - Dependency system explanation
+  - i18n system details
+
+**Usage**: Read the index file BEFORE editing the corresponding source file to:
+- Find the exact line range for the section you need to modify
+- Identify element IDs and their purposes
+- Understand dependencies between settings
+- Locate dynamic content injection points
+
+---
+
 ## Root-Level Documents
 
 The following documents live directly in `/docs/`:

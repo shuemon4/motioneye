@@ -1,0 +1,85 @@
+<!-- General Settings -->
+<div class="settings-section-title" id="generalSectionDiv">
+    <span class="help-mark" data-i18n-title="general settings, not related to any camera" title="general settings, not related to any camera">?</span>
+    <a class="settings-section-title" data-i18n="General Settings">General Settings</a>
+    <span class="minimize"></span>
+</div>
+<table class="settings">
+    <tr class="settings-item" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Language">Language</span></td>
+        <td class="settings-item-value"><select class="styled general main-config" id="langSelect">
+          {% for lang in settings.langlist %}
+          <option value="{{lang[0]}}">{{lang[1]}}</option>
+          {% endfor %}
+          </select></td>
+        <td><span class="help-mark" data-i18n-title="the interface language" title="the interface language">?</span></td>
+    </tr>
+    <tr class="settings-item" required="true" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Admin Username">Admin Username</span></td>
+        <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled general main-config" id="adminUsernameEntry" readonly="readonly"></td>
+        <td><span class="help-mark" data-i18n-title="the username to be used for configuring the system" title="the username to be used for configuring the system">?</span></td>
+    </tr>
+    <tr class="settings-item" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Password">Password</span></td>
+        <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled general main-config" id="adminPasswordEntry"></td>
+        <td><span class="help-mark" data-i18n-title="administrator's password" title="administrator's password">?</span></td>
+    </tr>
+    <tr class="settings-item" required="true" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Surveillance Username">Surveillance Username</span></td>
+        <td class="settings-item-value"><input type="text" autocapitalize="none" class="styled general main-config" id="normalUsernameEntry"></td>
+        <td><span class="help-mark" data-i18n-title="the username to be used for video surveillance" title="the username to be used for video surveillance">?</span></td>
+    </tr>
+    <tr class="settings-item" strip="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Password">Password</span></td>
+        <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled general main-config" id="normalPasswordEntry"></td>
+        <td><span class="help-mark" data-i18n-title="the password for the surveillance user (leave empty for passwordless surveillance)" title="the password for the surveillance user (leave empty for passwordless surveillance)">?</span></td>
+    </tr>
+    {% for config in main_sections.get('general', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="motionEye Version">motionEye Version</span></td>
+        <td class="settings-item-value"><span class="settings-item-label">{{version}}</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Motion Version">Motion Version</span></td>
+        <td class="settings-item-value"><span class="settings-item-label">{{motion_version}}</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="OS Version">OS Version</span></td>
+        <td class="settings-item-value"><span class="settings-item-label">{{os_version}}</span></td>
+    </tr>
+    {% if enable_update %}
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Software Update">Software Update</span></td>
+        <td class="settings-item-value"><div class="button normal-button update-button" id="updateButton">Check</div></td>
+        <td><span class="help-mark" data-i18n-title="checks for new versions and performs updates" title="checks for new versions and performs updates">?</span></td>
+    </tr>
+    {% endif %}
+    <tr class="settings-item{% if not enable_reboot %} hidden{% endif %}">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Power">Power</span></td>
+        <td class="settings-item-value"><div class="button normal-button shut-down-button" id="shutDownButton" data-i18n="Shut Down">Shut Down</div></td>
+        <td><span class="help-mark" data-i18n-title="shuts down the system" title="shuts down the system">?</span></td>
+    </tr>
+    <tr class="settings-item{% if not enable_reboot %} hidden{% endif %}">
+        <td class="settings-item-label"><span class="settings-item-label"></span></td>
+        <td class="settings-item-value"><div class="button normal-button reboot-button" id="rebootButton" data-i18n="Reboot">Reboot</div></td>
+        <td><span class="help-mark" data-i18n-title="reboots the system" title="reboots the system">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Configuration">Configuration</span></td>
+        <td class="settings-item-value"><div class="button normal-button backup-button" id="backupButton" data-i18n="Backup">Backup</div></td>
+        <td><span class="help-mark" data-i18n-title="creates a file with the current configuration for you to save it locally" title="creates a file with the current configuration for you to save it locally">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td class="settings-item-label"><span class="settings-item-label"></span></td>
+        <td class="settings-item-value"><div class="button normal-button restore-button" id="restoreButton" data-i18n="Restore">Restore</div></td>
+        <td><span class="help-mark" data-i18n-title="restores the configuration from a previously saved backup file" title="restores the configuration from a previously saved backup file">?</span></td>
+    </tr>
+</table>

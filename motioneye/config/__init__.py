@@ -188,6 +188,7 @@ def motion_camera_dict_to_ui(data):
     return _motion_camera_dict_to_ui_impl(
         data,
         get_action_commands_func=get_action_commands,
+        get_main_func=get_main,
     )
 
 

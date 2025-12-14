@@ -1,0 +1,42 @@
+<!-- Legacy gettext.js for main.js compatibility (must load first) -->
+<script src="{{static_path}}js/gettext.min.js"></script>
+<!-- Client-side i18n - English is source, translations loaded on demand -->
+<script src="{{static_path}}js/i18n.js"></script>
+<script>
+    // Base path for loading translation files
+    var basePath = '{{static_path}}';
+    var userLang = '{{settings.lingvo}}';
+
+    // Initialize new i18n system (for HTML data-i18n attributes)
+    // Uses motionEyeI18n to avoid conflict with gettext.js's i18n
+    motionEyeI18n.init(userLang, function() {
+        // Translate page after i18n is ready
+        motionEyeI18n.translatePage();
+    }, basePath);
+
+    // Setup legacy i18n for main.js (Esperanto -> target language)
+    var i18n = window.i18n();
+  {% if settings.lingvo != 'eo' and settings.lingvo != 'en' %}
+    // Load legacy translations for JavaScript strings in main.js
+    (function() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "{{static_path}}js/motioneye.{{settings.lingvo}}.json", false);
+        xhr.send(null);
+        if (xhr.status === 200) {
+            try {
+                i18n.loadJSON(xhr.responseText, 'messages');
+            } catch (e) {
+                console.warn('Failed to load legacy translations');
+            }
+        }
+    })();
+  {% endif %}
+    i18n.setLocale('{{settings.lingvo}}');
+
+    // Pass variables to JavaScript
+    var adminUsername = '{{admin_username}}';
+    var frame = {% if frame %}true{% else %}false{% endif %};
+    var hasLocalCamSupport = {% if has_motion %}true{% else %}false{% endif %};
+    var hasNetCamSupport = {% if has_motion %}true{% else %}false{% endif %};
+    {% if mask_width %}var maskWidth = {{mask_width}};{% endif %}
+</script>

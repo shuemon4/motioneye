@@ -1,0 +1,16 @@
+<!-- Additional Camera Sections -->
+{% for section in camera_sections.values() %}
+{% if section.get('label') and section.get('configs') %}
+<div class="settings-section-title">
+    {% if section.get('onoff') %}<input type="checkbox" class="styled section additional-section {{section['name']}} camera-config" id="{{section['name']}}Switch">{% endif %}
+    {% if section.get('description') %}<span class="help-mark" title="{{section['description']}}">?</span>{% endif %}
+    <a class="settings-section-title">{{section['label']}}</a>
+    <span class="minimize {% if section.get('open') %}open{% endif %}"></span>
+</div>
+<table class="settings">
+    {% for config in section['configs'] %}
+        {{config_item(config)}}
+    {% endfor %}
+</table>
+{% endif %}
+{% endfor %}

@@ -45,17 +45,15 @@ from motioneye import config, settings, uploadservices, utils
 from motioneye.utils.dtconv import pretty_date_time
 
 _PICTURE_EXTS = ['.jpg']
-_MOVIE_EXTS = ['.mp4', '.mkv', '.mov', '.flv', '.webm', '.ogg']
+_MOVIE_EXTS = ['.mp4', '.mkv', '.mov', '.webm']
 
 # Motion 5.0 compatible codec mappings
-# Note: mpeg4, msmpeg4, swf removed in Motion 5.0
+# Note: mpeg4, msmpeg4, swf, flv, ogg removed in Motion 5.0
 FFMPEG_CODEC_MAPPING = {
     'mp4': 'h264',
     'mkv': 'h264',
     'mov': 'h264',
-    'flv': 'flv1',
     'webm': 'vp8',
-    'ogg': 'theora',
     'hevc': 'h265',
     'mp4:h264_omx': 'h264_omx',
     'mkv:h264_omx': 'h264_omx',
@@ -67,9 +65,7 @@ FFMPEG_FORMAT_MAPPING = {
     'mp4': 'mp4',
     'mkv': 'matroska',
     'mov': 'mov',
-    'flv': 'flv',
     'webm': 'webm',
-    'ogg': 'ogg',
     'hevc': 'mp4',
     'mp4:h264_omx': 'mp4',
     'mkv:h264_omx': 'matroska',
@@ -81,9 +77,7 @@ FFMPEG_EXT_MAPPING = {
     'mp4': 'mp4',
     'mkv': 'mkv',
     'mov': 'mov',
-    'flv': 'flv',
     'webm': 'webm',
-    'ogg': 'ogg',
     'hevc': 'mp4',
     'mp4:h264_omx': 'mp4',
     'mkv:h264_omx': 'mkv',
@@ -95,9 +89,7 @@ MOVIE_EXT_TYPE_MAPPING = {
     'mp4': 'video/mp4',
     'mkv': 'video/x-matroska',
     'mov': 'video/quicktime',
-    'flv': 'video/x-flv',
     'webm': 'video/webm',
-    'ogg': 'video/ogg',
 }
 
 # a cache of prepared files (whose preparing time is significant)
