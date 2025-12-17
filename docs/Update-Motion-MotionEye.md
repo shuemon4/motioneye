@@ -131,7 +131,7 @@ These parameters no longer exist in Motion 5.0:
 - `stream_localhost`
 - `stream_auth_method`
 - `stream_authentication`
-- `auto_brightness`
+- `auto_brightness` - **Removed from MotionEye UI** (caused brightness oscillation, non-functional in Motion 5.0)
 - `setup_mode`
 
 ### Changed Parameters

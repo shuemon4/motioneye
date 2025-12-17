@@ -16,7 +16,7 @@ This document summarizes the implementation of Motion 5.0 compatibility in Motio
    - `stream_localhost`
    - `stream_auth_method`
    - `stream_authentication`
-   - `auto_brightness`
+   - `auto_brightness` (UI toggle also removed from MotionEye due to poor functionality)
    - `setup_mode`
 
 ## Files Modified
@@ -54,7 +54,8 @@ Updated `adapt_config_directives()` to handle `None` mappings (removes keys from
 Conditional defaults based on Motion version:
 
 - `webcontrol_interface`: string `'default'` for 5.0, integer `1` for 4.x
-- Skip setting deprecated options (`setup_mode`, `auto_brightness`, `stream_port`, `stream_localhost`, `stream_auth_method`) for Motion 5.0
+- Skip setting deprecated options (`setup_mode`, `stream_port`, `stream_localhost`, `stream_auth_method`) for Motion 5.0
+- Note: `auto_brightness` removed entirely from MotionEye (UI and backend)
 
 ### 4. `motioneye/mjpgclient.py` (lines 45-52, 167-191, 234-262, 319-368)
 
@@ -90,7 +91,7 @@ MOTION_50_REMOVED_PARAMS = {
     'stream_localhost',
     'stream_auth_method',
     'stream_authentication',
-    'auto_brightness',
+    'auto_brightness',  # Also removed from MotionEye UI/backend
     'setup_mode',
 }
 ```

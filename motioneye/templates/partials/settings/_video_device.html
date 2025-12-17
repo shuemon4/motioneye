@@ -7,7 +7,7 @@
 <table class="settings">
     <tr class="settings-item" required="true" strip="true">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Name">Camera Name</span></td>
-        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceNameEntry" placeholder="<span data-i18n="Camera name …">Camera name …</span>"></td>
+        <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceNameEntry" data-i18n-placeholder="Camera name …" placeholder="Camera name …"></td>
         <td><span class="help-mark" data-i18n-title="an alias for this camera device" title="an alias for this camera device">?</span></td>
     </tr>
     <tr class="settings-item" required="true" strip="true">
@@ -23,17 +23,6 @@
     <tr class="settings-item">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Camera Type">Camera Type</span></td>
         <td class="settings-item-value"><input type="text" class="styled device camera-config" id="deviceTypeEntry" readonly="readonly"></td>
-    </tr>
-    <tr class="settings-item">
-        <td colspan="100"><div class="settings-item-separator"></div></td>
-    </tr>
-    <tr class="settings-item">
-        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Automatic Brightness">Automatic Brightness</span></td>
-        <td class="settings-item-value"><input type="checkbox" class="styled device camera-config" id="autoBrightnessSwitch"></td>
-        <td><span class="help-mark" data-i18n-title="enables software automatic brightness (only recommended for cameras without autobrightness)" title="enables software automatic brightness (only recommended for cameras without autobrightness)">?</span></td>
-    </tr>
-    <tr class="settings-item">
-        <td colspan="100"><div class="settings-item-separator"></div></td>
     </tr>
     <tr class="settings-item">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Video resolution">Video resolution</span></td>
@@ -69,6 +58,16 @@
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame rate">Frame rate</span></td>
         <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="framerateSlider"></td>
         <td><span class="help-mark" data-i18n-title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)" title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)">?</span></td>
+    </tr>
+    <tr class="settings-item libcam-only" min="-1" max="1" snap="0" ticks="-1|-0.5|0|0.5|1" decimals="1" sign="true">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Brightness">Brightness</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="brightnessSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
+    </tr>
+    <tr class="settings-item libcam-only" min="0" max="32" snap="0" ticks="0|1|2|4|8|16|32" decimals="1">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Contrast">Contrast</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="contrastSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
     </tr>
     <tr class="settings-item">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Mode">Autofocus Mode</span></td>

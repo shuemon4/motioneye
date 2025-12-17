@@ -95,6 +95,9 @@ class ConfigHandler(BaseHandler):
         elif op == 'test':
             await self.test(camera_id)
 
+        elif op == 'hot-reload':
+            await self.hot_reload(camera_id)
+
         else:
             raise HTTPError(400, 'unknown operation')
 
@@ -864,6 +867,50 @@ class ConfigHandler(BaseHandler):
 
         else:
             raise HTTPError(400, 'cannot test features on this type of camera')
+
+    @BaseHandler.auth(admin=True)
+    async def hot_reload(self, camera_id):
+        """
+        Hot-reload a single parameter to Motion without restarting the daemon.
+
+        Used for parameters like libcam_brightness and libcam_contrast that support
+        runtime updates in Motion 5.0+.
+        """
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        if camera_id not in config.get_camera_ids():
+            raise HTTPError(404, 'no such camera')
+
+        # Get parameter and value from request body
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+            param_name = data.get('parameter')
+            param_value = data.get('value')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPError(400, 'invalid JSON in request body')
+
+        if not param_name or param_value is None:
+            raise HTTPError(400, 'parameter and value required')
+
+        logging.debug(f'Hot-reload request: camera={camera_id}, param={param_name}, value={param_value}')
+
+        # Call motionctl to apply the hot-reload
+        result = await motionctl.set_config_hot(camera_id, param_name, param_value)
+
+        if result['success']:
+            logging.info(f'Hot-reloaded {param_name}={param_value} on camera {camera_id}')
+            return self.finish_json({
+                'success': True,
+                'hot_reload': result.get('hot_reload', True),
+                'old_value': result.get('old_value', '')
+            })
+        else:
+            logging.error(f'Hot-reload failed for {param_name} on camera {camera_id}: {result.get("error")}')
+            return self.finish_json({
+                'success': False,
+                'error': result.get('error', 'Hot reload failed')
+            })
 
     @BaseHandler.auth(admin=True)
     def authorize(self, camera_id):

@@ -205,7 +205,6 @@ _MOTION_44_TO_50_OPTIONS_MAPPING = {
     'stream_localhost': None,
     'stream_auth_method': None,
     'stream_authentication': None,
-    'auto_brightness': None,
     'setup_mode': None,
 }
 

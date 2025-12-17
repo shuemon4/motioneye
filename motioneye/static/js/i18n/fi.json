@@ -1,7 +1,6 @@
 {
   "Admin Username": "Pääkäyttäjän salasana",
   "Apply": "Käytä",
-  "Automatic Brightness": "Automaattinen kirkkaus",
   "Backup": "Varmuuskopio",
   "Camera ID": "Kameran ID",
   "Camera Name": "Kameran nimi",
@@ -40,7 +39,6 @@
   "cleanup started": "puhdistus aloitettu",
   "creates a file with the current configuration for you to save it locally": "luo tiedoston, jossa on nykyiset asetukset, ja jonka voit tallentaa paikallisesti",
   "enable this if you want to use this camera device": "ota tämä käyttöön jos haluat käyttää tätä kameralaitetta",
-  "enables software automatic brightness (only recommended for cameras without autobrightness)": "ottaa käyttöön ohjelmiston automaattisen kirkkauden (suositeltu vain laitteille, joissa ei ole automaattista kirkkauden säätöä)",
   "enter a custom resolution height": "syötä mukautettu resoluution korkeus",
   "enter a custom resolution width": "syötä mukautettu resoluution leveys",
   "general settings, not related to any camera": "yleiset asetukset, eivät liity mihinkään kameraan",

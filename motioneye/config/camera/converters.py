@@ -288,7 +288,6 @@ def motion_camera_ui_to_dict(
             deviceNameValidRegExp, ui['name'], 'camera_name', deviceNameFailMessage
         ),
         '@enabled': ui['enabled'],
-        'auto_brightness': ui['auto_brightness'],
         'framerate': int(ui['framerate']),
         'rotate': int(ui['rotation']),
         'mask_privacy': '',
@@ -418,6 +417,10 @@ def motion_camera_ui_to_dict(
         elif proto == 'libcamera':
             # libcamera buffer count
             data['libcam_buffer_count'] = ui.get('libcam_buffer_count', 4)
+
+            # Brightness and Contrast controls (hot-reloadable in Motion 5.0+)
+            data['libcam_brightness'] = float(ui.get('brightness', 0.0))
+            data['libcam_contrast'] = float(ui.get('contrast', 1.0))
 
             # Autofocus control parameters for Camera v3
             if ui.get('supports_autofocus'):
@@ -842,7 +845,6 @@ def motion_camera_dict_to_ui(
         'name': data['camera_name'],
         'enabled': data['@enabled'],
         'id': data['@id'],
-        'auto_brightness': data.get('auto_brightness', False),  # Removed in Motion 5.0
         'framerate': int(data['framerate']),
         'rotation': int(data['rotate']),
         'privacy_mask': False,
@@ -983,6 +985,10 @@ def motion_camera_dict_to_ui(
         ui['device_url'] = data['libcam_device']
         ui['proto'] = 'libcamera'
         ui['libcam_buffer_count'] = data.get('libcam_buffer_count', 4)
+
+        # Brightness and Contrast controls (hot-reloadable in Motion 5.0+)
+        ui['brightness'] = float(data.get('libcam_brightness', 0.0))
+        ui['contrast'] = float(data.get('libcam_contrast', 1.0))
 
         # Autofocus controls for Camera v3 (imx708)
         # Check stored flag first, then detect dynamically for existing cameras

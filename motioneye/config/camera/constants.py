@@ -17,7 +17,6 @@
 """Shared constants for camera configuration converters."""
 
 USED_MOTION_OPTIONS = {
-    'auto_brightness',
     'despeckle_filter',
     'camera_name',
     'emulate_motion',
@@ -26,6 +25,9 @@ USED_MOTION_OPTIONS = {
     'height',
     'libcam_device',
     'libcam_buffer_count',
+    'libcam_brightness',
+    'libcam_contrast',
+    'libcam_control_item',
     'lightswitch_percent',
     'locate_motion_mode',
     'locate_motion_style',
@@ -207,6 +209,10 @@ HOT_RELOAD_PARAMS = {
     'sql_movie_start',
     'sql_movie_end',
     'sql_pic_save',
+
+    # libcamera Controls (Pi Camera v3, Motion 5.0+)
+    'libcam_brightness',
+    'libcam_contrast',
 }
 
 # Parameters that always require daemon restart

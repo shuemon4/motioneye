@@ -700,6 +700,9 @@ function initUI() {
                 Number($tr.attr('snap')), ticks, Number($tr.attr('ticksnum')), Number($tr.attr('decimals')), $tr.attr('unit'));
     });
 
+    /* attach hot-reload handlers to brightness/contrast sliders */
+    initHotReloadSliders();
+
     /* progress bars */
     makeProgressBar($('div.progress-bar'));
 
@@ -1140,7 +1143,7 @@ function initUI() {
 }
 
 function addVideoControl(name, min, max, step) {
-    var prevTr = $('#autoBrightnessSwitch').parent().parent();
+    var prevTr = $('#deviceTypeEntry').parent().parent();
     var controlTr = $('\
         <tr class="settings-item video-control"> \
             <td class="settings-item-label"><span class="settings-item-label"></span></td> \
@@ -2060,9 +2063,10 @@ function cameraUi2Dict() {
         'proto': $('#deviceTypeEntry')[0].proto,
 
         /* video device */
-        'auto_brightness': $('#autoBrightnessSwitch')[0].checked,
         'rotation': $('#rotationSelect').val(),
         'framerate': $('#framerateSlider').val(),
+        'brightness': parseFloat($('#brightnessSlider').val()) || 0.0,
+        'contrast': parseFloat($('#contrastSlider').val()) || 1.0,
         'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
         'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
         'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
@@ -2367,7 +2371,6 @@ function dict2CameraUi(dict) {
     $('#deviceUrlEntry').val(dict['device_url']); markHideIfNull('device_url', 'deviceUrlEntry');
     $('#deviceTypeEntry').val(prettyType); markHideIfNull(!prettyType, 'deviceTypeEntry');
     $('#deviceTypeEntry')[0].proto = dict['proto'];
-    $('#autoBrightnessSwitch')[0].checked = dict['auto_brightness']; markHideIfNull('auto_brightness', 'autoBrightnessSwitch');
 
     $('#resolutionSelect').html('');
     if (dict['available_resolutions']) {
@@ -2384,6 +2387,8 @@ function dict2CameraUi(dict) {
 
     $('#rotationSelect').val(dict['rotation']); markHideIfNull('rotation', 'rotationSelect');
     $('#framerateSlider').val(dict['framerate']); markHideIfNull('framerate', 'framerateSlider');
+    $('#brightnessSlider').val(dict['brightness'] != null ? dict['brightness'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'brightnessSlider');
+    $('#contrastSlider').val(dict['contrast'] != null ? dict['contrast'] : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'contrastSlider');
     $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
     $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
     $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
@@ -5731,3 +5736,183 @@ $(document).ready(function () {
         }
     });
 });
+
+/* Hot-Reload Functions for Brightness/Contrast */
+
+var hotReloadPendingChanges = {}; // Track changes that haven't been saved to config
+var hotReloadCheckInterval = null;
+
+function initHotReloadSliders() {
+    // Attach mouseup/touchend handlers to hot-reload sliders
+    $('.hot-reload.range').each(function() {
+        var $slider = $(this);
+        var sliderDiv = $slider.parent().find('.slider');
+
+        if (sliderDiv.length) {
+            // Attach to the slider div (created by makeSlider)
+            sliderDiv.on('mouseup touchend', function() {
+                applyHotReloadParameter($slider);
+            });
+        }
+    });
+}
+
+function applyHotReloadParameter($slider) {
+    var sliderId = $slider.attr('id');
+    var value = $slider.val();
+    var cameraId = $('#cameraSelect').val();
+
+    if (!cameraId) {
+        return;
+    }
+
+    // Map slider ID to Motion parameter name
+    var paramMap = {
+        'brightnessSlider': 'libcam_brightness',
+        'contrastSlider': 'libcam_contrast'
+    };
+
+    var paramName = paramMap[sliderId];
+    if (!paramName) {
+        return;
+    }
+
+    // Show applying indicator
+    showHotReloadStatus(sliderId, 'applying');
+
+    // Call MotionEye backend which forwards to Motion's hot-reload API
+    ajax('POST', basePath + 'config/' + cameraId + '/hot-reload/', {
+        parameter: paramName,
+        value: value
+    }, function(response) {
+        if (response && response.success) {
+            // Hot-reload succeeded
+            showHotReloadStatus(sliderId, 'success');
+
+            // Mark this change as pending save
+            if (!hotReloadPendingChanges[cameraId]) {
+                hotReloadPendingChanges[cameraId] = {};
+            }
+            hotReloadPendingChanges[cameraId][paramName] = value;
+
+            // Start checking for save required
+            startHotReloadSaveCheck();
+
+            console.log('Hot-reload applied: ' + paramName + '=' + value);
+        } else {
+            // Hot-reload failed
+            showHotReloadStatus(sliderId, 'error');
+            var errorMsg = (response && response.error) || 'Hot reload failed';
+            console.error('Hot-reload failed for ' + paramName + ': ' + errorMsg);
+        }
+    }, function(error) {
+        // Network/HTTP error
+        showHotReloadStatus(sliderId, 'error');
+        console.error('Hot-reload error for ' + paramName + ':', error);
+    });
+}
+
+function showHotReloadStatus(sliderId, status) {
+    var $slider = $('#' + sliderId);
+    var $statusIndicator = $slider.parent().find('.hot-reload-status');
+
+    // Create status indicator if it doesn't exist
+    if (!$statusIndicator.length) {
+        $statusIndicator = $('<span class="hot-reload-status"></span>');
+        $slider.parent().append($statusIndicator);
+    }
+
+    // Clear previous status
+    $statusIndicator.removeClass('applying success error').empty();
+
+    if (status === 'applying') {
+        $statusIndicator.addClass('applying').text('⏳');
+    } else if (status === 'success') {
+        $statusIndicator.addClass('success').text('✓');
+        setTimeout(function() {
+            $statusIndicator.fadeOut(function() {
+                $(this).remove();
+            });
+        }, 2000);
+    } else if (status === 'error') {
+        $statusIndicator.addClass('error').text('✗');
+        setTimeout(function() {
+            $statusIndicator.fadeOut(function() {
+                $(this).remove();
+            });
+        }, 3000);
+    }
+}
+
+function startHotReloadSaveCheck() {
+    // Clear any existing interval
+    if (hotReloadCheckInterval) {
+        clearInterval(hotReloadCheckInterval);
+    }
+
+    // Check every 3 seconds if save is required
+    hotReloadCheckInterval = setInterval(function() {
+        checkSaveRequired();
+    }, 3000);
+
+    // Also check immediately
+    checkSaveRequired();
+}
+
+function checkSaveRequired() {
+    var hasPendingChanges = false;
+
+    for (var cameraId in hotReloadPendingChanges) {
+        if (Object.keys(hotReloadPendingChanges[cameraId]).length > 0) {
+            hasPendingChanges = true;
+            break;
+        }
+    }
+
+    if (hasPendingChanges) {
+        showSaveRequiredIndicator();
+    } else {
+        hideSaveRequiredIndicator();
+        // Stop checking if no pending changes
+        if (hotReloadCheckInterval) {
+            clearInterval(hotReloadCheckInterval);
+            hotReloadCheckInterval = null;
+        }
+    }
+}
+
+function showSaveRequiredIndicator() {
+    var $applyButton = $('#applyButton');
+
+    if (!$applyButton.hasClass('save-required')) {
+        $applyButton.addClass('save-required');
+
+        // Add visual indicator
+        var $indicator = $applyButton.find('.save-required-indicator');
+        if (!$indicator.length) {
+            $indicator = $('<span class="save-required-indicator" title="You have hot-reloaded changes that need to be saved">*</span>');
+            $applyButton.prepend($indicator);
+        }
+    }
+}
+
+function hideSaveRequiredIndicator() {
+    var $applyButton = $('#applyButton');
+    $applyButton.removeClass('save-required');
+    $applyButton.find('.save-required-indicator').remove();
+}
+
+// Clear pending changes when Apply button is clicked
+var originalPushCameraConfig = pushCameraConfig;
+pushCameraConfig = function(reboot) {
+    var cameraId = $('#cameraSelect').val();
+
+    // Clear hot-reload pending changes for this camera
+    if (hotReloadPendingChanges[cameraId]) {
+        delete hotReloadPendingChanges[cameraId];
+        checkSaveRequired(); // Update indicator
+    }
+
+    // Call original function
+    return originalPushCameraConfig.call(this, reboot);
+};

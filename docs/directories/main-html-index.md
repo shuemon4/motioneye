@@ -132,7 +132,6 @@ Renders different input types based on `config['type']`:
 | Camera ID | `deviceIdEntry` | 296 | text (readonly) |
 | Camera Device | `deviceUrlEntry` | 301 | text (readonly) |
 | Camera Type | `deviceTypeEntry` | 306 | text (readonly) |
-| Auto Brightness | `autoBrightnessSwitch` | 313 | checkbox |
 | Resolution | `resolutionSelect` | 322 | select |
 | Custom Width | `customWidthEntry` | 329 | number |
 | Custom Height | `customHeightEntry` | 334 | number |

@@ -1419,3 +1419,53 @@ img.camera-progress {
         font-size: 14px !important;
     }
 }
+
+/* Hot-Reload Indicators */
+.hot-reload-status {
+    margin-left: 8px;
+    font-size: 16px;
+    display: inline-block;
+    min-width: 20px;
+    text-align: center;
+}
+
+.hot-reload-status.applying {
+    color: #666;
+}
+
+.hot-reload-status.success {
+    color: #4CAF50;
+}
+
+.hot-reload-status.error {
+    color: #f44336;
+}
+
+/* Save Required Indicator on Apply Button */
+.save-required-indicator {
+    color: #ff9800;
+    font-weight: bold;
+    margin-right: 4px;
+    font-size: 18px;
+}
+
+#applyButton.save-required {
+    animation: pulse-orange 2s infinite;
+}
+
+@keyframes pulse-orange {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(255, 152, 0, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 152, 0, 0);
+    }
+}
+
+/* Hide libcam-only controls for non-libcamera devices */
+tr.libcam-only {
+    /* Visibility controlled by JavaScript via markHideIfNull */
+}

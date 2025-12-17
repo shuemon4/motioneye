@@ -192,7 +192,7 @@ handler_mapping = [
     (r'^/manifest.json$', ManifestHandler),
     (r'^/config/main/(?P<op>set|get)/?$', ConfigHandler),
     (
-        r'^/config/(?P<camera_id>\d+)/(?P<op>get|set|rem|test|authorize)/?$',
+        r'^/config/(?P<camera_id>\d+)/(?P<op>get|set|rem|test|authorize|hot-reload)/?$',
         ConfigHandler,
     ),
     (r'^/config/(?P<op>add|list|backup|restore)/?$', ConfigHandler),

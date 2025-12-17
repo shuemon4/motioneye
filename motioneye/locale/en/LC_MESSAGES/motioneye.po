@@ -316,14 +316,6 @@ msgstr "Input device (eg: /dev/video) or URL (eg: rtsp://192.168.1.1/stream)"
 msgid "Kamerao Tipo"
 msgstr "Camera Type"
 
-#: motioneye/templates/main.html:293
-msgid "Aŭtomata Brilo"
-msgstr "Automatic Brightness"
-
-#: motioneye/templates/main.html:295
-msgid "ebligas aŭtomatan brilon de programaro (rekomendita nur por kameraoj sen aŭtomata brilo)"
-msgstr "enables software automatic brightness (only recommended for cameras without autobrightness)"
-
 #: motioneye/templates/main.html:301
 msgid "Video-rezolucio"
 msgstr "Video resolution"
