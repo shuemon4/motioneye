@@ -32,8 +32,8 @@ import time
 from tornado.ioloop import IOLoop
 from tornado.web import Application
 
-from motioneye import settings, template
-from motioneye.controls import smbctl, v4l2ctl
+from motioneye import config, settings, template
+from motioneye.controls import smbctl, v4l2ctl, ledctl
 from motioneye.handlers.action import ActionHandler
 from motioneye.handlers.base import ManifestHandler, NotFoundHandler
 from motioneye.handlers.config import ConfigHandler
@@ -445,6 +445,13 @@ def run():
 
     else:
         start_motion()
+
+    # Apply LED state if configured
+    if ledctl.is_supported():
+        main_config = config.get_main()
+        if main_config.get('@_disablePi5Leds', False):
+            ledctl.set_leds_disabled(True)
+            logging.info('LED control: LEDs disabled per saved config')
 
     if settings.CLEANUP_INTERVAL:
         cleanup.start()

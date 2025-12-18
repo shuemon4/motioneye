@@ -65,8 +65,9 @@ function makeCheckBox($input) {
     });
 }
 
-function makeSlider($input, minVal, maxVal, snapMode, ticks, ticksNumber, decimals, unit) {
+function makeSlider($input, minVal, maxVal, snapMode, ticks, ticksNumber, decimals, unit, logScale) {
     unit = unit || '';
+    logScale = logScale || false;
 
     $input.each(function () {
         var $this = $(this);
@@ -122,10 +123,24 @@ function makeSlider($input, minVal, maxVal, snapMode, ticks, ticksNumber, decima
         }
 
         function valToPos(val) {
+            if (logScale) {
+                // Logarithmic scale: map value to position using log scale
+                var logMin = Math.log(minVal);
+                var logMax = Math.log(maxVal);
+                var logVal = Math.log(val);
+                return (logVal - logMin) * 100 / (logMax - logMin);
+            }
             return (val - minVal) * 100 / (maxVal - minVal);
         }
 
         function posToVal(pos) {
+            if (logScale) {
+                // Logarithmic scale: map position to value using log scale
+                var logMin = Math.log(minVal);
+                var logMax = Math.log(maxVal);
+                var logVal = logMin + pos * (logMax - logMin) / 100;
+                return Math.exp(logVal);
+            }
             return minVal + pos * (maxVal - minVal) / 100;
         }
 

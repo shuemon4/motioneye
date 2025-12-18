@@ -54,21 +54,6 @@
         </td>
         <td><span class="help-mark" data-i18n-title="use this to rotate the captured image if your camera is not positioned correctly" title="use this to rotate the captured image if your camera is not positioned correctly">?</span></td>
     </tr>
-    <tr class="settings-item" min="2" max="30" snap="0" ticks="2|5|10|15|20|25|30" decimals="0">
-        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame rate">Frame rate</span></td>
-        <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="framerateSlider"></td>
-        <td><span class="help-mark" data-i18n-title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)" title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)">?</span></td>
-    </tr>
-    <tr class="settings-item libcam-only" min="-1" max="1" snap="0" ticks="-1|-0.5|0|0.5|1" decimals="1" sign="true">
-        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Brightness">Brightness</span></td>
-        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="brightnessSlider"></td>
-        <td><span class="help-mark" data-i18n-title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
-    </tr>
-    <tr class="settings-item libcam-only" min="0" max="32" snap="0" ticks="0|1|2|4|8|16|32" decimals="1">
-        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Contrast">Contrast</span></td>
-        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="contrastSlider"></td>
-        <td><span class="help-mark" data-i18n-title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
-    </tr>
     <tr class="settings-item">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Autofocus Mode">Autofocus Mode</span></td>
         <td class="settings-item-value">
@@ -90,6 +75,38 @@
             </select>
         </td>
         <td><span class="help-mark" data-i18n-title="select the focus search range: normal for general use, macro for close objects, full for maximum range" title="select the focus search range: normal for general use, macro for close objects, full for maximum range">?</span></td>
+    </tr>
+    <tr class="settings-item" min="2" max="30" snap="0" ticks="2|5|10|15|20|25|30" decimals="0">
+        <td class="settings-item-label"><span class="settings-item-label" data-i18n="Frame rate">Frame rate</span></td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="framerateSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)" title="Sets the number of frames captured by the camera every second (higher values produce smoother videos but require more CPU power, larger storage space and bandwidth)">?</span></td>
+    </tr>
+    <tr class="settings-item libcam-only" min="-1" max="1" snap="0" ticks="-1|-0.5|0|0.5|1" decimals="1" sign="true">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Brightness">Brightness</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="brightnessSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera brightness: -1.0 (darkest) to 1.0 (brightest), 0.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
+    </tr>
+    <tr class="settings-item libcam-only" min="0" max="32" snap="0" ticks="0|1|2|4|8|16|32" decimals="1">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Contrast">Contrast</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value"><input type="text" class="range styled device camera-config hot-reload" id="contrastSlider"></td>
+        <td><span class="help-mark" data-i18n-title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera." title="Adjust camera contrast: 0.0 (lowest) to 32.0 (highest), 1.0 is neutral. Changes apply instantly without restarting the camera.">?</span></td>
+    </tr>
+    <tr class="settings-item libcam-only" min="1" max="64" snap="0" ticks="1|2|4|8|16|64" decimals="1" logscale="true">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Gain (ISO)">Gain (ISO)</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="text" class="range styled device camera-config hot-reload" id="isoSlider">
+            <div class="slider-note" style="font-size: 0.85em; color: #999; margin-top: 2px;">* ISO ≈ Gain × 100</div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="Camera analog gain: 1.0 (low noise, bright conditions) to 64.0 (high noise, low light). Higher values allow shooting in darker environments but increase image noise. ISO is approximately Gain × 100. Changes apply instantly without restarting the camera." title="Camera analog gain: 1.0 (low noise, bright conditions) to 64.0 (high noise, low light). Higher values allow shooting in darker environments but increase image noise. ISO is approximately Gain × 100. Changes apply instantly without restarting the camera.">?</span></td>
     </tr>
     <tr class="settings-item" depends="autofocusMode=0" min="0" max="10" snap="0" decimals="1">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Focus Position">Focus Position</span></td>

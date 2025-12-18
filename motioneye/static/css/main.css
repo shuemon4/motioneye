@@ -320,6 +320,20 @@ span.settings-item-label {
     font-size: 0.9em;
 }
 
+span.hot-reload-badge {
+    display: inline-block;
+    font-size: 0.65em;
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 3px;
+    padding: 2px 5px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 500;
+    cursor: help;
+}
+
 span.settings-item-unit {
     font-size: 0.6em;
     padding: 0 0.2em;
@@ -500,7 +514,8 @@ div.settings-section-title > span.help-mark {
 }
 
 div.settings-section-title:HOVER > span.help-mark,
-tr:HOVER span.help-mark {
+tr:HOVER span.help-mark,
+span.help-mark:ACTIVE {
     visibility: visible;
 }
 
@@ -1314,14 +1329,14 @@ div.camera-progress.visible {
 }
 
 img.camera-progress {
-    border: 10px solid white;
+    border: 10px solid #999999;
     border-radius: 10px;
     position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    margin: auto;
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+    left: auto;
+    margin: 0;
 }
 
 

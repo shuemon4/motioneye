@@ -82,9 +82,10 @@ def _set_default_motion_camera(camera_id, data):
         data.setdefault('libcam_buffer_count', 4)
         data.setdefault('width', 1920)
         data.setdefault('height', 1080)
-        # Brightness and Contrast defaults (hot-reloadable in Motion 5.0+)
+        # Brightness, Contrast, and ISO defaults (hot-reloadable in Motion 5.0+)
         data.setdefault('libcam_brightness', 0.0)  # Neutral brightness
         data.setdefault('libcam_contrast', 1.0)  # Neutral contrast
+        data.setdefault('libcam_iso', 100)  # Minimum ISO, least noise
         # Autofocus defaults for Camera v3 (imx708)
         if data.get('@supports_autofocus'):
             data.setdefault('@af_mode', 2)  # Continuous autofocus

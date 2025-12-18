@@ -418,9 +418,10 @@ def motion_camera_ui_to_dict(
             # libcamera buffer count
             data['libcam_buffer_count'] = ui.get('libcam_buffer_count', 4)
 
-            # Brightness and Contrast controls (hot-reloadable in Motion 5.0+)
+            # Brightness, Contrast, and ISO controls (hot-reloadable in Motion 5.0+)
             data['libcam_brightness'] = float(ui.get('brightness', 0.0))
             data['libcam_contrast'] = float(ui.get('contrast', 1.0))
+            data['libcam_iso'] = int(ui.get('iso', 100))
 
             # Autofocus control parameters for Camera v3
             if ui.get('supports_autofocus'):
@@ -986,9 +987,10 @@ def motion_camera_dict_to_ui(
         ui['proto'] = 'libcamera'
         ui['libcam_buffer_count'] = data.get('libcam_buffer_count', 4)
 
-        # Brightness and Contrast controls (hot-reloadable in Motion 5.0+)
+        # Brightness, Contrast, and ISO controls (hot-reloadable in Motion 5.0+)
         ui['brightness'] = float(data.get('libcam_brightness', 0.0))
         ui['contrast'] = float(data.get('libcam_contrast', 1.0))
+        ui['iso'] = int(data.get('libcam_iso', 100))
 
         # Autofocus controls for Camera v3 (imx708)
         # Check stored flag first, then detect dynamically for existing cameras

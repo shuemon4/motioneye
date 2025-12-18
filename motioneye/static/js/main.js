@@ -696,8 +696,9 @@ function initUI() {
                 return {value: Number(parts[0]), label: parts[1]};
             });
         }
+        var logScale = $tr.attr('logscale') === 'true';
         makeSlider($this, Number($tr.attr('min')), Number($tr.attr('max')),
-                Number($tr.attr('snap')), ticks, Number($tr.attr('ticksnum')), Number($tr.attr('decimals')), $tr.attr('unit'));
+                Number($tr.attr('snap')), ticks, Number($tr.attr('ticksnum')), Number($tr.attr('decimals')), $tr.attr('unit'), logScale);
     });
 
     /* attach hot-reload handlers to brightness/contrast sliders */
@@ -895,6 +896,15 @@ function initUI() {
 
     $('a.settings-section-title').on('click', function () {
         $(this).parent().find('span.minimize').trigger('click');
+    });
+
+    /* help-mark click to show tooltip */
+    $('span.help-mark').on('click', function (e) {
+        e.stopPropagation();
+        var title = $(this).attr('title') || $(this).attr('data-i18n-title');
+        if (title) {
+            showPopupMessage(title, 'info');
+        }
     });
 
     /* additional configs */
@@ -2067,6 +2077,7 @@ function cameraUi2Dict() {
         'framerate': $('#framerateSlider').val(),
         'brightness': parseFloat($('#brightnessSlider').val()) || 0.0,
         'contrast': parseFloat($('#contrastSlider').val()) || 1.0,
+        'iso': Math.round((parseFloat($('#isoSlider').val()) || 1.0) * 100),  // Convert gain to ISO
         'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
         'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
         'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
@@ -2389,6 +2400,7 @@ function dict2CameraUi(dict) {
     $('#framerateSlider').val(dict['framerate']); markHideIfNull('framerate', 'framerateSlider');
     $('#brightnessSlider').val(dict['brightness'] != null ? dict['brightness'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'brightnessSlider');
     $('#contrastSlider').val(dict['contrast'] != null ? dict['contrast'] : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'contrastSlider');
+    $('#isoSlider').val(dict['iso'] != null ? (dict['iso'] / 100).toFixed(1) : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'isoSlider');  // Convert ISO to gain
     $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
     $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
     $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
@@ -5769,12 +5781,18 @@ function applyHotReloadParameter($slider) {
     // Map slider ID to Motion parameter name
     var paramMap = {
         'brightnessSlider': 'libcam_brightness',
-        'contrastSlider': 'libcam_contrast'
+        'contrastSlider': 'libcam_contrast',
+        'isoSlider': 'libcam_iso'
     };
 
     var paramName = paramMap[sliderId];
     if (!paramName) {
         return;
+    }
+
+    // Convert gain to ISO for isoSlider
+    if (sliderId === 'isoSlider') {
+        value = Math.round(parseFloat(value) * 100);
     }
 
     // Show applying indicator

@@ -27,6 +27,7 @@ USED_MOTION_OPTIONS = {
     'libcam_buffer_count',
     'libcam_brightness',
     'libcam_contrast',
+    'libcam_iso',
     'libcam_control_item',
     'lightswitch_percent',
     'locate_motion_mode',
@@ -213,6 +214,7 @@ HOT_RELOAD_PARAMS = {
     # libcamera Controls (Pi Camera v3, Motion 5.0+)
     'libcam_brightness',
     'libcam_contrast',
+    'libcam_iso',
 }
 
 # Parameters that always require daemon restart

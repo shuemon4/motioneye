@@ -7,7 +7,7 @@
 <table class="settings">
     <tr class="settings-item" required="true" strip="true">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Image File Name">Image File Name</span></td>
-        <td class="settings-item-value"><input type="text" class="styled still-images camera-config" id="imageFileNameEntry" placeholder="<span data-i18n="File name Template…">File name Template…</span>"></td>
+        <td class="settings-item-value"><input type="text" class="styled still-images camera-config" id="imageFileNameEntry" data-i18n-placeholder="File name Template…" placeholder="File name Template…"></td>
         <td><span class="help-mark" data-i18n-title="sets the name pattern for the image (JPEG) files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder." title="sets the name pattern for the image (JPEG) files; the following special tokens are accepted: %%Y = year, %%m = month, %%d = day, %%H = hour, %%M = minute, %%S = second, %%q = frame number, %%v = event number, / = subfolder.">?</span></td>
     </tr>
     <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
@@ -26,11 +26,7 @@
                 <option value="manual" data-i18n="Manual">Manual</option>
             </select>
         </td>
-        <td><span class="help-mark" title="<span data-i18n="sets the image capture mode:">sets the image capture mode:</span>
-  <span data-i18n="Motion Triggered = an image captured whenever motion is detected,">Motion Triggered = an image captured whenever motion is detected,</span>
-  <span data-i18n="Interval Snapshots = an image captured every x seconds,">Interval Snapshots = an image captured every x seconds,</span>
-  <span data-i18n="All Frames = saves each frame to an image file,">All Frames = saves each frame to an image file,</span>
-  <span data-i18n="Manual = manual snapshots using snapshot button.">Manual = manual snapshots using snapshot button.</span>">?</span></td>
+        <td><span class="help-mark" data-i18n-title="sets the image capture mode: Motion Triggered = an image captured whenever motion is detected, Interval Snapshots = an image captured every x seconds, All Frames = saves each frame to an image file, Manual = manual snapshots using snapshot button." title="sets the image capture mode: Motion Triggered = an image captured whenever motion is detected, Interval Snapshots = an image captured every x seconds, All Frames = saves each frame to an image file, Manual = manual snapshots using snapshot button.">?</span></td>
     </tr>
     <tr class="settings-item" min="1" max="86400" required="true" depends="captureMode=interval-snapshots">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Snapshot Interval">Snapshot Interval</span></td>

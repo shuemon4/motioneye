@@ -34,12 +34,6 @@
         <td class="settings-item-value"><input type="password" autocomplete="new-password" class="styled general main-config" id="normalPasswordEntry"></td>
         <td><span class="help-mark" data-i18n-title="the password for the surveillance user (leave empty for passwordless surveillance)" title="the password for the surveillance user (leave empty for passwordless surveillance)">?</span></td>
     </tr>
-    {% for config in main_sections.get('general', {}).get('configs', []) %}
-        {{config_item(config)}}
-    {% endfor %}
-    <tr class="settings-item">
-        <td colspan="100"><div class="settings-item-separator"></div></td>
-    </tr>
     <tr class="settings-item">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="motionEye Version">motionEye Version</span></td>
         <td class="settings-item-value"><span class="settings-item-label">{{version}}</span></td>
@@ -81,5 +75,14 @@
         <td class="settings-item-label"><span class="settings-item-label"></span></td>
         <td class="settings-item-value"><div class="button normal-button restore-button" id="restoreButton" data-i18n="Restore">Restore</div></td>
         <td><span class="help-mark" data-i18n-title="restores the configuration from a previously saved backup file" title="restores the configuration from a previously saved backup file">?</span></td>
+    </tr>
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    {% for config in main_sections.get('general', {}).get('configs', []) %}
+        {{config_item(config)}}
+    {% endfor %}
+    <tr class="settings-item">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
     </tr>
 </table>
