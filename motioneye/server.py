@@ -47,6 +47,7 @@ from motioneye.handlers.power import PowerHandler
 from motioneye.handlers.prefs import PrefsHandler
 from motioneye.handlers.relay_event import RelayEventHandler
 from motioneye.handlers.status import StatusHandler
+from motioneye.handlers.temperature import TemperatureHandler
 from motioneye.handlers.update import UpdateHandler
 from motioneye.handlers.version import VersionHandler
 
@@ -230,6 +231,7 @@ handler_mapping = [
     (r'^/power/(?P<op>shutdown|reboot)/?$', PowerHandler),
     (r'^/version/?$', VersionHandler),
     (r'^/login/?$', LoginHandler),
+    (r'^/temperature/?$', TemperatureHandler),
     (r'^.*$', NotFoundHandler),
 ]
 

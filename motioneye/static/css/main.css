@@ -179,6 +179,35 @@ div.settings-top-bar.open div.button.rem-camera-button {
     display: inline-block;
 }
 
+div.cpu-temp {
+    float: right;
+    display: inline-block;
+    margin-right: 15px;
+    margin-top: 10px;
+    padding: 5px 12px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+    font-size: 14px;
+    color: #fff;
+    opacity: 0.9;
+}
+
+div.cpu-temp .temp-icon {
+    margin-right: 4px;
+}
+
+div.cpu-temp .temp-value {
+    font-weight: 500;
+}
+
+div.cpu-temp.hot {
+    background-color: rgba(176, 52, 39, 0.6);
+}
+
+div.cpu-temp.warm {
+    background-color: rgba(180, 140, 0, 0.5);
+}
+
 div.logo {
     float: right;
     display: inline-block;
@@ -1364,6 +1393,10 @@ img.camera-progress {
     }
 
     div.hostname {
+        display: none;
+    }
+
+    div.cpu-temp {
         display: none;
     }
 

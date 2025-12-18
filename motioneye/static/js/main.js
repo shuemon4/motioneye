@@ -5934,3 +5934,72 @@ pushCameraConfig = function(reboot) {
     // Call original function
     return originalPushCameraConfig.call(this, reboot);
 };
+
+/* CPU Temperature Display */
+var tempPollingInterval = null;
+var tempUsesCelsius = true; // Default to Celsius
+
+function initTemperatureDisplay() {
+    var $cpuTemp = $('#cpuTemp');
+    if (!$cpuTemp.length) return;
+
+    // Check user preference from localStorage
+    var storedPref = localStorage.getItem('motioneye_temp_unit');
+    if (storedPref === 'fahrenheit') {
+        tempUsesCelsius = false;
+    }
+
+    // Add click handler to toggle units
+    $cpuTemp.css('cursor', 'pointer').on('click', function() {
+        tempUsesCelsius = !tempUsesCelsius;
+        localStorage.setItem('motioneye_temp_unit', tempUsesCelsius ? 'celsius' : 'fahrenheit');
+        pollTemperature(); // Refresh immediately
+    });
+
+    // Start polling
+    pollTemperature();
+    tempPollingInterval = setInterval(pollTemperature, 10000); // Poll every 10 seconds
+}
+
+function pollTemperature() {
+    var $cpuTemp = $('#cpuTemp');
+    if (!$cpuTemp.length || !pageVisible) return;
+
+    $.getJSON(basePath + 'temperature/', function(data) {
+        var $value = $cpuTemp.find('.temp-value');
+
+        if (data.error) {
+            $cpuTemp.hide();
+            return;
+        }
+
+        $cpuTemp.show();
+
+        var temp, unit;
+        if (tempUsesCelsius) {
+            temp = data.temp_c;
+            unit = '°C';
+        } else {
+            temp = data.temp_f;
+            unit = '°F';
+        }
+
+        $value.text(temp + unit);
+
+        // Update color based on temperature (using Celsius thresholds)
+        $cpuTemp.removeClass('hot warm');
+        if (data.temp_c >= 70) {
+            $cpuTemp.addClass('hot');
+        } else if (data.temp_c >= 55) {
+            $cpuTemp.addClass('warm');
+        }
+    }).fail(function() {
+        // Hide on error (not running on Pi or endpoint unavailable)
+        $cpuTemp.hide();
+    });
+}
+
+// Initialize temperature display after page loads
+$(function() {
+    initTemperatureDisplay();
+});
