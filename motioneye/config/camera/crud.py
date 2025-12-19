@@ -104,8 +104,9 @@ def add_camera(device_details, get_camera_ids_func, get_camera_func, set_camera_
         camera_config['@remote_camera_id'] = device_details['remote_camera_id']
 
     elif proto == 'mmal':
-        # On Pi 5, use libcamera instead of MMAL
-        if pictl.is_pi5():
+        # Use libcamera if available (Bookworm on any Pi, or Pi 5)
+        # Fall back to MMAL on legacy systems (Bullseye on Pi 4 and earlier)
+        if pictl.uses_libcamera():
             camera_config['libcam_device'] = device_details['path']
             camera_config['libcam_buffer_count'] = 4
             camera_config['width'] = 1920

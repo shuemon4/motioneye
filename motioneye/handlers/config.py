@@ -512,8 +512,9 @@ class ConfigHandler(BaseHandler):
                 elif utils.is_libcamera_device(data):
                     configured_devices.add(data['libcam_device'])
 
-            # Use libcamera on Pi 5, MMAL on older Pis
-            if pictl.is_pi5():
+            # Use libcamera if available (Bookworm on any Pi, or Pi 5)
+            # Fall back to MMAL on legacy systems (Bullseye on Pi 4 and earlier)
+            if pictl.uses_libcamera():
                 cameras = [
                     {
                         'id': d[0],

@@ -17,12 +17,20 @@
 """
 Raspberry Pi platform detection utilities.
 Detects Pi model and available camera interfaces.
+
+Camera Interface Priority:
+1. libcamera - if rpicam-hello/libcamera-hello is available (Bookworm, Pi 5)
+2. mmal - if legacy camera stack available (Bullseye, Pi 4 and earlier)
+3. v4l2 - generic fallback for USB cameras
+
+This allows Pi 4 on Bookworm to use libcamera instead of the deprecated MMAL.
 """
 
 import logging
 import re
 
 _pi_info_cache = None
+_camera_interface_cache = None
 
 
 def get_pi_model() -> dict | None:
@@ -109,18 +117,61 @@ def get_camera_interface() -> str:
     """
     Returns the camera interface to use for CSI cameras.
 
+    Priority order:
+    1. libcamera - if available (Bookworm on any Pi, or Pi 5)
+    2. mmal - if on Raspberry Pi with legacy camera stack (Bullseye)
+    3. v4l2 - generic fallback
+
+    This allows Pi 4 on Bookworm to use libcamera instead of deprecated MMAL.
+
     Returns:
-        'libcamera' - Pi 5 and newer (uses libcamera stack)
-        'mmal' - Pi 4 and earlier with legacy camera stack
+        'libcamera' - libcamera stack available (Bookworm, Pi 5)
+        'mmal' - Pi 4 and earlier with legacy camera stack (Bullseye)
         'v4l2' - Generic V4L2 (non-Pi or USB cameras)
     """
+    global _camera_interface_cache
+
+    if _camera_interface_cache is not None:
+        return _camera_interface_cache
+
+    # Import here to avoid circular imports
+    from motioneye.controls import rpicamctl
+
+    # First, check if libcamera is available (works on any Pi with Bookworm)
+    if rpicamctl.is_rpicam_available():
+        _camera_interface_cache = 'libcamera'
+        logging.info('Camera interface: libcamera (rpicam tools available)')
+        return 'libcamera'
+
+    # Fall back to MMAL on Raspberry Pi with legacy camera stack
     pi_info = get_pi_model()
-    if not pi_info:
-        return 'v4l2'
-    return pi_info.get('camera_interface', 'v4l2')
+    if pi_info:
+        _camera_interface_cache = 'mmal'
+        logging.info('Camera interface: mmal (legacy camera stack)')
+        return 'mmal'
+
+    # Not a Pi or no camera interface available
+    _camera_interface_cache = 'v4l2'
+    logging.info('Camera interface: v4l2 (generic)')
+    return 'v4l2'
+
+
+def uses_libcamera() -> bool:
+    """
+    Check if the system should use libcamera for CSI cameras.
+
+    This is the preferred check for camera operations - it returns True
+    for any system with libcamera available (Pi 4/5 on Bookworm, or Pi 5
+    on any OS).
+
+    Returns:
+        True if libcamera should be used for CSI cameras
+    """
+    return get_camera_interface() == 'libcamera'
 
 
 def clear_cache():
-    """Clear the cached Pi info. Useful for testing."""
-    global _pi_info_cache
+    """Clear the cached Pi info and camera interface. Useful for testing."""
+    global _pi_info_cache, _camera_interface_cache
     _pi_info_cache = None
+    _camera_interface_cache = None
