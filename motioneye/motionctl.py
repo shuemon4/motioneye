@@ -42,6 +42,14 @@ _started = False
 _motion_binary_cache = None
 _motion_detected = {}
 
+# CSRF token cache for Motion 5.0+ security
+_csrf_token_cache = {
+    'token': None,
+    'timestamp': None,
+    'port': None,
+    'csrf_supported': None  # None = unknown, True = has CSRF, False = no CSRF
+}
+
 
 def find_motion():
     global _motion_binary_cache
@@ -257,31 +265,26 @@ async def set_motion_detection(camera_id, enabled):
     if not enabled:
         _motion_detected[camera_id] = False
 
-    logging.debug(
-        f"{['disabling', 'enabling'][enabled]} motion detection for camera with id {camera_id}"
-    )
+    # Motion 5.0 command: pause_off = start detection, pause_on = stop detection
+    command = 'pause_off' if enabled else 'pause_on'
+    endpoint = 'start' if enabled else 'pause'
+    action = 'enable' if enabled else 'disable'
 
-    url = f"http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/detection/{['pause', 'start'][enabled]}"
+    logging.debug(f"{action}ing motion detection for camera with id {camera_id}")
 
-    request = HTTPRequest(
-        url,
-        connect_timeout=_MOTION_CONTROL_TIMEOUT,
-        request_timeout=_MOTION_CONTROL_TIMEOUT,
-    )
-    resp = await AsyncHTTPClient().fetch(request)
-    if resp.error:
-        logging.error(
-            'failed to {} motion detection for camera with id {}: {}'.format(
-                ['disable', 'enable'][enabled],
-                camera_id,
-                utils.pretty_http_error(resp),
-            )
-        )
+    # Legacy URL for non-CSRF Motion
+    url = f"http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/detection/{endpoint}"
 
-    else:
-        logging.debug(
-            f"successfully {['disabled', 'enabled'][enabled]} motion detection for camera with id {camera_id}"
-        )
+    try:
+        resp = await _make_motion_request(url, command=command, camid=motion_camera_id)
+
+        if resp.code in [200, 302]:
+            logging.debug(f"successfully {action}d motion detection for camera with id {camera_id}")
+        else:
+            logging.error(f'failed to {action} motion detection for camera {camera_id}: HTTP {resp.code}')
+
+    except Exception as e:
+        logging.error(f'failed to {action} motion detection for camera {camera_id}: {e}')
 
 
 async def take_snapshot(camera_id):
@@ -293,21 +296,19 @@ async def take_snapshot(camera_id):
 
     logging.debug(f'taking snapshot for camera with id {camera_id}')
 
+    # Legacy URL for non-CSRF Motion
     url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/action/snapshot'
 
-    request = HTTPRequest(
-        url,
-        connect_timeout=_MOTION_CONTROL_TIMEOUT,
-        request_timeout=_MOTION_CONTROL_TIMEOUT,
-    )
-    resp = await AsyncHTTPClient().fetch(request)
-    if resp.error:
-        logging.error(
-            f'failed to take snapshot for camera with id {camera_id}: {utils.pretty_http_error(resp)}'
-        )
+    try:
+        resp = await _make_motion_request(url, command='snapshot', camid=motion_camera_id)
 
-    else:
-        logging.debug(f'successfully took snapshot for camera with id {camera_id}')
+        if resp.code in [200, 302]:
+            logging.debug(f'successfully took snapshot for camera with id {camera_id}')
+        else:
+            logging.error(f'failed to take snapshot for camera {camera_id}: HTTP {resp.code}')
+
+    except Exception as e:
+        logging.error(f'failed to take snapshot for camera {camera_id}: {e}')
 
 
 def is_motion_detected(camera_id):
@@ -561,6 +562,166 @@ def _get_pid():
         return None
 
 
+async def _get_csrf_token(force_refresh: bool = False) -> str:
+    """
+    Retrieve CSRF token from Motion web interface, with caching.
+
+    Args:
+        force_refresh: If True, bypass cache and fetch new token
+
+    Returns:
+        64-character hexadecimal CSRF token, or None if CSRF not supported
+    """
+    global _csrf_token_cache
+
+    # Check if we already know CSRF is not supported
+    if _csrf_token_cache.get('csrf_supported') is False and not force_refresh:
+        return None
+
+    # Check cache validity
+    if not force_refresh:
+        cached_token = _csrf_token_cache.get('token')
+        cached_port = _csrf_token_cache.get('port')
+
+        if cached_token and cached_port == settings.MOTION_CONTROL_PORT:
+            logging.debug(f'Using cached CSRF token: {cached_token[:16]}...')
+            return cached_token
+
+    # Fetch Motion homepage
+    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/'
+
+    try:
+        request = HTTPRequest(
+            url,
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+        resp = await AsyncHTTPClient().fetch(request)
+
+        # Extract token from JavaScript variable: pCsrfToken = 'abc123...';
+        html = resp.body.decode('utf-8')
+        match = re.search(r"pCsrfToken\s*=\s*'([0-9a-f]{64})'", html)
+
+        if not match:
+            # Motion version doesn't have CSRF - this is OK, use legacy GET
+            logging.debug('Motion does not have CSRF tokens - using legacy API')
+            _csrf_token_cache['csrf_supported'] = False
+            _csrf_token_cache['port'] = settings.MOTION_CONTROL_PORT
+            return None
+
+        token = match.group(1)
+
+        # Update cache
+        _csrf_token_cache['token'] = token
+        _csrf_token_cache['port'] = settings.MOTION_CONTROL_PORT
+        _csrf_token_cache['timestamp'] = time.time()
+        _csrf_token_cache['csrf_supported'] = True
+
+        logging.debug(f'Retrieved CSRF token from Motion: {token[:16]}...')
+
+        return token
+
+    except Exception as e:
+        logging.warning(f'Failed to check CSRF token from Motion: {e}')
+        # Assume no CSRF support on error, try legacy API
+        _csrf_token_cache['csrf_supported'] = False
+        return None
+
+
+async def _make_motion_request(url: str, data: dict = None, command: str = None, camid: int = None) -> 'HTTPResponse':
+    """
+    Make request to Motion API, using POST+CSRF command API if supported, otherwise GET.
+
+    Handles CSRF token retrieval, caching, and automatic fallback to legacy GET API.
+
+    Args:
+        url: Full URL to Motion API endpoint (used for legacy GET mode)
+        data: Dictionary of parameters
+        command: Motion command (e.g., 'pause_on', 'snapshot') for CSRF mode
+        camid: Camera ID for CSRF mode
+
+    Returns:
+        HTTPResponse object
+    """
+    from urllib.parse import urlencode, urlparse, urlunparse
+
+    # Check if Motion has CSRF support
+    csrf_token = await _get_csrf_token()
+
+    if csrf_token and command:
+        # Motion 5.0+ with security - use root URL with command format
+        root_url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/'
+
+        post_data = {
+            'csrf_token': csrf_token,
+            'command': command,
+            'camid': camid or 0,
+        }
+        # Add any additional data
+        if data:
+            post_data.update(data)
+
+        body = urlencode(post_data)
+
+        request = HTTPRequest(
+            root_url,
+            method='POST',
+            body=body,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+
+        resp = await AsyncHTTPClient().fetch(request, raise_error=False)
+
+        # Handle 403: CSRF token may be stale, refresh and retry once
+        if resp.code == 403:
+            logging.warning('CSRF token validation failed (HTTP 403), refreshing token and retrying')
+
+            new_token = await _get_csrf_token(force_refresh=True)
+            if new_token:
+                post_data['csrf_token'] = new_token
+                body = urlencode(post_data)
+
+                request = HTTPRequest(
+                    root_url,
+                    method='POST',
+                    body=body,
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    connect_timeout=_MOTION_CONTROL_TIMEOUT,
+                    request_timeout=_MOTION_CONTROL_TIMEOUT,
+                )
+
+                resp = await AsyncHTTPClient().fetch(request, raise_error=False)
+
+                if resp.code == 403:
+                    logging.error('CSRF token validation failed after refresh - check Motion configuration')
+
+        return resp
+    else:
+        # Motion doesn't have CSRF - use legacy GET API with endpoint URLs
+        if data:
+            parsed = urlparse(url)
+            query = urlencode(data)
+            if parsed.query:
+                query = parsed.query + '&' + query
+            url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, query, parsed.fragment))
+
+        request = HTTPRequest(
+            url,
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+
+        return await AsyncHTTPClient().fetch(request, raise_error=False)
+
+
+# Keep old name as alias for backward compatibility
+async def _post_with_csrf(url: str, data: dict = None) -> 'HTTPResponse':
+    """Alias for _make_motion_request for backward compatibility."""
+    return await _make_motion_request(url, data)
+
+
 async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
     """
     Set a Motion parameter at runtime via hot reload API.
@@ -603,17 +764,13 @@ async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
             'error': f'Could not find motion camera id for camera {camera_id}'
         }
 
-    # URL encode the value
-    encoded_value = urllib.parse.quote(str(value), safe='')
-    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/config/set?{param}={encoded_value}'
+    # Build URL and POST data (Motion 5.0+ requires POST with CSRF)
+    # Legacy URL for non-CSRF Motion
+    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/config/set'
+    post_data = {param: str(value)}
 
     try:
-        request = HTTPRequest(
-            url,
-            connect_timeout=_MOTION_CONTROL_TIMEOUT,
-            request_timeout=_MOTION_CONTROL_TIMEOUT,
-        )
-        resp = await AsyncHTTPClient().fetch(request)
+        resp = await _make_motion_request(url, data=post_data, command='config', camid=motion_camera_id)
 
         if resp.code == 200:
             try:

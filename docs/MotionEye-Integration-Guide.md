@@ -30,6 +30,57 @@ Motion has been updated to natively support:
 
 ---
 
+## Motion 5.0 Security Requirements
+
+**Important**: MotionEye requires Motion 5.0 or later due to security enhancements in the Motion API.
+
+### Breaking Changes in Motion 5.0
+
+Motion 5.0 introduced comprehensive security hardening that affects how MotionEye communicates with Motion:
+
+| Security Feature | Motion 4.x | Motion 5.0+ |
+|-----------------|------------|-------------|
+| HTTP Methods | GET for all operations | **POST for state-changing** |
+| CSRF Protection | None | **Required on all POST** |
+| API Endpoints | Query params | **POST body** |
+
+### Checking Your Motion Version
+
+On your Raspberry Pi, run:
+
+```bash
+motion -h | grep Version
+```
+
+**Expected output**: `motion Version 5.0.0` or higher
+
+### If Running Motion 4.x
+
+You must upgrade Motion to version 5.0+ before using this version of MotionEye. Motion 5.0 introduced CSRF protection and other security features that are required for compatibility.
+
+**Upgrade Instructions**:
+
+1. Check latest release: https://github.com/Motion-Project/motion/releases
+2. Follow Motion installation instructions for Raspberry Pi
+3. Verify version after upgrade
+4. Restart MotionEye service
+
+### CSRF Token Flow
+
+MotionEye handles CSRF tokens automatically:
+
+1. Fetches Motion homepage (`http://127.0.0.1:7999/`)
+2. Extracts token from JavaScript: `pCsrfToken = '[64-hex-chars]';`
+3. Caches token for reuse across requests
+4. Includes token in all POST requests as `csrf_token` parameter
+5. Automatically refreshes on HTTP 403 errors
+
+### Troubleshooting
+
+See [Motion API Troubleshooting Guide](troubleshooting/motion-api-errors.md) for common issues.
+
+---
+
 ## What MotionEye Needs to Know
 
 ### 1. Motion Binary Compatibility

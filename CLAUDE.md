@@ -14,6 +14,41 @@ Key changes made:
 - Removal of deprecated stream_* options (stream_port, stream_localhost, etc.)
 - Updated pyproject.toml to include all subpackages
 
+All plans MUST be documented before execution. 
+- A scratchpad may be created, in `docs/scratchpads/`, for notes and additional memory while executing plans.
+
+### Motion 5.0 Security Integration
+
+Motion 5.0 introduced CSRF protection and POST method enforcement for all state-changing API operations.
+
+**Implementation**: `motioneye/motionctl.py`
+
+**Key Functions**:
+- `_get_csrf_token()` - Retrieves and caches CSRF token from Motion
+- `_post_with_csrf()` - Makes POST requests with automatic CSRF token and retry on 403
+- `set_motion_detection()` - Migrated to POST + CSRF
+- `take_snapshot()` - Migrated to POST + CSRF
+- `set_config_hot()` - Migrated to POST + CSRF
+
+**CSRF Token Flow**:
+1. MotionEye fetches Motion homepage (`http://127.0.0.1:7999/`)
+2. Extracts token from JavaScript: `pCsrfToken = '[64-hex-chars]';`
+3. Caches token for reuse
+4. Includes token in all POST requests as `csrf_token` parameter
+5. Automatically refreshes on HTTP 403 errors
+
+**Testing on Pi 5**:
+1. Deploy code to Pi 5
+2. Restart MotionEye service
+3. Check logs for CSRF token retrieval
+4. Test pause/start detection, snapshot, config changes
+5. Verify no HTTP 403/405 errors
+
+**Troubleshooting**:
+- HTTP 403: Token validation failed → automatic retry with fresh token
+- HTTP 405: Wrong method (indicates bug)
+- Token not found: Check Motion version (must be 5.0+)
+
 ---
 
 ## Testing on Raspberry Pi 5
