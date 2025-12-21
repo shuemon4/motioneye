@@ -5799,43 +5799,36 @@ function applyHotReloadParameter($slider) {
     }
 
     // Map slider/control ID to Motion parameter name
+    // Motion 5.0+ uses dedicated libcam_awb_* parameters for AWB hot-reload
     var paramMap = {
         'brightnessSlider': 'libcam_brightness',
         'contrastSlider': 'libcam_contrast',
-        'isoSlider': 'libcam_iso'
+        'isoSlider': 'libcam_iso',
+        'awbEnableSwitch': 'libcam_awb_enable',
+        'awbModeSelect': 'libcam_awb_mode',
+        'colourTempSlider': 'libcam_colour_temp',
+        'colourGainRSlider': 'libcam_colour_gain_r',
+        'colourGainBSlider': 'libcam_colour_gain_b'
     };
 
-    // AWB controls use libcam_control_item format
-    var awbControls = ['awbEnableSwitch', 'awbModeSelect', 'colourTempSlider', 'colourGainRSlider', 'colourGainBSlider'];
-    var paramName, paramValue;
+    var paramName = paramMap[sliderId];
+    if (!paramName) {
+        return;
+    }
 
-    if (awbControls.indexOf(sliderId) >= 0) {
-        // Use libcam_control_item for AWB controls
-        paramName = 'libcam_control_item';
-
-        if (sliderId === 'awbEnableSwitch') {
-            paramValue = 'AwbEnable=' + ($slider.is(':checked') ? 'true' : 'false');
-        } else if (sliderId === 'awbModeSelect') {
-            paramValue = 'AwbMode=' + (parseInt(value) || 0);
-        } else if (sliderId === 'colourTempSlider') {
-            paramValue = 'ColourTemperature=' + (parseInt(value) || 0);
-        } else if (sliderId === 'colourGainRSlider' || sliderId === 'colourGainBSlider') {
-            // ColourGains needs both red and blue values: red|blue
-            var redGain = parseFloat($('#colourGainRSlider').val()) || 0.0;
-            var blueGain = parseFloat($('#colourGainBSlider').val()) || 0.0;
-            paramValue = 'ColourGains=' + redGain + '|' + blueGain;
-        }
-        value = paramValue;
-    } else {
-        paramName = paramMap[sliderId];
-        if (!paramName) {
-            return;
-        }
-
-        // Convert gain to ISO for isoSlider
-        if (sliderId === 'isoSlider') {
-            value = Math.round(parseFloat(value) * 100);
-        }
+    // Convert values for specific controls
+    if (sliderId === 'isoSlider') {
+        // Convert gain to ISO
+        value = Math.round(parseFloat(value) * 100);
+    } else if (sliderId === 'awbEnableSwitch') {
+        // Boolean for AWB enable
+        value = $slider.is(':checked') ? 'true' : 'false';
+    } else if (sliderId === 'awbModeSelect' || sliderId === 'colourTempSlider') {
+        // Integer values
+        value = parseInt(value) || 0;
+    } else if (sliderId === 'colourGainRSlider' || sliderId === 'colourGainBSlider') {
+        // Float values
+        value = parseFloat(value) || 0.0;
     }
 
     // Show applying indicator

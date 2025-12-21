@@ -161,9 +161,17 @@ def start(deferred=False):
 def stop(invalidate=False):
     from motioneye import mjpgclient
 
-    global _started
+    global _started, _csrf_token_cache
 
     _started = False
+
+    # Invalidate CSRF token cache since Motion will generate a new token on restart
+    _csrf_token_cache = {
+        'token': None,
+        'timestamp': None,
+        'port': None,
+        'csrf_supported': None
+    }
 
     if not running():
         return
@@ -628,17 +636,18 @@ async def _get_csrf_token(force_refresh: bool = False) -> str:
         return None
 
 
-async def _make_motion_request(url: str, data: dict = None, command: str = None, camid: int = None) -> 'HTTPResponse':
+async def _make_motion_request(url: str, data: dict = None, command: str = None, camid: int = None, use_post: bool = False) -> 'HTTPResponse':
     """
     Make request to Motion API, using POST+CSRF command API if supported, otherwise GET.
 
     Handles CSRF token retrieval, caching, and automatic fallback to legacy GET API.
 
     Args:
-        url: Full URL to Motion API endpoint (used for legacy GET mode)
+        url: Full URL to Motion API endpoint
         data: Dictionary of parameters
         command: Motion command (e.g., 'pause_on', 'snapshot') for CSRF mode
         camid: Camera ID for CSRF mode
+        use_post: If True, use POST with CSRF token to the specified URL (for hot reload)
 
     Returns:
         HTTPResponse object
@@ -698,6 +707,52 @@ async def _make_motion_request(url: str, data: dict = None, command: str = None,
                     logging.error('CSRF token validation failed after refresh - check Motion configuration')
 
         return resp
+
+    elif csrf_token and use_post:
+        # Motion 5.0+ hot reload: POST to specific URL with CSRF token only
+        # Used for /config/set endpoint where param is in URL query string
+        post_data = {'csrf_token': csrf_token}
+        if data:
+            post_data.update(data)
+
+        body = urlencode(post_data)
+
+        request = HTTPRequest(
+            url,
+            method='POST',
+            body=body,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+
+        resp = await AsyncHTTPClient().fetch(request, raise_error=False)
+
+        # Handle 403: CSRF token may be stale, refresh and retry once
+        if resp.code == 403:
+            logging.warning('CSRF token validation failed (HTTP 403), refreshing token and retrying')
+
+            new_token = await _get_csrf_token(force_refresh=True)
+            if new_token:
+                post_data['csrf_token'] = new_token
+                body = urlencode(post_data)
+
+                request = HTTPRequest(
+                    url,
+                    method='POST',
+                    body=body,
+                    headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                    connect_timeout=_MOTION_CONTROL_TIMEOUT,
+                    request_timeout=_MOTION_CONTROL_TIMEOUT,
+                )
+
+                resp = await AsyncHTTPClient().fetch(request, raise_error=False)
+
+                if resp.code == 403:
+                    logging.error('CSRF token validation failed after refresh - check Motion configuration')
+
+        return resp
+
     else:
         # Motion doesn't have CSRF - use legacy GET API with endpoint URLs
         if data:
@@ -764,13 +819,17 @@ async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
             'error': f'Could not find motion camera id for camera {camera_id}'
         }
 
-    # Build URL and POST data (Motion 5.0+ requires POST with CSRF)
-    # Legacy URL for non-CSRF Motion
-    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/config/set'
-    post_data = {param: str(value)}
+    # Build URL with parameter in query string (Motion 5.0 hot reload API)
+    # Format: POST /{camera_id}/config/set?{param}={value}
+    # The parameter goes in the URL query string, CSRF token goes in POST body
+    from urllib.parse import quote
+    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/{motion_camera_id}/config/set?{param}={quote(str(value))}'
 
     try:
-        resp = await _make_motion_request(url, data=post_data, command='config', camid=motion_camera_id)
+        # Use POST with CSRF token to the specific URL (use_post=True)
+        # Note: Do NOT pass command='config' - that would route to the wrong handler
+        # The hot reload endpoint is the URL itself, not a command
+        resp = await _make_motion_request(url, data=None, command=None, camid=motion_camera_id, use_post=True)
 
         if resp.code == 200:
             try:

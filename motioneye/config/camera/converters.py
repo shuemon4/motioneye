@@ -423,10 +423,7 @@ def motion_camera_ui_to_dict(
             data['libcam_contrast'] = float(ui.get('contrast', 1.0))
             data['libcam_iso'] = int(ui.get('iso', 100))
 
-            # Build libcam_control_item list for Motion
-            control_items = []
-
-            # AWB controls - use libcam_control_item (Motion doesn't have libcam_awb_* options)
+            # AWB controls - Motion 5.0+ has dedicated libcam_awb_* parameters for hot-reload
             awb_enable = ui.get('awb_enable', True)
             awb_mode = int(ui.get('awb_mode', 0))
             colour_temp = int(ui.get('colour_temp', 0))
@@ -440,18 +437,18 @@ def motion_camera_ui_to_dict(
             data['@colour_gain_r'] = colour_gain_r
             data['@colour_gain_b'] = colour_gain_b
 
-            # Generate libcam_control_item entries
-            if awb_enable:
-                control_items.append('AwbEnable=true')
-                control_items.append(f'AwbMode={awb_mode}')
-            else:
-                control_items.append('AwbEnable=false')
-                # When AWB disabled, set manual controls
-                if colour_temp > 0:
-                    control_items.append(f'ColourTemperature={colour_temp}')
-                if colour_gain_r > 0 or colour_gain_b > 0:
-                    # ColourGains uses pipe delimiter: red|blue
-                    control_items.append(f'ColourGains={colour_gain_r}|{colour_gain_b}')
+            # Set dedicated libcam_awb_* parameters (Motion 5.0+ hot-reloadable)
+            # These are the ONLY way AWB should be configured - they support hot-reload
+            # Do NOT use libcam_control_item for AWB as it forces daemon restart
+            data['libcam_awb_enable'] = awb_enable
+            data['libcam_awb_mode'] = awb_mode
+            data['libcam_colour_temp'] = colour_temp
+            data['libcam_colour_gain_r'] = colour_gain_r
+            data['libcam_colour_gain_b'] = colour_gain_b
+
+            # Build libcam_control_item list for controls not yet covered by dedicated parameters
+            # NOTE: AWB is NOT included here - Motion 5.0+ uses libcam_awb_* for hot-reload
+            control_items = []
 
             # Autofocus control parameters for Camera v3
             if ui.get('supports_autofocus'):

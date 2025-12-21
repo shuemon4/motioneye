@@ -29,6 +29,12 @@ USED_MOTION_OPTIONS = {
     'libcam_contrast',
     'libcam_iso',
     'libcam_control_item',
+    'libcam_awb_enable',
+    'libcam_awb_mode',
+    'libcam_awb_locked',
+    'libcam_colour_temp',
+    'libcam_colour_gain_r',
+    'libcam_colour_gain_b',
     'lightswitch_percent',
     'locate_motion_mode',
     'locate_motion_style',
@@ -215,6 +221,12 @@ HOT_RELOAD_PARAMS = {
     'libcam_brightness',
     'libcam_contrast',
     'libcam_iso',
+    'libcam_awb_enable',
+    'libcam_awb_mode',
+    'libcam_awb_locked',
+    'libcam_colour_temp',
+    'libcam_colour_gain_r',
+    'libcam_colour_gain_b',
 }
 
 # Parameters that always require daemon restart
