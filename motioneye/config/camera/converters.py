@@ -423,6 +423,36 @@ def motion_camera_ui_to_dict(
             data['libcam_contrast'] = float(ui.get('contrast', 1.0))
             data['libcam_iso'] = int(ui.get('iso', 100))
 
+            # Build libcam_control_item list for Motion
+            control_items = []
+
+            # AWB controls - use libcam_control_item (Motion doesn't have libcam_awb_* options)
+            awb_enable = ui.get('awb_enable', True)
+            awb_mode = int(ui.get('awb_mode', 0))
+            colour_temp = int(ui.get('colour_temp', 0))
+            colour_gain_r = float(ui.get('colour_gain_r', 0.0))
+            colour_gain_b = float(ui.get('colour_gain_b', 0.0))
+
+            # Store for UI persistence
+            data['@awb_enable'] = awb_enable
+            data['@awb_mode'] = awb_mode
+            data['@colour_temp'] = colour_temp
+            data['@colour_gain_r'] = colour_gain_r
+            data['@colour_gain_b'] = colour_gain_b
+
+            # Generate libcam_control_item entries
+            if awb_enable:
+                control_items.append('AwbEnable=true')
+                control_items.append(f'AwbMode={awb_mode}')
+            else:
+                control_items.append('AwbEnable=false')
+                # When AWB disabled, set manual controls
+                if colour_temp > 0:
+                    control_items.append(f'ColourTemperature={colour_temp}')
+                if colour_gain_r > 0 or colour_gain_b > 0:
+                    # ColourGains uses pipe delimiter: red|blue
+                    control_items.append(f'ColourGains={colour_gain_r}|{colour_gain_b}')
+
             # Autofocus control parameters for Camera v3
             if ui.get('supports_autofocus'):
                 af_mode = ui.get('autofocus_mode', 2)
@@ -435,13 +465,14 @@ def motion_camera_ui_to_dict(
                 data['@af_range'] = af_range
                 data['@lens_position'] = lens_pos
 
-                # Generate libcam_control_item entries for motion.conf
-                # Motion accepts multiple libcam_control_item directives
-                control_items = [f'AfMode={af_mode}', f'AfRange={af_range}']
+                # Add autofocus controls
+                control_items.append(f'AfMode={af_mode}')
+                control_items.append(f'AfRange={af_range}')
                 if af_mode == 0:  # Manual focus mode
                     control_items.append(f'LensPosition={lens_pos}')
 
-                # Motion uses separate libcam_control_item for each control
+            # Motion uses separate libcam_control_item for each control
+            if control_items:
                 data['libcam_control_item'] = control_items
 
     else:  # assuming netcam
@@ -991,6 +1022,19 @@ def motion_camera_dict_to_ui(
         ui['brightness'] = float(data.get('libcam_brightness', 0.0))
         ui['contrast'] = float(data.get('libcam_contrast', 1.0))
         ui['iso'] = int(data.get('libcam_iso', 100))
+
+        # AWB controls (stored with @ prefix, with fallback for legacy libcam_awb_* format)
+        if '@awb_enable' in data:
+            ui['awb_enable'] = data.get('@awb_enable', True)
+        else:
+            # Legacy format migration
+            legacy_val = data.get('libcam_awb_enable', True)
+            ui['awb_enable'] = legacy_val if isinstance(legacy_val, bool) else (legacy_val == 'on' or legacy_val == True)
+
+        ui['awb_mode'] = int(data.get('@awb_mode', data.get('libcam_awb_mode', 0)))
+        ui['colour_temp'] = int(data.get('@colour_temp', data.get('libcam_colour_temp', 0)))
+        ui['colour_gain_r'] = float(data.get('@colour_gain_r', data.get('libcam_colour_gain_r', 0.0)))
+        ui['colour_gain_b'] = float(data.get('@colour_gain_b', data.get('libcam_colour_gain_b', 0.0)))
 
         # Autofocus controls for Camera v3 (imx708)
         # Check stored flag first, then detect dynamically for existing cameras

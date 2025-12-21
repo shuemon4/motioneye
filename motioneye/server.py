@@ -196,6 +196,10 @@ handler_mapping = [
         r'^/config/(?P<camera_id>\d+)/(?P<op>get|set|rem|test|authorize|hot-reload)/?$',
         ConfigHandler,
     ),
+    (
+        r'^/config/(?P<camera_id>\d+)/presets/(?P<op>list|save|load|delete|rename)/?$',
+        ConfigHandler,
+    ),
     (r'^/config/(?P<op>add|list|backup|restore)/?$', ConfigHandler),
     (r'^/status/(?P<camera_id>\d+)/?$', StatusHandler),
     (r'^/picture/(?P<camera_id>\d+)/(?P<op>current|list|frame)/?$', PictureHandler),

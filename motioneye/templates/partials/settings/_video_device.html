@@ -108,6 +108,79 @@
         </td>
         <td><span class="help-mark" data-i18n-title="Camera analog gain: 1.0 (low noise, bright conditions) to 64.0 (high noise, low light). Higher values allow shooting in darker environments but increase image noise. ISO is approximately Gain × 100. Changes apply instantly without restarting the camera." title="Camera analog gain: 1.0 (low noise, bright conditions) to 64.0 (high noise, low light). Higher values allow shooting in darker environments but increase image noise. ISO is approximately Gain × 100. Changes apply instantly without restarting the camera.">?</span></td>
     </tr>
+    <!-- White Balance Section Header -->
+    <tr class="settings-item libcam-only">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item libcam-only">
+        <td colspan="3" style="padding-top: 10px;">
+            <span style="font-weight: bold; color: #ddd;" data-i18n="White Balance">White Balance</span>
+        </td>
+    </tr>
+    <!-- AWB Enable -->
+    <tr class="settings-item libcam-only">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Auto White Balance">Auto White Balance</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled device camera-config hot-reload" id="awbEnableSwitch">
+        </td>
+        <td><span class="help-mark" data-i18n-title="Enable automatic white balance adjustment. Disable to use manual colour temperature or gains." title="Enable automatic white balance adjustment. Disable to use manual colour temperature or gains.">?</span></td>
+    </tr>
+    <!-- AWB Mode -->
+    <tr class="settings-item libcam-only" depends="awbEnable">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="AWB Mode">AWB Mode</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <select class="styled device camera-config hot-reload" id="awbModeSelect">
+                <option value="0" data-i18n="Auto">Auto</option>
+                <option value="1" data-i18n="Incandescent">Incandescent</option>
+                <option value="2" data-i18n="Tungsten">Tungsten</option>
+                <option value="3" data-i18n="Fluorescent">Fluorescent</option>
+                <option value="4" data-i18n="Indoor">Indoor</option>
+                <option value="5" data-i18n="Daylight">Daylight</option>
+                <option value="6" data-i18n="Cloudy">Cloudy</option>
+            </select>
+        </td>
+        <td><span class="help-mark" data-i18n-title="Select white balance mode: Auto adapts to lighting, presets optimize for specific light types (Incandescent ~2700K, Fluorescent ~4000K, Daylight ~5500K, Cloudy ~6500K). Disable AWB for manual control." title="Select white balance mode: Auto adapts to lighting, presets optimize for specific light types (Incandescent ~2700K, Fluorescent ~4000K, Daylight ~5500K, Cloudy ~6500K). Disable AWB for manual control.">?</span></td>
+    </tr>
+    <!-- Colour Temperature (when AWB disabled) -->
+    <tr class="settings-item libcam-only" depends="!awbEnable" min="0" max="10000" snap="100" ticks="0|2700|4000|5500|6500|10000" decimals="0">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Colour Temperature (K)">Colour Temperature (K)</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="text" class="range styled device camera-config hot-reload" id="colourTempSlider">
+            <div class="slider-note" style="font-size: 0.85em; color: #999; margin-top: 2px;">* 0 = Auto, 2700K = Warm, 6500K = Cool</div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="Manual colour temperature in Kelvin (0-10000). Set to 0 for automatic. Typical values: 2700K (incandescent), 4000K (fluorescent), 5500K (daylight), 6500K (cloudy). Requires AWB disabled." title="Manual colour temperature in Kelvin (0-10000). Set to 0 for automatic. Typical values: 2700K (incandescent), 4000K (fluorescent), 5500K (daylight), 6500K (cloudy). Requires AWB disabled.">?</span></td>
+    </tr>
+    <!-- Colour Gain Red -->
+    <tr class="settings-item libcam-only" depends="!awbEnable" min="0" max="8" snap="0" ticks="0|1|2|4|8" decimals="1">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Red Gain">Red Gain</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="text" class="range styled device camera-config hot-reload" id="colourGainRSlider">
+        </td>
+        <td><span class="help-mark" data-i18n-title="Manual red channel gain multiplier (0.0-8.0). Set to 0.0 for automatic. Higher values add warmth. Requires AWB disabled." title="Manual red channel gain multiplier (0.0-8.0). Set to 0.0 for automatic. Higher values add warmth. Requires AWB disabled.">?</span></td>
+    </tr>
+    <!-- Colour Gain Blue -->
+    <tr class="settings-item libcam-only" depends="!awbEnable" min="0" max="8" snap="0" ticks="0|1|2|4|8" decimals="1">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Blue Gain">Blue Gain</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="text" class="range styled device camera-config hot-reload" id="colourGainBSlider">
+        </td>
+        <td><span class="help-mark" data-i18n-title="Manual blue channel gain multiplier (0.0-8.0). Set to 0.0 for automatic. Higher values add coolness. Requires AWB disabled." title="Manual blue channel gain multiplier (0.0-8.0). Set to 0.0 for automatic. Higher values add coolness. Requires AWB disabled.">?</span></td>
+    </tr>
     <tr class="settings-item" depends="autofocusMode=0" min="0" max="10" snap="0" decimals="1">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Focus Position">Focus Position</span></td>
         <td class="settings-item-value"><input type="text" class="range styled device camera-config" id="lensPositionSlider"></td>
@@ -142,6 +215,24 @@
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Extra Options">Extra Options</span></td>
         <td class="settings-item-value"><textarea class="styled device camera-config" id="extraOptionsEntry" rows="3"></textarea></td>
         <td><span class="help-mark" data-i18n-title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)" title="You can add any additional options here for the &quot;motion&quot; daemon (use the &quot;name value&quot; format, one option per line)">?</span></td>
+    </tr>
+    <!-- Preset Management Section -->
+    <tr class="settings-item libcam-only">
+        <td colspan="100"><div class="settings-item-separator"></div></td>
+    </tr>
+    <tr class="settings-item libcam-only">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Camera Presets">Camera Presets</span>
+        </td>
+        <td class="settings-item-value" style="display: flex; gap: 8px; align-items: center;">
+            <select class="styled" id="presetSelect" style="flex: 1;">
+                <option value="" data-i18n="Select a preset...">Select a preset...</option>
+            </select>
+            <div class="button small-button" id="loadPresetButton" data-i18n="Load">Load</div>
+            <div class="button small-button" id="savePresetButton" data-i18n="Save">Save</div>
+            <div class="button small-button" id="managePresetsButton" data-i18n="Manage">Manage</div>
+        </td>
+        <td><span class="help-mark" data-i18n-title="Save and load camera configuration presets. Hot-reload settings (brightness, contrast, ISO, AWB) apply immediately; other settings stage for review." title="Save and load camera configuration presets. Hot-reload settings (brightness, contrast, ISO, AWB) apply immediately; other settings stage for review.">?</span></td>
     </tr>
     {% for config in camera_sections.get('device', {}).get('configs', []) %}
         {{config_item(config)}}

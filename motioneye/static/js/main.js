@@ -2078,6 +2078,11 @@ function cameraUi2Dict() {
         'brightness': parseFloat($('#brightnessSlider').val()) || 0.0,
         'contrast': parseFloat($('#contrastSlider').val()) || 1.0,
         'iso': Math.round((parseFloat($('#isoSlider').val()) || 1.0) * 100),  // Convert gain to ISO
+        'awb_enable': $('#awbEnableSwitch').is(':checked'),
+        'awb_mode': parseInt($('#awbModeSelect').val()) || 0,
+        'colour_temp': parseInt($('#colourTempSlider').val()) || 0,
+        'colour_gain_r': parseFloat($('#colourGainRSlider').val()) || 0.0,
+        'colour_gain_b': parseFloat($('#colourGainBSlider').val()) || 0.0,
         'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
         'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
         'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
@@ -2401,6 +2406,12 @@ function dict2CameraUi(dict) {
     $('#brightnessSlider').val(dict['brightness'] != null ? dict['brightness'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'brightnessSlider');
     $('#contrastSlider').val(dict['contrast'] != null ? dict['contrast'] : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'contrastSlider');
     $('#isoSlider').val(dict['iso'] != null ? (dict['iso'] / 100).toFixed(1) : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'isoSlider');  // Convert ISO to gain
+    // AWB Controls
+    $('#awbEnableSwitch').prop('checked', dict['awb_enable'] != null ? dict['awb_enable'] : true); markHideIfNull(dict['proto'] !== 'libcamera', 'awbEnableSwitch');
+    $('#awbModeSelect').val(dict['awb_mode'] != null ? dict['awb_mode'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'awbModeSelect');
+    $('#colourTempSlider').val(dict['colour_temp'] != null ? dict['colour_temp'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourTempSlider');
+    $('#colourGainRSlider').val(dict['colour_gain_r'] != null ? dict['colour_gain_r'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainRSlider');
+    $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainBSlider');
     $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
     $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
     $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
@@ -5767,6 +5778,15 @@ function initHotReloadSliders() {
             });
         }
     });
+
+    // AWB checkbox and select hot-reload handlers
+    $('#awbEnableSwitch').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
+
+    $('#awbModeSelect').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
 }
 
 function applyHotReloadParameter($slider) {
@@ -5778,21 +5798,44 @@ function applyHotReloadParameter($slider) {
         return;
     }
 
-    // Map slider ID to Motion parameter name
+    // Map slider/control ID to Motion parameter name
     var paramMap = {
         'brightnessSlider': 'libcam_brightness',
         'contrastSlider': 'libcam_contrast',
         'isoSlider': 'libcam_iso'
     };
 
-    var paramName = paramMap[sliderId];
-    if (!paramName) {
-        return;
-    }
+    // AWB controls use libcam_control_item format
+    var awbControls = ['awbEnableSwitch', 'awbModeSelect', 'colourTempSlider', 'colourGainRSlider', 'colourGainBSlider'];
+    var paramName, paramValue;
 
-    // Convert gain to ISO for isoSlider
-    if (sliderId === 'isoSlider') {
-        value = Math.round(parseFloat(value) * 100);
+    if (awbControls.indexOf(sliderId) >= 0) {
+        // Use libcam_control_item for AWB controls
+        paramName = 'libcam_control_item';
+
+        if (sliderId === 'awbEnableSwitch') {
+            paramValue = 'AwbEnable=' + ($slider.is(':checked') ? 'true' : 'false');
+        } else if (sliderId === 'awbModeSelect') {
+            paramValue = 'AwbMode=' + (parseInt(value) || 0);
+        } else if (sliderId === 'colourTempSlider') {
+            paramValue = 'ColourTemperature=' + (parseInt(value) || 0);
+        } else if (sliderId === 'colourGainRSlider' || sliderId === 'colourGainBSlider') {
+            // ColourGains needs both red and blue values: red|blue
+            var redGain = parseFloat($('#colourGainRSlider').val()) || 0.0;
+            var blueGain = parseFloat($('#colourGainBSlider').val()) || 0.0;
+            paramValue = 'ColourGains=' + redGain + '|' + blueGain;
+        }
+        value = paramValue;
+    } else {
+        paramName = paramMap[sliderId];
+        if (!paramName) {
+            return;
+        }
+
+        // Convert gain to ISO for isoSlider
+        if (sliderId === 'isoSlider') {
+            value = Math.round(parseFloat(value) * 100);
+        }
     }
 
     // Show applying indicator
@@ -5934,6 +5977,354 @@ pushCameraConfig = function(reboot) {
     // Call original function
     return originalPushCameraConfig.call(this, reboot);
 };
+
+/* Camera Preset Functions */
+
+var presetCache = {};  // Cache for preset lists
+
+function initPresets() {
+    // Attach event handlers for preset buttons
+    $('#loadPresetButton').on('click', loadSelectedPreset);
+    $('#savePresetButton').on('click', showSavePresetDialog);
+    $('#managePresetsButton').on('click', showManagePresetsDialog);
+
+    // Refresh preset list when camera changes
+    $('#cameraSelect').on('change', function() {
+        refreshPresetList();
+    });
+}
+
+function refreshPresetList(callback) {
+    var cameraId = $('#cameraSelect').val();
+    if (!cameraId) {
+        return;
+    }
+
+    ajax('GET', basePath + 'config/' + cameraId + '/presets/list/', null, function(data) {
+        var $select = $('#presetSelect');
+        $select.empty();
+        $select.append('<option value="">' + motionEyeI18n.t('Select a preset...') + '</option>');
+
+        if (data.presets) {
+            data.presets.forEach(function(preset) {
+                $select.append('<option value="' + preset.id + '">' + preset.name + '</option>');
+            });
+        }
+
+        presetCache[cameraId] = data;
+
+        if (callback) callback(data);
+    }, function(error) {
+        console.error('Failed to load presets:', error);
+    });
+}
+
+function loadSelectedPreset() {
+    var cameraId = $('#cameraSelect').val();
+    var presetId = $('#presetSelect').val();
+
+    if (!presetId) {
+        showPopupMessage(motionEyeI18n.t('Please select a preset to load.'), 'error');
+        return;
+    }
+
+    ajax('POST', basePath + 'config/' + cameraId + '/presets/load/', {
+        preset_id: presetId
+    }, function(data) {
+        if (data.error) {
+            showPopupMessage(motionEyeI18n.t('Failed to load preset: ') + data.error, 'error');
+            return;
+        }
+
+        // Apply preset settings
+        applyPresetSettings(data.settings);
+        showPopupMessage(motionEyeI18n.t('Preset "') + data.name + motionEyeI18n.t('" loaded successfully!'), 'info');
+    }, function(error) {
+        showPopupMessage(motionEyeI18n.t('Failed to load preset.'), 'error');
+    });
+}
+
+function applyPresetSettings(settings) {
+    // Hot-reload settings that can be applied immediately
+    var hotReloadSettings = ['brightness', 'contrast', 'iso', 'awb_enable', 'awb_mode',
+                             'awb_locked', 'colour_temp', 'colour_gain_r', 'colour_gain_b'];
+
+    // Non-hot-reload settings need to be staged in the UI
+    for (var key in settings) {
+        var value = settings[key];
+
+        switch(key) {
+            case 'brightness':
+                $('#brightnessSlider').val(value);
+                applyHotReloadParameter($('#brightnessSlider'));
+                break;
+            case 'contrast':
+                $('#contrastSlider').val(value);
+                applyHotReloadParameter($('#contrastSlider'));
+                break;
+            case 'iso':
+                $('#isoSlider').val((value / 100).toFixed(1));  // Convert ISO to gain
+                applyHotReloadParameter($('#isoSlider'));
+                break;
+            case 'awb_enable':
+                $('#awbEnableSwitch').prop('checked', value);
+                applyHotReloadParameter($('#awbEnableSwitch'));
+                break;
+            case 'awb_mode':
+                $('#awbModeSelect').val(value);
+                applyHotReloadParameter($('#awbModeSelect'));
+                break;
+            case 'awb_locked':
+                $('#awbLockedSwitch').prop('checked', value);
+                applyHotReloadParameter($('#awbLockedSwitch'));
+                break;
+            case 'colour_temp':
+                $('#colourTempSlider').val(value);
+                applyHotReloadParameter($('#colourTempSlider'));
+                break;
+            case 'colour_gain_r':
+                $('#colourGainRSlider').val(value);
+                applyHotReloadParameter($('#colourGainRSlider'));
+                break;
+            case 'colour_gain_b':
+                $('#colourGainBSlider').val(value);
+                applyHotReloadParameter($('#colourGainBSlider'));
+                break;
+            // Non-hot-reload settings (just set in UI)
+            case 'framerate':
+                $('#framerateSlider').val(value);
+                break;
+            case 'autofocus_mode':
+                $('#autofocusModeSelect').val(value);
+                break;
+            case 'autofocus_range':
+                $('#autofocusRangeSelect').val(value);
+                break;
+            case 'lens_position':
+                $('#lensPositionSlider').val(value);
+                break;
+        }
+    }
+
+    // Update the UI to reflect new values
+    updateConfigUI();
+}
+
+function showSavePresetDialog() {
+    var cameraId = $('#cameraSelect').val();
+    if (!cameraId) return;
+
+    var content = $('<div class="save-preset-dialog">' +
+        '<table>' +
+        '<tr><td class="dialog-item-label">' + motionEyeI18n.t('Preset Name') + ':</td>' +
+        '<td class="dialog-item-value"><input type="text" class="styled" id="presetNameEntry" placeholder="' + motionEyeI18n.t('Enter preset name...') + '"></td></tr>' +
+        '</table></div>');
+
+    var presetNameEntry = content.find('#presetNameEntry');
+
+    runModalDialog({
+        title: motionEyeI18n.t('Save Camera Preset'),
+        content: content,
+        buttons: [
+            {caption: motionEyeI18n.t('Cancel'), isCancel: true},
+            {caption: motionEyeI18n.t('Save'), isDefault: true, click: function() {
+                var presetName = presetNameEntry.val().trim();
+                if (!presetName) {
+                    showPopupMessage(motionEyeI18n.t('Please enter a preset name.'), 'error');
+                    return false;  // Keep dialog open
+                }
+                saveCurrentPreset(presetName);
+            }}
+        ],
+        onShow: function() {
+            setTimeout(function() { presetNameEntry.focus(); }, 100);
+        }
+    });
+}
+
+function saveCurrentPreset(presetName, forceOverwrite) {
+    var cameraId = $('#cameraSelect').val();
+
+    // Collect current settings
+    var settings = {
+        brightness: parseFloat($('#brightnessSlider').val()) || 0.0,
+        contrast: parseFloat($('#contrastSlider').val()) || 1.0,
+        iso: Math.round((parseFloat($('#isoSlider').val()) || 1.0) * 100),
+        awb_enable: $('#awbEnableSwitch').is(':checked'),
+        awb_mode: parseInt($('#awbModeSelect').val()) || 0,
+        awb_locked: $('#awbLockedSwitch').is(':checked'),
+        colour_temp: parseInt($('#colourTempSlider').val()) || 0,
+        colour_gain_r: parseFloat($('#colourGainRSlider').val()) || 0.0,
+        colour_gain_b: parseFloat($('#colourGainBSlider').val()) || 0.0,
+        framerate: parseInt($('#framerateSlider').val()) || 30,
+        autofocus_mode: parseInt($('#autofocusModeSelect').val()) || 2,
+        autofocus_range: parseInt($('#autofocusRangeSelect').val()) || 0,
+        lens_position: parseFloat($('#lensPositionSlider').val()) || 0.0
+    };
+
+    ajax('POST', basePath + 'config/' + cameraId + '/presets/save/', {
+        name: presetName,
+        settings: settings,
+        force_overwrite: forceOverwrite || false
+    }, function(data) {
+        if (data.error === 'exists') {
+            // Preset exists, ask to overwrite
+            runConfirmDialog(motionEyeI18n.t('Preset "') + presetName + motionEyeI18n.t('" already exists. Overwrite?'), function() {
+                saveCurrentPreset(presetName, true);
+            });
+            return;
+        }
+
+        if (data.error) {
+            showPopupMessage(motionEyeI18n.t('Failed to save preset: ') + data.error, 'error');
+            return;
+        }
+
+        showPopupMessage(motionEyeI18n.t('Preset "') + presetName + motionEyeI18n.t('" saved successfully!'), 'info');
+        refreshPresetList();
+    }, function(error) {
+        showPopupMessage(motionEyeI18n.t('Failed to save preset.'), 'error');
+    });
+}
+
+function showManagePresetsDialog() {
+    var cameraId = $('#cameraSelect').val();
+    if (!cameraId) return;
+
+    refreshPresetList(function(data) {
+        var presets = data.presets || [];
+
+        var content = $('<div class="manage-presets-dialog">' +
+            '<div class="preset-list-container"></div>' +
+            '</div>');
+
+        var listContainer = content.find('.preset-list-container');
+
+        if (presets.length === 0) {
+            listContainer.append('<p class="no-presets">' + motionEyeI18n.t('No presets saved yet.') + '</p>');
+        } else {
+            var list = $('<ul class="preset-list"></ul>');
+            presets.forEach(function(preset) {
+                var item = $('<li class="preset-item" data-id="' + preset.id + '">' +
+                    '<span class="preset-name">' + preset.name + '</span>' +
+                    '<div class="preset-actions">' +
+                    '<button class="rename-preset-btn" title="' + motionEyeI18n.t('Rename') + '">✏️</button>' +
+                    '<button class="delete-preset-btn" title="' + motionEyeI18n.t('Delete') + '">🗑️</button>' +
+                    '</div></li>');
+                list.append(item);
+            });
+            listContainer.append(list);
+
+            // Attach event handlers
+            list.find('.rename-preset-btn').on('click', function(e) {
+                e.stopPropagation();
+                var $item = $(this).closest('.preset-item');
+                var presetId = $item.data('id');
+                var currentName = $item.find('.preset-name').text();
+                showRenamePresetDialog(presetId, currentName);
+            });
+
+            list.find('.delete-preset-btn').on('click', function(e) {
+                e.stopPropagation();
+                var $item = $(this).closest('.preset-item');
+                var presetId = $item.data('id');
+                var presetName = $item.find('.preset-name').text();
+                confirmDeletePreset(presetId, presetName);
+            });
+        }
+
+        runModalDialog({
+            title: motionEyeI18n.t('Manage Camera Presets'),
+            content: content,
+            buttons: [
+                {caption: motionEyeI18n.t('Close'), isDefault: true}
+            ]
+        });
+    });
+}
+
+function showRenamePresetDialog(presetId, currentName) {
+    var cameraId = $('#cameraSelect').val();
+
+    var content = $('<div class="rename-preset-dialog">' +
+        '<table>' +
+        '<tr><td class="dialog-item-label">' + motionEyeI18n.t('New Name') + ':</td>' +
+        '<td class="dialog-item-value"><input type="text" class="styled" id="newPresetNameEntry" value="' + currentName + '"></td></tr>' +
+        '</table></div>');
+
+    var newNameEntry = content.find('#newPresetNameEntry');
+
+    runModalDialog({
+        title: motionEyeI18n.t('Rename Preset'),
+        content: content,
+        buttons: [
+            {caption: motionEyeI18n.t('Cancel'), isCancel: true},
+            {caption: motionEyeI18n.t('Rename'), isDefault: true, click: function() {
+                var newName = newNameEntry.val().trim();
+                if (!newName) {
+                    showPopupMessage(motionEyeI18n.t('Please enter a name.'), 'error');
+                    return false;
+                }
+                renamePreset(presetId, newName);
+            }}
+        ],
+        onShow: function() {
+            setTimeout(function() {
+                newNameEntry.focus().select();
+            }, 100);
+        }
+    });
+}
+
+function renamePreset(presetId, newName) {
+    var cameraId = $('#cameraSelect').val();
+
+    ajax('POST', basePath + 'config/' + cameraId + '/presets/rename/', {
+        preset_id: presetId,
+        new_name: newName
+    }, function(data) {
+        if (data.error) {
+            showPopupMessage(motionEyeI18n.t('Failed to rename preset: ') + data.error, 'error');
+            return;
+        }
+
+        showPopupMessage(motionEyeI18n.t('Preset renamed successfully!'), 'info');
+        refreshPresetList();
+    }, function(error) {
+        showPopupMessage(motionEyeI18n.t('Failed to rename preset.'), 'error');
+    });
+}
+
+function confirmDeletePreset(presetId, presetName) {
+    runConfirmDialog(motionEyeI18n.t('Delete preset "') + presetName + '"?', function() {
+        deletePreset(presetId);
+    });
+}
+
+function deletePreset(presetId) {
+    var cameraId = $('#cameraSelect').val();
+
+    ajax('POST', basePath + 'config/' + cameraId + '/presets/delete/', {
+        preset_id: presetId
+    }, function(data) {
+        if (data.error) {
+            showPopupMessage(motionEyeI18n.t('Failed to delete preset: ') + data.error, 'error');
+            return;
+        }
+
+        showPopupMessage(motionEyeI18n.t('Preset deleted successfully!'), 'info');
+        refreshPresetList();
+    }, function(error) {
+        showPopupMessage(motionEyeI18n.t('Failed to delete preset.'), 'error');
+    });
+}
+
+// Initialize presets after page loads
+$(function() {
+    initPresets();
+    // Initial preset list load
+    setTimeout(refreshPresetList, 500);
+});
 
 /* CPU Temperature Display */
 var tempPollingInterval = null;

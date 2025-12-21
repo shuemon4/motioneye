@@ -1517,3 +1517,85 @@ img.camera-progress {
 tr.libcam-only {
     /* Visibility controlled by JavaScript via markHideIfNull */
 }
+
+/* Camera Preset Styles */
+.small-button {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+}
+
+.preset-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    min-width: 300px;
+}
+
+.preset-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.preset-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #444;
+}
+
+.preset-item:last-child {
+    border-bottom: none;
+}
+
+.preset-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.preset-name {
+    flex: 1;
+    color: #eee;
+}
+
+.preset-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.preset-actions button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+.preset-actions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.rename-preset-btn:hover {
+    color: #4CAF50;
+}
+
+.delete-preset-btn:hover {
+    color: #f44336;
+}
+
+.no-presets {
+    color: #888;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+}
+
+.save-preset-dialog table,
+.rename-preset-dialog table {
+    width: 100%;
+}
+
+.save-preset-dialog input,
+.rename-preset-dialog input {
+    width: 250px;
+}

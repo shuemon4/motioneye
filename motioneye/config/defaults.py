@@ -86,6 +86,12 @@ def _set_default_motion_camera(camera_id, data):
         data.setdefault('libcam_brightness', 0.0)  # Neutral brightness
         data.setdefault('libcam_contrast', 1.0)  # Neutral contrast
         data.setdefault('libcam_iso', 100)  # Minimum ISO, least noise
+        # AWB defaults for libcamera (stored with @ prefix for UI persistence)
+        data.setdefault('@awb_enable', True)   # AWB enabled by default
+        data.setdefault('@awb_mode', 0)        # Auto mode
+        data.setdefault('@colour_temp', 0)     # 0 = disabled (use AWB)
+        data.setdefault('@colour_gain_r', 0.0) # 0 = auto
+        data.setdefault('@colour_gain_b', 0.0) # 0 = auto
         # Autofocus defaults for Camera v3 (imx708)
         if data.get('@supports_autofocus'):
             data.setdefault('@af_mode', 2)  # Continuous autofocus

@@ -62,7 +62,12 @@ class ConfigHandler(BaseHandler):
             return
 
         elif op == 'list':
-            await self.list()
+            if camera_id is not None:
+                # Preset list for a specific camera (from /config/{camera_id}/presets/list/)
+                await self.list_presets(camera_id)
+            else:
+                # Camera list (from /config/list/)
+                await self.list()
             return
 
         elif op == 'backup':
@@ -97,6 +102,18 @@ class ConfigHandler(BaseHandler):
 
         elif op == 'hot-reload':
             await self.hot_reload(camera_id)
+
+        elif op == 'save':
+            await self.save_preset(camera_id)
+
+        elif op == 'load':
+            await self.load_preset(camera_id)
+
+        elif op == 'delete':
+            await self.delete_preset(camera_id)
+
+        elif op == 'rename':
+            await self.rename_preset(camera_id)
 
         else:
             raise HTTPError(400, 'unknown operation')
@@ -912,6 +929,154 @@ class ConfigHandler(BaseHandler):
                 'success': False,
                 'error': result.get('error', 'Hot reload failed')
             })
+
+    @BaseHandler.auth(admin=True)
+    async def list_presets(self, camera_id):
+        """GET /config/{camera_id}/presets/ - List all presets for a camera."""
+        from motioneye.config import presets
+
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        preset_list = presets.list_presets(camera_id)
+        all_names = presets.list_all_preset_names()
+
+        return self.finish_json({
+            'presets': preset_list,
+            'global_names': all_names
+        })
+
+    @BaseHandler.auth(admin=True)
+    async def save_preset(self, camera_id):
+        """POST /config/{camera_id}/presets/save - Save a new preset or update existing."""
+        from motioneye.config import presets
+
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPError(400, 'invalid JSON in request body')
+
+        name = (data.get('name') or '').strip()
+        settings_dict = data.get('settings', {})
+        preset_id = data.get('preset_id')  # Optional, for updates
+        force_overwrite = data.get('force_overwrite', False)
+
+        if not name:
+            return self.finish_json({'error': 'Preset name is required'}, status_code=400)
+
+        # Check for existing preset with same name
+        existing = presets.get_preset(camera_id, presets._slugify(name))
+        if existing and not preset_id and not force_overwrite:
+            return self.finish_json({
+                'error': 'exists',
+                'message': f'Preset "{name}" already exists',
+                'preset_id': presets._slugify(name)
+            }, status_code=409)
+
+        result_id, created = presets.save_preset(camera_id, name, settings_dict, preset_id)
+
+        if result_id:
+            return self.finish_json({
+                'preset_id': result_id,
+                'created': created
+            })
+        else:
+            return self.finish_json({'error': 'Failed to save preset'}, status_code=500)
+
+    @BaseHandler.auth(admin=True)
+    async def load_preset(self, camera_id):
+        """POST /config/{camera_id}/presets/load - Load a preset."""
+        from motioneye.config import presets
+
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPError(400, 'invalid JSON in request body')
+
+        preset_id = data.get('preset_id')
+        preset_name = data.get('name')  # Alternative: search by name
+
+        preset_data = None
+        source_camera = camera_id
+
+        # Try local camera first
+        if preset_id:
+            preset_data = presets.get_preset(camera_id, preset_id)
+
+        # If not found and name provided, search globally
+        if not preset_data and preset_name:
+            result = presets.find_preset_by_name(preset_name)
+            if result:
+                source_camera, preset_id, preset_data = result
+
+        if not preset_data:
+            return self.finish_json({'error': 'Preset not found'}, status_code=404)
+
+        return self.finish_json({
+            'preset_id': preset_id,
+            'name': preset_data.get('name'),
+            'settings': preset_data.get('settings', {}),
+            'source_camera': source_camera
+        })
+
+    @BaseHandler.auth(admin=True)
+    async def delete_preset(self, camera_id):
+        """POST /config/{camera_id}/presets/delete - Delete a preset."""
+        from motioneye.config import presets
+
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPError(400, 'invalid JSON in request body')
+
+        preset_id = data.get('preset_id')
+
+        if not preset_id:
+            return self.finish_json({'error': 'preset_id is required'}, status_code=400)
+
+        if presets.delete_preset(camera_id, preset_id):
+            return self.finish_json({'deleted': True})
+        else:
+            return self.finish_json({'error': 'Preset not found'}, status_code=404)
+
+    @BaseHandler.auth(admin=True)
+    async def rename_preset(self, camera_id):
+        """POST /config/{camera_id}/presets/rename - Rename a preset."""
+        from motioneye.config import presets
+
+        if not camera_id:
+            raise HTTPError(400, 'camera_id required')
+
+        try:
+            data = json.loads(self.request.body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPError(400, 'invalid JSON in request body')
+
+        preset_id = data.get('preset_id')
+        new_name = (data.get('new_name') or '').strip()
+
+        if not preset_id or not new_name:
+            return self.finish_json({'error': 'preset_id and new_name are required'}, status_code=400)
+
+        new_id = presets.rename_preset(camera_id, preset_id, new_name)
+
+        if new_id:
+            return self.finish_json({
+                'old_id': preset_id,
+                'new_id': new_id,
+                'new_name': new_name
+            })
+        else:
+            return self.finish_json({'error': 'Failed to rename preset'}, status_code=500)
 
     @BaseHandler.auth(admin=True)
     def authorize(self, camera_id):
