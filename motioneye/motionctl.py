@@ -50,6 +50,9 @@ _csrf_token_cache = {
     'csrf_supported': None  # None = unknown, True = has CSRF, False = no CSRF
 }
 
+# Camera capabilities cache (camera_id -> supportedControls dict)
+_camera_capabilities_cache = {}
+
 
 def find_motion():
     global _motion_binary_cache
@@ -87,6 +90,12 @@ def find_motion():
     _motion_binary_cache = (binary, version)
 
     return _motion_binary_cache
+
+
+def invalidate_capabilities_cache():
+    """Called when Motion restarts to clear cached capabilities."""
+    global _camera_capabilities_cache
+    _camera_capabilities_cache = {}
 
 
 def start(deferred=False):
@@ -164,6 +173,9 @@ def stop(invalidate=False):
     global _started, _csrf_token_cache
 
     _started = False
+
+    # Invalidate camera capabilities cache since Motion will be restarted
+    invalidate_capabilities_cache()
 
     # Invalidate CSRF token cache since Motion will generate a new token on restart
     _csrf_token_cache = {
@@ -261,6 +273,61 @@ async def get_motion_detection(camera_id) -> utils.GetMotionDetectionResult:
     )
 
     return utils.GetMotionDetectionResult(enabled, None)
+
+
+async def get_camera_capabilities(camera_id: int) -> dict:
+    """
+    Fetch camera capabilities from Motion's /status.json endpoint.
+
+    Args:
+        camera_id: MotionEye camera ID
+
+    Returns:
+        dict with supportedControls map, or empty dict if unavailable
+    """
+    global _camera_capabilities_cache
+
+    # Return cached value if available
+    if camera_id in _camera_capabilities_cache:
+        return _camera_capabilities_cache[camera_id]
+
+    if not running():
+        return {}
+
+    motion_camera_id = camera_id_to_motion_camera_id(camera_id)
+    if motion_camera_id is None:
+        return {}
+
+    url = f'http://127.0.0.1:{settings.MOTION_CONTROL_PORT}/0/status.json'
+
+    try:
+        request = HTTPRequest(
+            url,
+            connect_timeout=_MOTION_CONTROL_TIMEOUT,
+            request_timeout=_MOTION_CONTROL_TIMEOUT,
+        )
+        resp = await AsyncHTTPClient().fetch(request, raise_error=False)
+
+        if resp.code != 200:
+            logging.warning(f'status.json returned HTTP {resp.code}')
+            return {}
+
+        data = json.loads(resp.body.decode('utf-8'))
+        cam_key = f'cam{motion_camera_id}'
+        logging.info(f'Capability discovery: looking for {cam_key} in status response')
+
+        if cam_key in data.get('status', {}):
+            capabilities = data['status'][cam_key].get('supportedControls', {})
+            _camera_capabilities_cache[camera_id] = capabilities
+            logging.info(f'Camera {camera_id}: discovered {len(capabilities)} capabilities')
+            return capabilities
+
+        logging.warning(f'Camera {camera_id}: {cam_key} not found in status response')
+        return {}
+
+    except Exception as e:
+        logging.warning(f'Failed to fetch camera capabilities: {e}')
+        return {}
 
 
 async def set_motion_detection(camera_id, enabled):
@@ -837,11 +904,15 @@ async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
 
                 if data.get('status') == 'ok' and data.get('hot_reload'):
                     logging.debug(f'Hot reload: {param}={value} on camera {camera_id}')
-                    return {
+                    result = {
                         'success': True,
                         'hot_reload': True,
                         'old_value': data.get('old_value', '')
                     }
+                    # Pass through ignored array if present
+                    if data.get('ignored'):
+                        result['ignored'] = data['ignored']
+                    return result
                 else:
                     # Motion reported the parameter needs restart
                     return {

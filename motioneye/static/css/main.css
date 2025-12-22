@@ -1489,6 +1489,15 @@ img.camera-progress {
     color: #f44336;
 }
 
+.hot-reload-status.unsupported {
+    color: #ff9800;  /* Orange warning color */
+}
+
+.hot-reload-status.unsupported::after {
+    content: ' (unsupported)';
+    font-size: 0.8em;
+}
+
 /* Save Required Indicator on Apply Button */
 .save-required-indicator {
     color: #ff9800;

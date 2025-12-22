@@ -280,3 +280,19 @@ RESTART_REQUIRED_PARAMS = {
     # Pipes
     'video_pipe', 'video_pipe_motion', 'extpipe_use', 'extpipe',
 }
+
+# Maps Motion supportedControls keys to MotionEye UI element IDs
+# Used by frontend to determine which controls to show/hide based on camera capabilities
+CAPABILITY_TO_UI_ELEMENT = {
+    'AfMode': ['autofocusModeSelect', 'autofocusRangeSelect', 'autofocusSpeedSelect'],
+    'LensPosition': ['lensPositionSlider'],
+    'AfTrigger': ['triggerAutofocusButton'],
+    'AfRange': ['autofocusRangeSelect'],
+    'AfSpeed': ['autofocusSpeedSelect'],
+    'AwbEnable': ['awbEnableSwitch', 'awbModeSelect', 'awbLockedSwitch'],
+    'ColourTemperature': ['colourTempSlider'],
+    'ColourGains': ['colourGainRSlider', 'colourGainBSlider'],
+    'Brightness': ['brightnessSlider'],
+    'Contrast': ['contrastSlider'],
+    'AnalogueGain': ['isoSlider'],
+}

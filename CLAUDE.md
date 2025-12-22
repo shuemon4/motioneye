@@ -59,20 +59,20 @@ Motion 5.0 introduced CSRF protection and POST method enforcement for all state-
 
 ---
 
-## Testing on Raspberry Pi 5
+## Testing on Raspberry Pi
 
 ### Before Running Tests
 
-**IMPORTANT: Always ask the user if the Pi 5 is powered on before attempting to connect or run tests.**
+**IMPORTANT: Always ask the user if the Pi is powered on before attempting to connect or run tests.**
 
 ### SSH Connection
 
-Connect to the test Pi 5:
-```bash
-ssh admin@192.168.1.176
-```
+| Device | Hostname | IP | Command |
+|--------|----------|-----|---------|
+| Pi 5 | pi5-motioneye | 192.168.1.176 | `ssh admin@192.168.1.176` |
+| Pi 4 | pi4-motion | 192.168.1.246 | `ssh admin@192.168.1.246` |
 
-The SSH key has been configured for passwordless access from the development Mac.
+SSH keys configured for passwordless access from the development Mac.
 
 ### Deployment Workflow
 
@@ -104,6 +104,13 @@ ssh admin@192.168.1.176 "curl -s --max-time 3 'http://localhost:7999/1/mjpg/stre
 ```
 
 Access MotionEye web interface: `http://192.168.1.176:8765/`
+
+### Common Issues
+
+- **Port conflicts**: Kill orphaned motion processes with `sudo pkill -9 motion`
+- **Permission errors**: Ensure `/etc/motioneye` is owned by `motion:motion`
+- **Camera not detected**: Verify with `rpicam-hello --list-cameras`
+
 
 ### Common Issues
 

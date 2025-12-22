@@ -17,9 +17,11 @@
 
 import base64
 import hashlib
+import hmac
 import logging
 import os
 import re
+import secrets
 import subprocess
 import sys
 import time
@@ -277,6 +279,126 @@ def compute_signature(method, path, body: bytes, key):
         .hexdigest()
         .lower()
     )
+
+
+# Maximum allowed timestamp skew for replay protection (5 minutes)
+SIGNATURE_TIMESTAMP_TOLERANCE = 300
+
+
+def compute_signature_v2(method, path, body: bytes, key, timestamp: int):
+    """
+    Compute HMAC-SHA256 signature with timestamp for replay protection.
+    This is the secure v2 signature format.
+    """
+    parts = list(urllib.parse.urlsplit(path))
+    query = [
+        q
+        for q in urllib.parse.parse_qsl(parts[3], keep_blank_values=True)
+        if (q[0] != '_signature')
+    ]
+    query.sort(key=lambda q: q[0])
+    query = [(n, urllib.parse.quote(v, safe="!'()*~")) for (n, v) in query]
+    query = '&'.join([(q[0] + '=' + q[1]) for q in query])
+    parts[0] = parts[1] = ''
+    parts[3] = query
+    path = urllib.parse.urlunsplit(parts)
+    path = _SIGNATURE_REGEX.sub('-', path)
+
+    try:
+        body_str = body.decode('utf-8')
+    except:
+        body_str = None
+
+    if body_str and body_str.startswith('---'):
+        body_str = None  # file attachment
+
+    body_str = body_str and _SIGNATURE_REGEX.sub('-', body_str)
+
+    # Include timestamp in the message for replay protection
+    message = f'{method}:{path}:{timestamp}:{body_str or ""}'
+
+    # Use HMAC-SHA256 with the key (password hash)
+    return hmac.new(
+        key.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest().lower()
+
+
+def verify_signature(
+    signature: str,
+    method: str,
+    path: str,
+    body: bytes,
+    key: str,
+    timestamp: int = None
+) -> bool:
+    """
+    Verify a request signature, supporting both v1 (SHA1) and v2 (HMAC-SHA256).
+
+    Returns True if signature is valid, False otherwise.
+    """
+    if not signature:
+        return False
+
+    if signature.startswith('v2:'):
+        # v2: HMAC-SHA256 with timestamp
+        if timestamp is None:
+            logging.warning('v2 signature requires timestamp')
+            return False
+
+        # Check timestamp is within tolerance
+        current_time = int(time.time())
+        if abs(current_time - timestamp) > SIGNATURE_TIMESTAMP_TOLERANCE:
+            logging.warning(
+                f'Signature timestamp too old/new: {timestamp} vs {current_time}'
+            )
+            return False
+
+        expected = 'v2:' + compute_signature_v2(method, path, body, key, timestamp)
+        return hmac.compare_digest(signature, expected)
+
+    else:
+        # v1: Legacy SHA1 signature (no timestamp required)
+        expected = compute_signature(method, path, body, key)
+        return hmac.compare_digest(signature, expected)
+
+
+# CSRF token storage (in-memory, per-session)
+_csrf_tokens: dict[str, float] = {}
+CSRF_TOKEN_LIFETIME = 3600  # 1 hour
+
+
+def generate_csrf_token() -> str:
+    """Generate a cryptographically secure CSRF token."""
+    token = secrets.token_urlsafe(32)
+    _csrf_tokens[token] = time.time()
+    _cleanup_csrf_tokens()
+    return token
+
+
+def verify_csrf_token(token: str) -> bool:
+    """Verify a CSRF token is valid and not expired."""
+    if not token or token not in _csrf_tokens:
+        return False
+
+    created_at = _csrf_tokens[token]
+    if time.time() - created_at > CSRF_TOKEN_LIFETIME:
+        del _csrf_tokens[token]
+        return False
+
+    return True
+
+
+def _cleanup_csrf_tokens():
+    """Remove expired CSRF tokens to prevent memory growth."""
+    current_time = time.time()
+    expired = [
+        token for token, created_at in _csrf_tokens.items()
+        if current_time - created_at > CSRF_TOKEN_LIFETIME
+    ]
+    for token in expired:
+        del _csrf_tokens[token]
 
 
 def parse_cookies(cookies_headers):

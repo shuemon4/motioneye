@@ -35,7 +35,7 @@ from tornado.web import Application
 from motioneye import config, settings, template
 from motioneye.controls import smbctl, v4l2ctl, ledctl
 from motioneye.handlers.action import ActionHandler
-from motioneye.handlers.base import ManifestHandler, NotFoundHandler
+from motioneye.handlers.base import CsrfTokenHandler, ManifestHandler, NotFoundHandler
 from motioneye.handlers.config import ConfigHandler
 from motioneye.handlers.log import LogHandler
 from motioneye.handlers.login import LoginHandler
@@ -191,6 +191,7 @@ def _log_request(handler):
 handler_mapping = [
     (r'^/$', MainHandler),
     (r'^/manifest.json$', ManifestHandler),
+    (r'^/csrf-token/?$', CsrfTokenHandler),
     (r'^/config/main/(?P<op>set|get)/?$', ConfigHandler),
     (
         r'^/config/(?P<camera_id>\d+)/(?P<op>get|set|rem|test|authorize|hot-reload)/?$',

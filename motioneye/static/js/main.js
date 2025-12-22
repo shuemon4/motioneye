@@ -82,6 +82,40 @@ function resetBackoff(cameraId) {
 var cameraVisibility = {}; /* {cameraId: boolean} */
 var intersectionObserver = null;
 
+/* Capability to UI element mapping for camera control visibility */
+var CAPABILITY_TO_UI_ELEMENT = {
+    'AfMode': ['autofocusModeSelect', 'autofocusRangeSelect', 'autofocusSpeedSelect'],
+    'LensPosition': ['lensPositionSlider'],
+    'AfTrigger': ['triggerAutofocusButton'],
+    'AfRange': ['autofocusRangeSelect'],
+    'AfSpeed': ['autofocusSpeedSelect'],
+    'AwbEnable': ['awbEnableSwitch', 'awbModeSelect', 'awbLockedSwitch'],
+    'ColourTemperature': ['colourTempSlider'],
+    'ColourGains': ['colourGainRSlider', 'colourGainBSlider'],
+    'Brightness': ['brightnessSlider'],
+    'Contrast': ['contrastSlider'],
+    'AnalogueGain': ['isoSlider']
+};
+
+/* Applies visibility to UI elements based on Motion's reported camera capabilities.
+ * If supportedControls is empty/null, gracefully degrades by showing all controls. */
+function applyCapabilityVisibility(supportedControls) {
+    if (!supportedControls || Object.keys(supportedControls).length === 0) {
+        return; /* No capability info, show all (graceful degradation) */
+    }
+
+    for (var capKey in CAPABILITY_TO_UI_ELEMENT) {
+        if (CAPABILITY_TO_UI_ELEMENT.hasOwnProperty(capKey)) {
+            var isSupported = supportedControls[capKey] === true;
+            var elements = CAPABILITY_TO_UI_ELEMENT[capKey];
+
+            elements.forEach(function(elementId) {
+                markHideIfNull(!isSupported, elementId);
+            });
+        }
+    }
+}
+
 function initIntersectionObserver() {
     if (!('IntersectionObserver' in window)) {
         return; /* Fallback: refresh all cameras */
@@ -347,6 +381,7 @@ String.prototype.format = function () {
 
     /* misc utilities */
 
+/* SHA1 - kept for backward compatibility during migration */
 var sha1 = (function () {
     var K = [0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6];
     var P = Math.pow(2, 32);
@@ -427,6 +462,142 @@ var sha1 = (function () {
     return hash;
 }());
 
+/* SHA256 - secure replacement for SHA1 */
+var sha256 = (function () {
+    var K = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+
+    function hash(msg) {
+        var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+
+        msg += String.fromCharCode(0x80);
+        var l = msg.length / 4 + 2;
+        var N = Math.ceil(l / 16);
+        var M = new Array(N);
+
+        for (var i = 0; i < N; i++) {
+            M[i] = new Array(16);
+            for (var j = 0; j < 16; j++) {
+                M[i][j] = (msg.charCodeAt(i * 64 + j * 4) << 24) | (msg.charCodeAt(i * 64 + j * 4 + 1) << 16) |
+                          (msg.charCodeAt(i * 64 + j * 4 + 2) << 8) | (msg.charCodeAt(i * 64 + j * 4 + 3));
+            }
+        }
+        M[N - 1][14] = Math.floor(((msg.length - 1) * 8) / Math.pow(2, 32));
+        M[N - 1][15] = ((msg.length - 1) * 8) & 0xffffffff;
+
+        for (i = 0; i < N; i++) {
+            var W = new Array(64);
+            for (var t = 0; t < 16; t++) W[t] = M[i][t];
+            for (t = 16; t < 64; t++) {
+                W[t] = (sigma1(W[t-2]) + W[t-7] + sigma0(W[t-15]) + W[t-16]) & 0xffffffff;
+            }
+
+            var a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+
+            for (t = 0; t < 64; t++) {
+                var T1 = (h + Sigma1(e) + Ch(e, f, g) + K[t] + W[t]) & 0xffffffff;
+                var T2 = (Sigma0(a) + Maj(a, b, c)) & 0xffffffff;
+                h = g; g = f; f = e; e = (d + T1) & 0xffffffff;
+                d = c; c = b; b = a; a = (T1 + T2) & 0xffffffff;
+            }
+
+            H[0] = (H[0] + a) & 0xffffffff; H[1] = (H[1] + b) & 0xffffffff;
+            H[2] = (H[2] + c) & 0xffffffff; H[3] = (H[3] + d) & 0xffffffff;
+            H[4] = (H[4] + e) & 0xffffffff; H[5] = (H[5] + f) & 0xffffffff;
+            H[6] = (H[6] + g) & 0xffffffff; H[7] = (H[7] + h) & 0xffffffff;
+        }
+
+        return H.map(toHexStr).join('');
+    }
+
+    function ROTR(x, n) { return (x >>> n) | (x << (32 - n)); }
+    function Sigma0(x) { return ROTR(x, 2) ^ ROTR(x, 13) ^ ROTR(x, 22); }
+    function Sigma1(x) { return ROTR(x, 6) ^ ROTR(x, 11) ^ ROTR(x, 25); }
+    function sigma0(x) { return ROTR(x, 7) ^ ROTR(x, 18) ^ (x >>> 3); }
+    function sigma1(x) { return ROTR(x, 17) ^ ROTR(x, 19) ^ (x >>> 10); }
+    function Ch(x, y, z) { return (x & y) ^ (~x & z); }
+    function Maj(x, y, z) { return (x & y) ^ (x & z) ^ (y & z); }
+
+    function toHexStr(n) {
+        var s = "", v;
+        for (var i = 7; i >= 0; i--) {
+            v = (n >>> (i * 4)) & 0xf;
+            s += v.toString(16);
+        }
+        return s;
+    }
+
+    return hash;
+}());
+
+/* HMAC-SHA256 - secure message authentication */
+var hmacSha256 = (function () {
+    function hmac(key, message) {
+        var blockSize = 64; /* SHA256 block size in bytes */
+
+        /* If key is longer than block size, hash it */
+        if (key.length > blockSize) {
+            key = hexToStr(sha256(key));
+        }
+
+        /* Pad key to block size */
+        while (key.length < blockSize) {
+            key += String.fromCharCode(0);
+        }
+
+        var oKeyPad = '', iKeyPad = '';
+        for (var i = 0; i < blockSize; i++) {
+            oKeyPad += String.fromCharCode(key.charCodeAt(i) ^ 0x5c);
+            iKeyPad += String.fromCharCode(key.charCodeAt(i) ^ 0x36);
+        }
+
+        var innerHash = sha256(iKeyPad + message);
+        return sha256(oKeyPad + hexToStr(innerHash));
+    }
+
+    function hexToStr(hex) {
+        var str = '';
+        for (var i = 0; i < hex.length; i += 2) {
+            str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+        }
+        return str;
+    }
+
+    return hmac;
+}());
+
+/* CSRF token management */
+var csrfToken = null;
+
+function fetchCsrfToken() {
+    /* Fetch CSRF token from server - called on page load */
+    $.ajax({
+        type: 'GET',
+        url: basePath + 'csrf-token/',
+        timeout: 10000,
+        success: function(data) {
+            if (data && data.token) {
+                csrfToken = data.token;
+            }
+        },
+        error: function() {
+            /* Server may not support CSRF tokens yet - graceful degradation */
+            csrfToken = null;
+        }
+    });
+}
+
+/* Signature version flag - enables HMAC-SHA256 when server supports it */
+var useSecureSignature = true;
+
 function splitUrl(url) {
     if (!url) {
         url = window.location.href;
@@ -472,7 +643,7 @@ function qualifyPath(path) {
     return url.substring(pos);
 }
 
-function computeSignature(method, path, body) {
+function computeSignature(method, path, body, timestamp) {
     path = qualifyPath(path);
 
     var parts = splitUrl(path);
@@ -489,7 +660,14 @@ function computeSignature(method, path, body) {
     path = path.replace(signatureRegExp, '-');
     body = body && body.replace(signatureRegExp, '-');
 
-    return sha1(method + ':' + path + ':' + (body || '') + ':' + passwordHash).toLowerCase();
+    if (useSecureSignature) {
+        /* v2: HMAC-SHA256 with timestamp for replay protection */
+        var message = method + ':' + path + ':' + timestamp + ':' + (body || '');
+        return 'v2:' + hmacSha256(passwordHash, message).toLowerCase();
+    } else {
+        /* v1: Legacy SHA1 (backward compatibility) */
+        return sha1(method + ':' + path + ':' + (body || '') + ':' + passwordHash).toLowerCase();
+    }
 }
 
 function addAuthParams(method, url, body) {
@@ -509,7 +687,17 @@ function addAuthParams(method, url, body) {
         url += '&_login=true';
         window._loginDialogSubmitted = false;
     }
-    var signature = computeSignature(method, url, body);
+
+    /* Add timestamp for replay protection (seconds since epoch) */
+    var timestamp = Math.floor(Date.now() / 1000);
+    url += '&_timestamp=' + timestamp;
+
+    /* Add CSRF token if available (for state-changing requests) */
+    if (csrfToken && method !== 'GET') {
+        url += '&_csrf=' + csrfToken;
+    }
+
+    var signature = computeSignature(method, url, body, timestamp);
     url += '&_signature=' + signature;
 
     return url;
@@ -633,7 +821,15 @@ function setCookie(name, value, days) {
         expires = '';
     }
 
-    document.cookie = name + '=' + value + '; ' + expires + '; path=/';
+    /* Security: SameSite=Strict prevents CSRF via cookie */
+    var cookieStr = name + '=' + value + '; ' + expires + '; path=/; SameSite=Strict';
+
+    /* Add Secure flag when using HTTPS */
+    if (window.location.protocol === 'https:') {
+        cookieStr += '; Secure';
+    }
+
+    document.cookie = cookieStr;
 }
 
 function showErrorMessage(message) {
@@ -2421,10 +2617,15 @@ function dict2CameraUi(dict) {
     $('#colourTempSlider').val(dict['colour_temp'] != null ? dict['colour_temp'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourTempSlider');
     $('#colourGainRSlider').val(dict['colour_gain_r'] != null ? dict['colour_gain_r'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainRSlider');
     $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainBSlider');
-    $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
-    $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
-    $('#autofocusSpeedSelect').val(dict['autofocus_speed'] != null ? dict['autofocus_speed'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusSpeedSelect');
-    $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
+    /* Autofocus Controls - use runtime capabilities if available, fall back to static detection */
+    var caps = dict['supported_controls'] || {};
+    var supportsAF = caps['AfMode'] !== undefined ? caps['AfMode'] : dict['supports_autofocus'];
+    var supportsLensPos = caps['LensPosition'] !== undefined ? caps['LensPosition'] : dict['supports_autofocus'];
+
+    $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!supportsAF, 'autofocusModeSelect');
+    $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!supportsAF, 'autofocusRangeSelect');
+    $('#autofocusSpeedSelect').val(dict['autofocus_speed'] != null ? dict['autofocus_speed'] : 0); markHideIfNull(!supportsAF, 'autofocusSpeedSelect');
+    $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!supportsLensPos, 'lensPositionSlider');
     $('#privacyMaskSwitch')[0].checked = dict['privacy_mask']; markHideIfNull('privacy_mask', 'privacyMaskSwitch');
     $('#privacyMaskLinesEntry').val((dict['privacy_mask_lines'] || []).join(',')); markHideIfNull('privacy_mask_lines', 'privacyMaskLinesEntry');
     $('#extraOptionsEntry').val(dict['extra_options'] ? (dict['extra_options'].map(function (o) {
@@ -2742,6 +2943,9 @@ function dict2CameraUi(dict) {
     if (typeof initWbModeFromValues === 'function') {
         initWbModeFromValues();
     }
+
+    // Apply capability-based visibility (Phase 2.1, 2.2)
+    applyCapabilityVisibility(dict['supported_controls']);
 }
 
 
@@ -5738,6 +5942,9 @@ $(document).ready(function () {
         window.passwordHash = getCookie(PASSWORD_COOKIE);
     }
 
+    /* Fetch CSRF token early for security */
+    fetchCsrfToken();
+
     /* open/close settings */
     $('div.settings-button').on('click', function () {
         if (isSettingsOpen()) {
@@ -5998,19 +6205,25 @@ function applyHotReloadParameter($slider) {
         value: value
     }, function(response) {
         if (response && response.success) {
-            // Hot-reload succeeded
-            showHotReloadStatus(sliderId, 'success');
+            // Check if control was actually ignored by Motion (camera doesn't support it)
+            if (response.ignored && Array.isArray(response.ignored) && response.ignored.includes(paramName)) {
+                showHotReloadStatus(sliderId, 'unsupported');
+                console.warn('Control ignored by camera (not supported):', paramName);
+            } else {
+                // Hot-reload succeeded
+                showHotReloadStatus(sliderId, 'success');
 
-            // Mark this change as pending save
-            if (!hotReloadPendingChanges[cameraId]) {
-                hotReloadPendingChanges[cameraId] = {};
+                // Mark this change as pending save
+                if (!hotReloadPendingChanges[cameraId]) {
+                    hotReloadPendingChanges[cameraId] = {};
+                }
+                hotReloadPendingChanges[cameraId][paramName] = value;
+
+                // Start checking for save required
+                startHotReloadSaveCheck();
+
+                console.log('Hot-reload applied: ' + paramName + '=' + value);
             }
-            hotReloadPendingChanges[cameraId][paramName] = value;
-
-            // Start checking for save required
-            startHotReloadSaveCheck();
-
-            console.log('Hot-reload applied: ' + paramName + '=' + value);
         } else {
             // Hot-reload failed
             showHotReloadStatus(sliderId, 'error');
@@ -6035,7 +6248,7 @@ function showHotReloadStatus(sliderId, status) {
     }
 
     // Clear previous status
-    $statusIndicator.removeClass('applying success error').empty();
+    $statusIndicator.removeClass('applying success error unsupported').empty();
 
     if (status === 'applying') {
         $statusIndicator.addClass('applying').text('⏳');
@@ -6048,6 +6261,14 @@ function showHotReloadStatus(sliderId, status) {
         }, 2000);
     } else if (status === 'error') {
         $statusIndicator.addClass('error').text('✗');
+        setTimeout(function() {
+            $statusIndicator.fadeOut(function() {
+                $(this).remove();
+            });
+        }, 3000);
+    } else if (status === 'unsupported') {
+        /* Camera doesn't support this control (Phase 4.2) */
+        $statusIndicator.addClass('unsupported').text('⊘');
         setTimeout(function() {
             $statusIndicator.fadeOut(function() {
                 $(this).remove();

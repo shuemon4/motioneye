@@ -28,7 +28,7 @@ from tornado.web import HTTPError, RequestHandler
 
 from motioneye import config, prefs, settings, template, utils
 
-__all__ = ('BaseHandler', 'NotFoundHandler', 'ManifestHandler')
+__all__ = ('BaseHandler', 'NotFoundHandler', 'ManifestHandler', 'CsrfTokenHandler')
 
 
 class BaseHandler(RequestHandler):
@@ -111,6 +111,10 @@ class BaseHandler(RequestHandler):
         signature = self.get_argument('_signature', None)
         login = self.get_argument('_login', None) == 'true'
 
+        # Get timestamp for v2 signature verification
+        timestamp_str = self.get_argument('_timestamp', None)
+        timestamp = int(timestamp_str) if timestamp_str else None
+
         admin_username = main_config.get('@admin_username')
         normal_username = main_config.get('@normal_username')
 
@@ -139,14 +143,23 @@ class BaseHandler(RequestHandler):
                 ):
                     return 'normal'
 
+        # Verify signature using secure comparison (supports both v1 and v2)
         if username == admin_username and (
-            signature
-            == utils.compute_signature(
-                self.request.method, self.request.uri, self.request.body, admin_password
+            utils.verify_signature(
+                signature,
+                self.request.method,
+                self.request.uri,
+                self.request.body,
+                admin_password,
+                timestamp
             )
-            or signature
-            == utils.compute_signature(
-                self.request.method, self.request.uri, self.request.body, admin_hash
+            or utils.verify_signature(
+                signature,
+                self.request.method,
+                self.request.uri,
+                self.request.body,
+                admin_hash,
+                timestamp
             )
         ):
             return 'admin'
@@ -156,16 +169,21 @@ class BaseHandler(RequestHandler):
             return 'normal'
 
         if username == normal_username and (
-            signature
-            == utils.compute_signature(
+            utils.verify_signature(
+                signature,
                 self.request.method,
                 self.request.uri,
                 self.request.body,
                 normal_password,
+                timestamp
             )
-            or signature
-            == utils.compute_signature(
-                self.request.method, self.request.uri, self.request.body, normal_hash
+            or utils.verify_signature(
+                signature,
+                self.request.method,
+                self.request.uri,
+                self.request.body,
+                normal_hash,
+                timestamp
             )
         ):
             return 'normal'
@@ -243,3 +261,14 @@ class ManifestHandler(BaseHandler):
         self.set_header('Content-Type', 'application/manifest+json')
         self.set_header('Cache-Control', 'max-age=2592000')  # 30 days
         self.render('manifest.json')
+
+
+class CsrfTokenHandler(BaseHandler):
+    """Handler for generating and returning CSRF tokens."""
+
+    def get(self):
+        """Generate a new CSRF token and return it."""
+        token = utils.generate_csrf_token()
+        self.set_header('Content-Type', 'application/json')
+        self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.finish_json({'token': token})

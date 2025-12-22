@@ -130,6 +130,12 @@ class ConfigHandler(BaseHandler):
             if utils.is_local_motion_camera(local_config):
                 ui_config = config.motion_camera_dict_to_ui(local_config)
 
+                # Fetch runtime capabilities from Motion
+                if motionctl.running():
+                    capabilities = await motionctl.get_camera_capabilities(camera_id)
+                    if capabilities:
+                        ui_config['supported_controls'] = capabilities
+
                 return self.finish_json(ui_config)
 
             elif utils.is_remote_camera(local_config):
@@ -918,11 +924,15 @@ class ConfigHandler(BaseHandler):
 
         if result['success']:
             logging.info(f'Hot-reloaded {param_name}={param_value} on camera {camera_id}')
-            return self.finish_json({
+            response = {
                 'success': True,
                 'hot_reload': result.get('hot_reload', True),
                 'old_value': result.get('old_value', '')
-            })
+            }
+            # Include ignored array if present (controls not supported by camera)
+            if result.get('ignored'):
+                response['ignored'] = result['ignored']
+            return self.finish_json(response)
         else:
             logging.error(f'Hot-reload failed for {param_name} on camera {camera_id}: {result.get("error")}')
             return self.finish_json({
