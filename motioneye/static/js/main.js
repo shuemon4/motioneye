@@ -2080,6 +2080,7 @@ function cameraUi2Dict() {
         'iso': Math.round((parseFloat($('#isoSlider').val()) || 1.0) * 100),  // Convert gain to ISO
         'awb_enable': $('#awbEnableSwitch').is(':checked'),
         'awb_mode': parseInt($('#awbModeSelect').val()) || 0,
+        'awb_locked': $('#awbLockedSwitch').is(':checked'),
         'colour_temp': parseInt($('#colourTempSlider').val()) || 0,
         'colour_gain_r': parseFloat($('#colourGainRSlider').val()) || 0.0,
         'colour_gain_b': parseFloat($('#colourGainBSlider').val()) || 0.0,
@@ -2409,6 +2410,7 @@ function dict2CameraUi(dict) {
     // AWB Controls
     $('#awbEnableSwitch').prop('checked', dict['awb_enable'] != null ? dict['awb_enable'] : true); markHideIfNull(dict['proto'] !== 'libcamera', 'awbEnableSwitch');
     $('#awbModeSelect').val(dict['awb_mode'] != null ? dict['awb_mode'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'awbModeSelect');
+    $('#awbLockedSwitch').prop('checked', dict['awb_locked'] != null ? dict['awb_locked'] : false); markHideIfNull(dict['proto'] !== 'libcamera', 'awbLockedSwitch');
     $('#colourTempSlider').val(dict['colour_temp'] != null ? dict['colour_temp'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourTempSlider');
     $('#colourGainRSlider').val(dict['colour_gain_r'] != null ? dict['colour_gain_r'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainRSlider');
     $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainBSlider');
@@ -5785,6 +5787,49 @@ function initHotReloadSliders() {
     });
 
     $('#awbModeSelect').on('change', function() {
+        var mode = parseInt($(this).val()) || 0;
+        // When changing to a preset mode (0-6), backend clears manual controls
+        // Sync UI to match backend behavior (mode 7 = Custom preserves values)
+        if (mode !== 7) {
+            $('#colourTempSlider').val(0);
+            $('#colourGainRSlider').val(0);
+            $('#colourGainBSlider').val(0);
+        }
+        applyHotReloadParameter($(this));
+    });
+
+    // AWB Locked handler
+    $('#awbLockedSwitch').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
+
+    // Colour control handlers with mutual exclusivity
+    // Temperature and Gains are mutually exclusive - setting one clears the other
+    $('#colourTempSlider').on('change', function() {
+        var value = parseFloat($(this).val()) || 0;
+        if (value > 0) {
+            // Mutual exclusivity: clear gains when setting temperature
+            $('#colourGainRSlider').val(0);
+            $('#colourGainBSlider').val(0);
+        }
+        applyHotReloadParameter($(this));
+    });
+
+    $('#colourGainRSlider').on('change', function() {
+        var value = parseFloat($(this).val()) || 0;
+        if (value > 0) {
+            // Mutual exclusivity: clear temperature when setting gains
+            $('#colourTempSlider').val(0);
+        }
+        applyHotReloadParameter($(this));
+    });
+
+    $('#colourGainBSlider').on('change', function() {
+        var value = parseFloat($(this).val()) || 0;
+        if (value > 0) {
+            // Mutual exclusivity: clear temperature when setting gains
+            $('#colourTempSlider').val(0);
+        }
         applyHotReloadParameter($(this));
     });
 }
@@ -5806,6 +5851,7 @@ function applyHotReloadParameter($slider) {
         'isoSlider': 'libcam_iso',
         'awbEnableSwitch': 'libcam_awb_enable',
         'awbModeSelect': 'libcam_awb_mode',
+        'awbLockedSwitch': 'libcam_awb_locked',
         'colourTempSlider': 'libcam_colour_temp',
         'colourGainRSlider': 'libcam_colour_gain_r',
         'colourGainBSlider': 'libcam_colour_gain_b'
@@ -5820,8 +5866,8 @@ function applyHotReloadParameter($slider) {
     if (sliderId === 'isoSlider') {
         // Convert gain to ISO
         value = Math.round(parseFloat(value) * 100);
-    } else if (sliderId === 'awbEnableSwitch') {
-        // Boolean for AWB enable
+    } else if (sliderId === 'awbEnableSwitch' || sliderId === 'awbLockedSwitch') {
+        // Boolean for AWB enable/locked
         value = $slider.is(':checked') ? 'true' : 'false';
     } else if (sliderId === 'awbModeSelect' || sliderId === 'colourTempSlider') {
         // Integer values

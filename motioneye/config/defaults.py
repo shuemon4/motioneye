@@ -89,6 +89,7 @@ def _set_default_motion_camera(camera_id, data):
         # AWB defaults for libcamera (stored with @ prefix for UI persistence)
         data.setdefault('@awb_enable', True)   # AWB enabled by default
         data.setdefault('@awb_mode', 0)        # Auto mode
+        data.setdefault('@awb_locked', False)  # Lock current WB values
         data.setdefault('@colour_temp', 0)     # 0 = disabled (use AWB)
         data.setdefault('@colour_gain_r', 0.0) # 0 = auto
         data.setdefault('@colour_gain_b', 0.0) # 0 = auto

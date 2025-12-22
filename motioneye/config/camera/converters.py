@@ -426,6 +426,7 @@ def motion_camera_ui_to_dict(
             # AWB controls - Motion 5.0+ has dedicated libcam_awb_* parameters for hot-reload
             awb_enable = ui.get('awb_enable', True)
             awb_mode = int(ui.get('awb_mode', 0))
+            awb_locked = ui.get('awb_locked', False)
             colour_temp = int(ui.get('colour_temp', 0))
             colour_gain_r = float(ui.get('colour_gain_r', 0.0))
             colour_gain_b = float(ui.get('colour_gain_b', 0.0))
@@ -433,6 +434,7 @@ def motion_camera_ui_to_dict(
             # Store for UI persistence
             data['@awb_enable'] = awb_enable
             data['@awb_mode'] = awb_mode
+            data['@awb_locked'] = awb_locked
             data['@colour_temp'] = colour_temp
             data['@colour_gain_r'] = colour_gain_r
             data['@colour_gain_b'] = colour_gain_b
@@ -442,6 +444,7 @@ def motion_camera_ui_to_dict(
             # Do NOT use libcam_control_item for AWB as it forces daemon restart
             data['libcam_awb_enable'] = awb_enable
             data['libcam_awb_mode'] = awb_mode
+            data['libcam_awb_locked'] = awb_locked
             data['libcam_colour_temp'] = colour_temp
             data['libcam_colour_gain_r'] = colour_gain_r
             data['libcam_colour_gain_b'] = colour_gain_b
@@ -1029,6 +1032,11 @@ def motion_camera_dict_to_ui(
             ui['awb_enable'] = legacy_val if isinstance(legacy_val, bool) else (legacy_val == 'on' or legacy_val == True)
 
         ui['awb_mode'] = int(data.get('@awb_mode', data.get('libcam_awb_mode', 0)))
+        # AWB Locked - handle string/bool conversion for legacy format
+        awb_locked = data.get('@awb_locked', data.get('libcam_awb_locked', False))
+        if isinstance(awb_locked, str):
+            awb_locked = awb_locked.lower() in ('true', '1', 'on')
+        ui['awb_locked'] = awb_locked
         ui['colour_temp'] = int(data.get('@colour_temp', data.get('libcam_colour_temp', 0)))
         ui['colour_gain_r'] = float(data.get('@colour_gain_r', data.get('libcam_colour_gain_r', 0.0)))
         ui['colour_gain_b'] = float(data.get('@colour_gain_b', data.get('libcam_colour_gain_b', 0.0)))

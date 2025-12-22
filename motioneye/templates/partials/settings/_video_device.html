@@ -147,6 +147,17 @@
         </td>
         <td><span class="help-mark" data-i18n-title="Select white balance mode: Auto adapts to lighting, presets optimize for specific light types (Incandescent ~2700K, Fluorescent ~4000K, Daylight ~5500K, Cloudy ~6500K). Disable AWB for manual control." title="Select white balance mode: Auto adapts to lighting, presets optimize for specific light types (Incandescent ~2700K, Fluorescent ~4000K, Daylight ~5500K, Cloudy ~6500K). Disable AWB for manual control.">?</span></td>
     </tr>
+    <!-- AWB Locked -->
+    <tr class="settings-item libcam-only" depends="awbEnable">
+        <td class="settings-item-label">
+            <span class="settings-item-label" data-i18n="Lock White Balance">Lock White Balance</span>
+            <span class="hot-reload-badge" title="Changes apply instantly without restarting the camera">⚡ Live</span>
+        </td>
+        <td class="settings-item-value">
+            <input type="checkbox" class="styled device camera-config hot-reload" id="awbLockedSwitch">
+        </td>
+        <td><span class="help-mark" data-i18n-title="Lock the current white balance values to prevent automatic adjustments. Useful when you've achieved the desired color and want to maintain it across changing lighting conditions." title="Lock the current white balance values to prevent automatic adjustments. Useful when you've achieved the desired color and want to maintain it across changing lighting conditions.">?</span></td>
+    </tr>
     <!-- Colour Temperature (when AWB disabled) -->
     <tr class="settings-item libcam-only" depends="!awbEnable" min="0" max="10000" snap="100" ticks="0|2700|4000|5500|6500|10000" decimals="0">
         <td class="settings-item-label">
