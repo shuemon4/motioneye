@@ -97,6 +97,7 @@ def _set_default_motion_camera(camera_id, data):
         if data.get('@supports_autofocus'):
             data.setdefault('@af_mode', 2)  # Continuous autofocus
             data.setdefault('@af_range', 0)  # Normal range
+            data.setdefault('@af_speed', 0)  # Normal speed
             data.setdefault('@lens_position', 0.0)  # Infinity (for manual mode)
 
     data.setdefault('framerate', 2)

@@ -858,6 +858,7 @@ function initUI() {
     $('#streamingServerResizeSwitch').change(updateConfigUI);
     $('#autofocusModeSelect').change(updateConfigUI);
     $('#autofocusRangeSelect').change(updateConfigUI);
+    $('#triggerAutofocusButton').click(triggerAutofocus);
     $('#stillImagesEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
     $('#preservePicturesSelect').change(updateConfigUI);
     $('#moviesEnabledSwitch').change(checkMinimizeSection).change(updateConfigUI);
@@ -1050,6 +1051,11 @@ function initUI() {
         pushMainConfig($(this).parents('tr:eq(0)').attr('reboot') == 'true');
     });
     $('input.camera-config, select.camera-config, textarea.camera-config').change(function () {
+        // Hot-reload parameters don't trigger Apply button - they apply immediately
+        // and are saved via the preset/save configuration feature instead
+        if ($(this).hasClass('hot-reload')) {
+            return;
+        }
         pushCameraConfig($(this).parents('tr:eq(0)').attr('reboot') == 'true');
     });
 
@@ -2087,6 +2093,7 @@ function cameraUi2Dict() {
         'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
         'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
         'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
+        'autofocus_speed': parseInt($('#autofocusSpeedSelect').val()) || 0,
         'lens_position': parseFloat($('#lensPositionSlider').val()) || 0.0,
         'privacy_mask': $('#privacyMaskSwitch')[0].checked,
         'privacy_mask_lines': $('#privacyMaskLinesEntry').val() ? $('#privacyMaskLinesEntry').val().split(',').map(function (l) {return parseInt(l);}) : [],
@@ -2416,6 +2423,7 @@ function dict2CameraUi(dict) {
     $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainBSlider');
     $('#autofocusModeSelect').val(dict['autofocus_mode'] != null ? dict['autofocus_mode'] : 2); markHideIfNull(!dict['supports_autofocus'], 'autofocusModeSelect');
     $('#autofocusRangeSelect').val(dict['autofocus_range'] != null ? dict['autofocus_range'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusRangeSelect');
+    $('#autofocusSpeedSelect').val(dict['autofocus_speed'] != null ? dict['autofocus_speed'] : 0); markHideIfNull(!dict['supports_autofocus'], 'autofocusSpeedSelect');
     $('#lensPositionSlider').val(dict['lens_position'] != null ? dict['lens_position'] : 0.0); markHideIfNull(!dict['supports_autofocus'], 'lensPositionSlider');
     $('#privacyMaskSwitch')[0].checked = dict['privacy_mask']; markHideIfNull('privacy_mask', 'privacyMaskSwitch');
     $('#privacyMaskLinesEntry').val((dict['privacy_mask_lines'] || []).join(',')); markHideIfNull('privacy_mask_lines', 'privacyMaskLinesEntry');
@@ -2729,6 +2737,11 @@ function dict2CameraUi(dict) {
     });
 
     updateConfigUI();
+
+    // Initialize WB mode toggle visibility after config is loaded
+    if (typeof initWbModeFromValues === 'function') {
+        initWbModeFromValues();
+    }
 }
 
 
@@ -5803,6 +5816,24 @@ function initHotReloadSliders() {
         applyHotReloadParameter($(this));
     });
 
+    // Autofocus hot-reload handlers
+    $('#autofocusModeSelect').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
+
+    $('#autofocusRangeSelect').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
+
+    $('#autofocusSpeedSelect').on('change', function() {
+        applyHotReloadParameter($(this));
+    });
+
+    // Lens position slider hot-reload handler (for manual focus)
+    $('#lensPositionSlider').parent().find('.slider').on('mouseup touchend', function() {
+        applyHotReloadParameter($('#lensPositionSlider'));
+    });
+
     // Colour control handlers with mutual exclusivity
     // Temperature and Gains are mutually exclusive - setting one clears the other
     $('#colourTempSlider').on('change', function() {
@@ -5832,7 +5863,83 @@ function initHotReloadSliders() {
         }
         applyHotReloadParameter($(this));
     });
+
+    // White Balance Mode Toggle handlers
+    initWbModeToggle();
 }
+
+function initWbModeToggle() {
+    // Handle WB mode toggle clicks
+    $('.wb-mode-option').on('click', function() {
+        var $this = $(this);
+        var mode = $this.data('mode');
+
+        // Update toggle state
+        $('.wb-mode-option').removeClass('active');
+        $this.addClass('active');
+
+        // Directly show/hide the control rows
+        updateWbModeVisibility(mode);
+
+        // Toggle values and apply to Motion
+        if (mode === 'gains') {
+            // Clear temperature when switching to gains
+            $('#colourTempSlider').val(0);
+            applyHotReloadParameter($('#colourTempSlider'));
+        } else {
+            // Clear gains when switching to temperature
+            $('#colourGainRSlider').val(0);
+            $('#colourGainBSlider').val(0);
+            applyHotReloadParameter($('#colourGainRSlider'));
+            applyHotReloadParameter($('#colourGainBSlider'));
+        }
+    });
+
+    // Set initial visibility based on current values
+    initWbModeFromValues();
+}
+
+function updateWbModeVisibility(mode) {
+    if (mode === 'gains') {
+        $('tr.wb-temp-control').hide();
+        $('tr.wb-gains-control').show();
+    } else {
+        $('tr.wb-temp-control').show();
+        $('tr.wb-gains-control').hide();
+    }
+}
+
+function initWbModeFromValues() {
+    // Determine initial mode based on which values are set
+    // Default to temperature mode unless gains are explicitly set
+    var tempValue = parseFloat($('#colourTempSlider').val()) || 0;
+    var redGain = parseFloat($('#colourGainRSlider').val()) || 0;
+    var blueGain = parseFloat($('#colourGainBSlider').val()) || 0;
+
+    // Only use gains mode if gains are explicitly set (>0) AND temp is 0
+    // Otherwise default to temperature mode
+    var mode = 'temperature';
+    if ((redGain > 0 || blueGain > 0) && tempValue === 0) {
+        mode = 'gains';
+    }
+
+    // Update toggle UI
+    $('.wb-mode-option').removeClass('active');
+    if (mode === 'gains') {
+        $('#wbModeGains').addClass('active');
+    } else {
+        $('#wbModeTemp').addClass('active');
+    }
+
+    // Always update visibility to ensure correct state
+    updateWbModeVisibility(mode);
+}
+
+// Ensure WB mode is set on page load (backup for when dict2CameraUi isn't called)
+$(document).ready(function() {
+    // Set default visibility - temperature mode by default
+    updateWbModeVisibility('temperature');
+});
 
 function applyHotReloadParameter($slider) {
     var sliderId = $slider.attr('id');
@@ -5854,7 +5961,12 @@ function applyHotReloadParameter($slider) {
         'awbLockedSwitch': 'libcam_awb_locked',
         'colourTempSlider': 'libcam_colour_temp',
         'colourGainRSlider': 'libcam_colour_gain_r',
-        'colourGainBSlider': 'libcam_colour_gain_b'
+        'colourGainBSlider': 'libcam_colour_gain_b',
+        // Autofocus hot-reload params (Motion 5.0+)
+        'autofocusModeSelect': 'libcam_af_mode',
+        'autofocusRangeSelect': 'libcam_af_range',
+        'autofocusSpeedSelect': 'libcam_af_speed',
+        'lensPositionSlider': 'libcam_lens_position'
     };
 
     var paramName = paramMap[sliderId];
@@ -5942,6 +6054,43 @@ function showHotReloadStatus(sliderId, status) {
             });
         }, 3000);
     }
+}
+
+function triggerAutofocus() {
+    var cameraId = $('#cameraSelect').val();
+    if (!cameraId) {
+        showPopupMessage('No camera selected', 'error');
+        return;
+    }
+
+    var $button = $('#triggerAutofocusButton');
+    var originalText = $button.text();
+    $button.text('Focusing...').prop('disabled', true);
+
+    // Trigger autofocus by setting AfTrigger=0 (AfTriggerStart)
+    ajax('POST', basePath + 'config/' + cameraId + '/hot-reload/', {
+        parameter: 'libcam_af_trigger',
+        value: 0
+    }, function(response) {
+        if (response && response.success) {
+            $button.text('Focused!');
+            setTimeout(function() {
+                $button.text(originalText).prop('disabled', false);
+            }, 1500);
+        } else {
+            $button.text('Failed');
+            console.error('Autofocus trigger failed:', response && response.error);
+            setTimeout(function() {
+                $button.text(originalText).prop('disabled', false);
+            }, 2000);
+        }
+    }, function(error) {
+        $button.text('Error');
+        console.error('Autofocus trigger error:', error);
+        setTimeout(function() {
+            $button.text(originalText).prop('disabled', false);
+        }, 2000);
+    });
 }
 
 function startHotReloadSaveCheck() {
@@ -6133,14 +6282,22 @@ function applyPresetSettings(settings) {
             case 'framerate':
                 $('#framerateSlider').val(value);
                 break;
+            // Autofocus hot-reload settings (Motion 5.0+)
             case 'autofocus_mode':
                 $('#autofocusModeSelect').val(value);
+                applyHotReloadParameter($('#autofocusModeSelect'));
                 break;
             case 'autofocus_range':
                 $('#autofocusRangeSelect').val(value);
+                applyHotReloadParameter($('#autofocusRangeSelect'));
+                break;
+            case 'autofocus_speed':
+                $('#autofocusSpeedSelect').val(value);
+                applyHotReloadParameter($('#autofocusSpeedSelect'));
                 break;
             case 'lens_position':
                 $('#lensPositionSlider').val(value);
+                applyHotReloadParameter($('#lensPositionSlider'));
                 break;
         }
     }
@@ -6198,6 +6355,7 @@ function saveCurrentPreset(presetName, forceOverwrite) {
         framerate: parseInt($('#framerateSlider').val()) || 30,
         autofocus_mode: parseInt($('#autofocusModeSelect').val()) || 2,
         autofocus_range: parseInt($('#autofocusRangeSelect').val()) || 0,
+        autofocus_speed: parseInt($('#autofocusSpeedSelect').val()) || 0,
         lens_position: parseFloat($('#lensPositionSlider').val()) || 0.0
     };
 

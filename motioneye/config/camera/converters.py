@@ -449,31 +449,25 @@ def motion_camera_ui_to_dict(
             data['libcam_colour_gain_r'] = colour_gain_r
             data['libcam_colour_gain_b'] = colour_gain_b
 
-            # Build libcam_control_item list for controls not yet covered by dedicated parameters
-            # NOTE: AWB is NOT included here - Motion 5.0+ uses libcam_awb_* for hot-reload
-            control_items = []
-
-            # Autofocus control parameters for Camera v3
+            # Autofocus controls - Motion 5.0+ has dedicated libcam_af_* parameters (hot-reloadable)
             if ui.get('supports_autofocus'):
-                af_mode = ui.get('autofocus_mode', 2)
-                af_range = ui.get('autofocus_range', 0)
-                lens_pos = ui.get('lens_position', 0.0)
+                af_mode = int(ui.get('autofocus_mode', 2))
+                af_range = int(ui.get('autofocus_range', 0))
+                af_speed = int(ui.get('autofocus_speed', 0))
+                lens_pos = float(ui.get('lens_position', 0.0))
 
-                # Store for UI persistence
+                # Store for UI persistence with @ prefix
                 data['@supports_autofocus'] = True
                 data['@af_mode'] = af_mode
                 data['@af_range'] = af_range
+                data['@af_speed'] = af_speed
                 data['@lens_position'] = lens_pos
 
-                # Add autofocus controls
-                control_items.append(f'AfMode={af_mode}')
-                control_items.append(f'AfRange={af_range}')
-                if af_mode == 0:  # Manual focus mode
-                    control_items.append(f'LensPosition={lens_pos}')
-
-            # Motion uses separate libcam_control_item for each control
-            if control_items:
-                data['libcam_control_item'] = control_items
+                # Set dedicated libcam_af_* parameters (Motion 5.0+ hot-reloadable)
+                data['libcam_af_mode'] = af_mode
+                data['libcam_af_range'] = af_range
+                data['libcam_af_speed'] = af_speed
+                data['libcam_lens_position'] = lens_pos
 
     else:  # assuming netcam
         if match(
@@ -1064,11 +1058,12 @@ def motion_camera_dict_to_ui(
                 logging.debug(f'Autofocus support from properties: {supports_af}')
 
         if supports_af:
-            ui['autofocus_mode'] = data.get('@af_mode', 2)
-            ui['autofocus_range'] = data.get('@af_range', 0)
-            ui['lens_position'] = data.get('@lens_position', 0.0)
+            ui['autofocus_mode'] = int(data.get('@af_mode', data.get('libcam_af_mode', 2)))
+            ui['autofocus_range'] = int(data.get('@af_range', data.get('libcam_af_range', 0)))
+            ui['autofocus_speed'] = int(data.get('@af_speed', data.get('libcam_af_speed', 0)))
+            ui['lens_position'] = float(data.get('@lens_position', data.get('libcam_lens_position', 0.0)))
             ui['supports_autofocus'] = True
-            logging.debug(f'Autofocus enabled in UI: mode={ui["autofocus_mode"]}, range={ui["autofocus_range"]}, lens={ui["lens_position"]}')
+            logging.debug(f'Autofocus enabled in UI: mode={ui["autofocus_mode"]}, range={ui["autofocus_range"]}, speed={ui["autofocus_speed"]}, lens={ui["lens_position"]}')
 
         resolutions = utils.COMMON_RESOLUTIONS
         resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]

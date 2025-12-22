@@ -1,5 +1,13 @@
 # MotionEye Project Instructions
 
+## Project Rules
+
+1. **All plans MUST be documented in `docs/plans/`**
+2. **Use scratchpads for working memory** - create and use files in `docs/scratchpads/` for notes, research findings, and intermediate work
+3. **Do not guess** - ask questions and/or research for answers
+4. **Evidence over assumptions** - verify changes work on actual hardware when possible
+5. **Minimize CPU usage** - the Pi has limited CPU, generates heat, and may run on battery; always consider CPU impact when developing code changes
+
 ## Important: Platform-Specific Updates
 
 This version of Motion and MotionEye has been updated specifically for:
@@ -15,7 +23,7 @@ Key changes made:
 - Updated pyproject.toml to include all subpackages
 
 All plans MUST be documented before execution. 
-- A scratchpad may be created, in `docs/scratchpads/`, for notes and additional memory while executing plans.
+- A scratchpad may be created, in `docs/scratchpads/`, for notes and additional memory while executing plans, conducting analysis, and conducting extensive reviews.
 
 ### Motion 5.0 Security Integration
 

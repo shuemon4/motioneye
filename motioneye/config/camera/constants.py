@@ -35,6 +35,10 @@ USED_MOTION_OPTIONS = {
     'libcam_colour_temp',
     'libcam_colour_gain_r',
     'libcam_colour_gain_b',
+    'libcam_af_mode',
+    'libcam_af_range',
+    'libcam_af_speed',
+    'libcam_lens_position',
     'lightswitch_percent',
     'locate_motion_mode',
     'locate_motion_style',
@@ -227,6 +231,12 @@ HOT_RELOAD_PARAMS = {
     'libcam_colour_temp',
     'libcam_colour_gain_r',
     'libcam_colour_gain_b',
+    # Autofocus controls (Motion 5.0+ hot-reloadable)
+    'libcam_af_mode',       # 0=Manual, 1=Auto, 2=Continuous
+    'libcam_lens_position', # 0.0-15.0 dioptres
+    'libcam_af_range',      # 0=Normal, 1=Macro, 2=Full
+    'libcam_af_speed',      # 0=Normal, 1=Fast
+    'libcam_af_trigger',    # 0=Start, 1=Cancel (action, not persistent)
 }
 
 # Parameters that always require daemon restart

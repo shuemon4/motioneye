@@ -20,7 +20,8 @@
       "Bash(python3:*)",
       "Bash(rsync:*)",
       "WebSearch",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
