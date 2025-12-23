@@ -202,12 +202,8 @@ def _set_default_motion_camera(camera_id, data):
         data.setdefault('movie_codec', 'mp4')  # will use libx264 (software)
 
     elif motionctl.has_h264_v4l2m2m_support():
-        # Prefer v4l2m2m - works on both Pi 4 Bullseye and Bookworm
+        # Prefer v4l2m2m - works on Pi 4 with hardware encoding
         data.setdefault('movie_codec', 'mp4:h264_v4l2m2m')
-
-    elif motionctl.has_h264_omx_support():
-        # OMX is deprecated but still works on older setups
-        data.setdefault('movie_codec', 'mp4:h264_omx')
 
     else:
         data.setdefault('movie_codec', 'mp4')  # software fallback

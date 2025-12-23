@@ -55,8 +55,6 @@ FFMPEG_CODEC_MAPPING = {
     'mov': 'h264',
     'webm': 'vp8',
     'hevc': 'h265',
-    'mp4:h264_omx': 'h264_omx',
-    'mkv:h264_omx': 'h264_omx',
     'mp4:h264_v4l2m2m': 'h264_v4l2m2m',
     'mkv:h264_v4l2m2m': 'h264_v4l2m2m',
 }
@@ -67,8 +65,6 @@ FFMPEG_FORMAT_MAPPING = {
     'mov': 'mov',
     'webm': 'webm',
     'hevc': 'mp4',
-    'mp4:h264_omx': 'mp4',
-    'mkv:h264_omx': 'matroska',
     'mp4:h264_v4l2m2m': 'mp4',
     'mkv:h264_v4l2m2m': 'matroska',
 }
@@ -79,8 +75,6 @@ FFMPEG_EXT_MAPPING = {
     'mov': 'mov',
     'webm': 'webm',
     'hevc': 'mp4',
-    'mp4:h264_omx': 'mp4',
-    'mkv:h264_omx': 'mkv',
     'mp4:h264_v4l2m2m': 'mp4',
     'mkv:h264_v4l2m2m': 'mkv',
 }
