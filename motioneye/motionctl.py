@@ -458,16 +458,6 @@ def is_motion_50():
     return update.compare_versions(version, '5.0') >= 0
 
 
-def has_h264_omx_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'h264_omx' in codecs.get('h264', {}).get('encoders', set())
-
-
 def has_h264_v4l2m2m_support():
     binary, version, codecs = mediafiles.find_ffmpeg()
     if not binary:
