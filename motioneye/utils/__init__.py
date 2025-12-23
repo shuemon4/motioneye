@@ -214,7 +214,12 @@ def is_v4l2_camera(config):
 
 
 def is_mmal_camera(config):
-    """Tells if a camera is mmal device managed by the local motion instance."""
+    """
+    Check if camera config uses legacy MMAL.
+
+    Note: MMAL is deprecated on Pi 4+ / Trixie. This function is retained
+    for migration of existing configs to libcamera.
+    """
     return bool(config.get('mmalcam_name'))
 
 

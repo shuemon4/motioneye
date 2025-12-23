@@ -40,7 +40,7 @@ from motioneye import (
     uploadservices,
     utils,
 )
-from motioneye.controls import mmalctl, pictl, rpicamctl, smbctl, tzctl, v4l2ctl
+from motioneye.controls import pictl, rpicamctl, smbctl, tzctl, v4l2ctl
 from motioneye.controls.powerctl import PowerControl
 from motioneye.handlers.base import BaseHandler
 from motioneye.utils.mjpeg import test_mjpeg_url
@@ -526,7 +526,9 @@ class ConfigHandler(BaseHandler):
 
             return self.finish_json({'cameras': cameras})
 
-        elif proto == 'mmal':
+        elif proto in ('libcamera', 'mmal'):
+            # libcamera is the only CSI camera backend on Pi 4+ / Trixie
+            # 'mmal' is accepted as alias for backwards compatibility
             configured_devices = set()
             for camera_id in config.get_camera_ids():
                 data = config.get_camera(camera_id)
@@ -535,24 +537,15 @@ class ConfigHandler(BaseHandler):
                 elif utils.is_libcamera_device(data):
                     configured_devices.add(data['libcam_device'])
 
-            # Use libcamera if available (Bookworm on any Pi, or Pi 5)
-            # Fall back to MMAL on legacy systems (Bullseye on Pi 4 and earlier)
-            if pictl.uses_libcamera():
-                cameras = [
-                    {
-                        'id': d[0],
-                        'name': d[1],
-                        'supports_autofocus': d[2].get('supports_autofocus', False),
-                    }
-                    for d in rpicamctl.list_devices()
-                    if d[0] not in configured_devices
-                ]
-            else:
-                cameras = [
-                    {'id': d[0], 'name': d[1]}
-                    for d in mmalctl.list_devices()
-                    if (d[0] not in configured_devices)
-                ]
+            cameras = [
+                {
+                    'id': d[0],
+                    'name': d[1],
+                    'supports_autofocus': d[2].get('supports_autofocus', False) if len(d) > 2 else False,
+                }
+                for d in rpicamctl.list_devices()
+                if d[0] not in configured_devices
+            ]
 
             return self.finish_json({'cameras': cameras})
 

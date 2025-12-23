@@ -117,17 +117,15 @@ def get_camera_interface() -> str:
     """
     Returns the camera interface to use for CSI cameras.
 
-    Priority order:
-    1. libcamera - if available (Bookworm on any Pi, or Pi 5)
-    2. mmal - if on Raspberry Pi with legacy camera stack (Bullseye)
-    3. v4l2 - generic fallback
+    Camera Interface Priority (Pi 4+ / Trixie):
+    1. libcamera - if rpicam-hello/libcamera-hello is available
+    2. v4l2 - generic fallback for USB cameras
 
-    This allows Pi 4 on Bookworm to use libcamera instead of deprecated MMAL.
+    Note: MMAL is no longer supported on Pi 4+ with Bookworm/Trixie.
 
     Returns:
-        'libcamera' - libcamera stack available (Bookworm, Pi 5)
-        'mmal' - Pi 4 and earlier with legacy camera stack (Bullseye)
-        'v4l2' - Generic V4L2 (non-Pi or USB cameras)
+        'libcamera' - CSI camera via libcamera
+        'v4l2' - Generic V4L2 (USB cameras)
     """
     global _camera_interface_cache
 
@@ -135,48 +133,27 @@ def get_camera_interface() -> str:
         return _camera_interface_cache
 
     # Import here to avoid circular imports
-    from motioneye.controls import rpicamctl, mmalctl
+    from motioneye.controls import rpicamctl
 
-    # First, check if libcamera is available (works on any Pi with Bookworm)
+    # Check for libcamera support (Pi 4/5 on Bookworm/Trixie)
     if rpicamctl.is_rpicam_available():
-        # Validate that libcamera actually works by attempting to list devices
         try:
             devices = rpicamctl.list_devices()
-            _camera_interface_cache = 'libcamera'
-            logging.info('Camera interface: libcamera (rpicam tools available)')
-            return 'libcamera'
+            if devices:
+                _camera_interface_cache = 'libcamera'
+                logging.info('Camera interface: libcamera (rpicam tools available)')
+                return 'libcamera'
         except Exception as e:
-            logging.warning(f'libcamera tools found but enumeration failed: {e} - trying MMAL fallback')
+            logging.warning(f'libcamera enumeration failed: {e} - falling back to v4l2')
 
-    # Fall back to MMAL on Raspberry Pi with legacy camera stack
-    pi_info = get_pi_model()
-    if pi_info:
-        # Validate that MMAL actually works
-        try:
-            devices = mmalctl.list_devices()
-            _camera_interface_cache = 'mmal'
-            logging.info('Camera interface: mmal (legacy camera stack)')
-            return 'mmal'
-        except Exception as e:
-            logging.warning(f'MMAL detection failed: {e} - falling back to v4l2')
-
-    # Not a Pi or no camera interface available
+    # Fallback to V4L2 for USB cameras or non-Pi systems
     _camera_interface_cache = 'v4l2'
     logging.info('Camera interface: v4l2 (generic)')
     return 'v4l2'
 
 
 def uses_libcamera() -> bool:
-    """
-    Check if the system should use libcamera for CSI cameras.
-
-    This is the preferred check for camera operations - it returns True
-    for any system with libcamera available (Pi 4/5 on Bookworm, or Pi 5
-    on any OS).
-
-    Returns:
-        True if libcamera should be used for CSI cameras
-    """
+    """Check if the system uses libcamera for CSI cameras."""
     return get_camera_interface() == 'libcamera'
 
 

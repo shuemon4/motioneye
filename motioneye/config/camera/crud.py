@@ -103,26 +103,27 @@ def add_camera(device_details, get_camera_ids_func, get_camera_func, set_camera_
         camera_config['@password'] = device_details['password']
         camera_config['@remote_camera_id'] = device_details['remote_camera_id']
 
-    elif proto == 'mmal':
-        # Use libcamera if available (Bookworm on any Pi, or Pi 5)
-        # Fall back to MMAL on legacy systems (Bullseye on Pi 4 and earlier)
-        if pictl.uses_libcamera():
-            camera_config['libcam_device'] = device_details['path']
-            camera_config['libcam_buffer_count'] = 4
-            # Check if camera supports autofocus (Camera v3)
-            if device_details.get('supports_autofocus'):
-                camera_config['@supports_autofocus'] = True
-                # Camera v3 (IMX708) - high resolution
-                camera_config['width'] = 1920
-                camera_config['height'] = 1080
-            else:
-                # Camera v2 (IMX219) and others - conservative resolution
-                camera_config['width'] = 1280
-                camera_config['height'] = 720
+    elif proto in ('libcamera', 'mmal'):
+        # libcamera is the only CSI camera backend on Pi 4+ / Trixie
+        # 'mmal' is accepted as alias for backwards compatibility
+        if not pictl.uses_libcamera():
+            raise ValueError(
+                'libcamera not available. Ensure rpicam-apps is installed '
+                'and a CSI camera is connected.'
+            )
+        camera_config['libcam_device'] = device_details['path']
+        camera_config['libcam_buffer_count'] = 4
+
+        # Check if camera supports autofocus (Camera v3 / IMX708)
+        if device_details.get('supports_autofocus'):
+            camera_config['@supports_autofocus'] = True
+            # Camera v3 - high resolution default
+            camera_config['width'] = 1920
+            camera_config['height'] = 1080
         else:
-            camera_config['mmalcam_name'] = device_details['path']
-            camera_config['width'] = 640
-            camera_config['height'] = 480
+            # Camera v2 (IMX219) and others - conservative resolution
+            camera_config['width'] = 1280
+            camera_config['height'] = 720
 
     elif proto == 'netcam':
         camera_config['netcam_url'] = device_details['url']

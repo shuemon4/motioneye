@@ -387,7 +387,8 @@ def motion_camera_ui_to_dict(
         proto = 'libcamera'
 
     elif utils.is_mmal_camera(prev_config):
-        proto = 'mmal'
+        # Migrate legacy MMAL configs to libcamera
+        proto = 'libcamera'
 
     else:
         proto = 'netcam'
