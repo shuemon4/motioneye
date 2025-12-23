@@ -18,12 +18,11 @@
 Raspberry Pi platform detection utilities.
 Detects Pi model and available camera interfaces.
 
-Camera Interface Priority:
-1. libcamera - if rpicam-hello/libcamera-hello is available (Bookworm, Pi 5)
-2. mmal - if legacy camera stack available (Bullseye, Pi 4 and earlier)
-3. v4l2 - generic fallback for USB cameras
+Camera Interface Priority (Pi 4+ / Trixie):
+1. libcamera - if rpicam-hello is available (Bookworm/Trixie on Pi 4+)
+2. v4l2 - generic fallback for USB cameras
 
-This allows Pi 4 on Bookworm to use libcamera instead of the deprecated MMAL.
+Note: MMAL is deprecated and no longer supported on Pi 4+ with Bookworm/Trixie.
 """
 
 import logging

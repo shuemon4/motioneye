@@ -26,8 +26,8 @@ This module:
 - Handles both new (rpicam-*) and old (libcamera-*) command names
 
 Tool Detection Priority:
-1. rpicam-vid / rpicam-hello (Bookworm+, preferred)
-2. libcamera-vid / libcamera-hello (Bullseye, legacy fallback)
+1. rpicam-vid / rpicam-hello (Bookworm/Trixie, preferred)
+2. libcamera-vid / libcamera-hello (older Bookworm, legacy fallback)
 """
 
 import logging
