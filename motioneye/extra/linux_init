@@ -27,12 +27,9 @@ if command -v apt-get > /dev/null; then
   [[ -f '/etc/os-release' ]] && DISTRO=$(sed -n '/^VERSION_CODENAME=/{s/^[^=]*=//p;q}' /etc/os-release)
   if [[ $DISTRO ]]; then
     ARCH=$(dpkg --print-architecture)
-    # On ARMv6 Raspberry Pi models, download armv6hf package
-    PI=''
-    [[ ${ARCH} == 'armhf' && $(uname -m) == 'armv6l' ]] && PI='pi_'
     echo "INFO: ${DISTRO^} on ${ARCH} detected, checking for latest motion package from GitHub releases"
     command -v curl > /dev/null || DEBIAN_FRONTEND="noninteractive" apt-get -y --no-install-recommends install curl
-    URL=$(curl -sSfL 'https://api.github.com/repos/Motion-Project/motion/releases' | awk -F\" "/browser_download_url.*${PI}${DISTRO}_motion_.*_${ARCH}.deb/{print \$4}" | head -1)
+    URL=$(curl -sSfL 'https://api.github.com/repos/Motion-Project/motion/releases' | awk -F\" "/browser_download_url.*${DISTRO}_motion_.*_${ARCH}.deb/{print \$4}" | head -1)
     if [[ ${URL} ]]
     then
       echo "INFO: Matching package found, downloading: ${URL}"
@@ -48,7 +45,14 @@ if command -v apt-get > /dev/null; then
   else
     echo 'WARNING: Distribution version could not be detected, installing motion from APT repository'
   fi
-  DEBIAN_FRONTEND="noninteractive" apt-get -y --no-install-recommends install "${MOTION}" v4l-utils ffmpeg curl
+  # Detect Raspberry Pi and add rpicam-apps if needed
+  RPI_APPS=''
+  if grep -qi 'Raspberry Pi' /proc/device-tree/model 2>/dev/null || \
+     grep -qi 'Raspberry Pi' /proc/cpuinfo 2>/dev/null; then
+    RPI_APPS='rpicam-apps'
+    echo 'INFO: Raspberry Pi detected, including rpicam-apps for libcamera support'
+  fi
+  DEBIAN_FRONTEND="noninteractive" apt-get -y --no-install-recommends install "${MOTION}" v4l-utils ffmpeg curl ${RPI_APPS}
   rm -f motion.deb
 elif command -v yum > /dev/null; then
   echo 'INFO: YUM-based distribution detected, installing motionEye dependencies'

@@ -34,6 +34,7 @@ import logging
 import os
 import platform
 import signal
+import struct
 import subprocess
 import tarfile
 import time
@@ -61,24 +62,31 @@ _MAX_RESTART_ATTEMPTS = 3
 
 def _detect_architecture() -> str:
     """
-    Detect system architecture for mediamtx download.
+    Detect system architecture for mediamtx binary download.
+
+    Uses both platform.machine() and pointer size to handle edge cases
+    like 32-bit userland on 64-bit kernel.
 
     Returns:
-        Architecture string: 'arm64', 'armv7', 'amd64', etc.
+        Architecture string: 'arm64v8', 'armv7', 'amd64', '386'
     """
     machine = platform.machine().lower()
+    bits = struct.calcsize('P') * 8  # Pointer size in bits
 
-    if machine in ('aarch64', 'arm64'):
-        return 'arm64v8'
-    elif machine.startswith('armv7') or machine == 'armhf':
+    if machine in ('aarch64', 'arm64', 'armv8l'):
+        # 64-bit ARM - but verify userland is also 64-bit
+        return 'arm64v8' if bits == 64 else 'armv7'
+    elif machine.startswith('armv7') or machine.startswith('armv6') or machine == 'armhf':
         return 'armv7'
     elif machine in ('x86_64', 'amd64'):
         return 'amd64'
     elif machine in ('i386', 'i686', 'x86'):
         return '386'
     else:
-        logging.warning(f'Unknown architecture {machine}, defaulting to arm64v8')
-        return 'arm64v8'
+        # Unknown - default based on pointer size
+        fallback = 'arm64v8' if bits == 64 else 'armv7'
+        logging.warning(f'Unknown architecture {machine}, defaulting to {fallback}')
+        return fallback
 
 
 def _get_mediamtx_path() -> str:

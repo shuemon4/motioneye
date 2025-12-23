@@ -71,11 +71,11 @@ def get_pi_model() -> dict | None:
     # Pi 5 doesn't have BCM chip in cpuinfo but has "Raspberry Pi 5" in Model
     is_pi = 'Raspberry Pi' in model_str
 
-    # Fallback: Check for BCM chips (older Pi models have this in cpuinfo)
+    # Fallback: Check for BCM chips (Pi 4 and Pi 5 only)
     if not is_pi:
         is_pi = any(
             chip in cpuinfo
-            for chip in ['BCM2835', 'BCM2836', 'BCM2837', 'BCM2711', 'BCM2712']
+            for chip in ['BCM2711', 'BCM2712']  # Pi 4 = BCM2711, Pi 5 = BCM2712
         )
 
     if not is_pi:
