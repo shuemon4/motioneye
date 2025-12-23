@@ -35,7 +35,32 @@ def get_os_version():
         return platformupdate.get_os_version()
 
     except ImportError:
+        # Try /etc/os-release first (most reliable on modern Linux)
+        os_release = _get_os_version_os_release()
+        if os_release:
+            return os_release
+        # Fall back to lsb_release
         return _get_os_version_lsb_release()
+
+
+def _get_os_version_os_release():
+    """Parse /etc/os-release for OS version info."""
+    try:
+        data = {}
+        with open('/etc/os-release', 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                data[key] = value.strip().strip('"')
+        name = data.get('PRETTY_NAME') or data.get('NAME') or data.get('ID')
+        version = data.get('VERSION_ID') or data.get('VERSION_CODENAME') or ''
+        if name:
+            return name, version
+    except Exception:
+        pass
+    return None
 
 
 def _get_os_version_lsb_release():

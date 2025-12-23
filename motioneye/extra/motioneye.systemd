@@ -7,7 +7,7 @@ User=motion
 RuntimeDirectory=motioneye
 LogsDirectory=motioneye
 StateDirectory=motioneye
-ExecStart=/usr/local/bin/meyectl startserver -c /etc/motioneye/motioneye.conf
+ExecStart=/usr/bin/env meyectl startserver -c /etc/motioneye/motioneye.conf
 Restart=on-abort
 
 [Install]
