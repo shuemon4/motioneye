@@ -44,14 +44,10 @@ def _set_default_motion(data):
     data.setdefault('@normal_password', '')
     data.setdefault('@lang', 'en')
 
-    if not motionctl.is_motion_50():
-        data.setdefault('setup_mode', False)
+    # Motion 5.0 removed setup_mode
     data.setdefault('webcontrol_port', settings.MOTION_CONTROL_PORT)
     # Motion 5.0 uses string values for webcontrol_interface
-    if motionctl.is_motion_50():
-        data.setdefault('webcontrol_interface', 'default')
-    else:
-        data.setdefault('webcontrol_interface', 1)
+    data.setdefault('webcontrol_interface', 'default')
     data.setdefault('webcontrol_localhost', settings.MOTION_CONTROL_LOCALHOST)
     # the advanced list of parameters will be available
     data.setdefault('webcontrol_parms', 2)
@@ -142,12 +138,7 @@ def _set_default_motion_camera(camera_id, data):
     data.setdefault('@upload_bucket', '')
     data.setdefault('@clean_cloud_enabled', False)
 
-    # Motion 5.0 removed stream_port, stream_localhost, stream_auth_method
-    # Streams are now served via webcontrol interface
-    if not motionctl.is_motion_50():
-        data.setdefault('stream_localhost', False)
-        data.setdefault('stream_port', 9080 + camera_id)
-        data.setdefault('stream_auth_method', 0)
+    # Motion 5.0: Streams served via webcontrol interface (no stream_port, etc.)
     data.setdefault('stream_maxrate', 5)
     data.setdefault('stream_quality', 85)
     data.setdefault('stream_motion', False)

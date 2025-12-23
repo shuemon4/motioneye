@@ -332,31 +332,20 @@ def get_jpg(camera_id):
 
             return None
 
+        # Motion 5.0: Streams via webcontrol interface
+        main_config = config.get_main()
+        port = main_config.get('webcontrol_port', settings.MOTION_CONTROL_PORT)
+        motion_camera_id = motionctl.camera_id_to_motion_camera_id(camera_id)
+        stream_path = f'/{motion_camera_id}/mjpg/stream'
+
+        # Auth is via webcontrol settings in Motion 5.0
         username, password = None, None
         auth_mode = None
-        stream_path = '/'
-
-        if motionctl.is_motion_50():
-            # Motion 5.0: Streams via webcontrol interface
-            main_config = config.get_main()
-            port = main_config.get('webcontrol_port', settings.MOTION_CONTROL_PORT)
-            motion_camera_id = motionctl.camera_id_to_motion_camera_id(camera_id)
-            stream_path = f'/{motion_camera_id}/mjpg/stream'
-
-            # Auth is via webcontrol settings in Motion 5.0
-            if main_config.get('webcontrol_auth_method'):
-                auth_str = main_config.get('webcontrol_authentication', ':')
-                if ':' in auth_str:
-                    username, password = auth_str.split(':', 1)
-                auth_mode = 'digest' if main_config.get('webcontrol_auth_method') == 'digest' else 'basic'
-        else:
-            # Motion 4.x: Separate stream ports per camera
-            port = camera_config['stream_port']
-            if camera_config.get('stream_auth_method', 0) > 0:
-                username, password = camera_config.get('stream_authentication', ':').split(':')
-                auth_mode = (
-                    'digest' if camera_config.get('stream_auth_method') > 1 else 'basic'
-                )
+        if main_config.get('webcontrol_auth_method'):
+            auth_str = main_config.get('webcontrol_authentication', ':')
+            if ':' in auth_str:
+                username, password = auth_str.split(':', 1)
+            auth_mode = 'digest' if main_config.get('webcontrol_auth_method') == 'digest' else 'basic'
 
         client = MjpgClient(camera_id, port, username, password, auth_mode, stream_path)
         client.do_connect()

@@ -43,10 +43,8 @@ Import from this package or directly from submodules:
 # Phase 1: Pure function modules (zero dependencies)
 from motioneye.config.adaptation import (
     adapt_config_directives,
-    _MOTION_41_TO_43_OPTIONS_MAPPING,
-    _MOTION_43_TO_41_OPTIONS_MAPPING,
-    _MOTION_43_TO_44_OPTIONS_MAPPING,
-    _MOTION_44_TO_43_OPTIONS_MAPPING,
+    MOTION_50_OPTIONS_MAPPING,
+    MOTION_50_FROM_OPTIONS_MAPPING,
 )
 
 from motioneye.config.serialization import (
@@ -215,10 +213,8 @@ def restore(content):
 __all__ = [
     # Adaptation
     'adapt_config_directives',
-    '_MOTION_41_TO_43_OPTIONS_MAPPING',
-    '_MOTION_43_TO_41_OPTIONS_MAPPING',
-    '_MOTION_43_TO_44_OPTIONS_MAPPING',
-    '_MOTION_44_TO_43_OPTIONS_MAPPING',
+    'MOTION_50_OPTIONS_MAPPING',
+    'MOTION_50_FROM_OPTIONS_MAPPING',
     # Serialization
     '_value_to_python',
     '_python_to_value',

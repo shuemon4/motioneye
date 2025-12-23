@@ -458,6 +458,14 @@ def is_motion_50():
     return update.compare_versions(version, '5.0') >= 0
 
 
+def validate_motion_version():
+    """Ensure Motion 5.0+ is installed. Call at startup."""
+    if not is_motion_50():
+        raise RuntimeError(
+            "Motion 5.0+ is required. Please upgrade Motion or use an older MotionEye version."
+        )
+
+
 def has_h264_v4l2m2m_support():
     binary, version, codecs = mediafiles.find_ffmpeg()
     if not binary:
@@ -860,14 +868,7 @@ async def set_config_hot(camera_id: int, param: str, value: str) -> dict:
             'error': 'Parameter requires daemon restart'
         }
 
-    # Check Motion version
-    if not is_motion_50():
-        return {
-            'success': False,
-            'hot_reload': False,
-            'error': 'Motion 5.0+ required for hot reload'
-        }
-
+    # Motion 5.0+ required (always true now)
     motion_camera_id = camera_id_to_motion_camera_id(camera_id)
     if motion_camera_id is None:
         return {
@@ -1012,9 +1013,7 @@ async def is_hot_reload_available() -> bool:
     Returns:
         True if Motion 5.0+ with hot reload API is running
     """
-    if not is_motion_50():
-        return False
-
+    # Motion 5.0+ required (always true now)
     if not running():
         return False
 

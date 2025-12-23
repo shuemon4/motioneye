@@ -30,12 +30,8 @@ from motioneye import motionctl, settings, utils
 
 from motioneye.config.adaptation import (
     adapt_config_directives,
-    _MOTION_41_TO_43_OPTIONS_MAPPING,
-    _MOTION_43_TO_41_OPTIONS_MAPPING,
-    _MOTION_43_TO_44_OPTIONS_MAPPING,
-    _MOTION_44_TO_43_OPTIONS_MAPPING,
-    _MOTION_44_TO_50_OPTIONS_MAPPING,
-    _MOTION_50_TO_44_OPTIONS_MAPPING,
+    MOTION_50_OPTIONS_MAPPING,
+    MOTION_50_FROM_OPTIONS_MAPPING,
 )
 from motioneye.config.serialization import _conf_to_dict, _dict_to_conf
 from motioneye.config.defaults import (
@@ -123,10 +119,8 @@ def get_main(as_lines=False):
         ],
     )
 
-    # adapt directives for motion versions < 4.2 and > 4.3 and 5.0
-    adapt_config_directives(main_config, _MOTION_41_TO_43_OPTIONS_MAPPING)
-    adapt_config_directives(main_config, _MOTION_44_TO_43_OPTIONS_MAPPING)
-    adapt_config_directives(main_config, _MOTION_50_TO_44_OPTIONS_MAPPING)
+    # Adapt Motion 5.0 config to internal format
+    adapt_config_directives(main_config, MOTION_50_FROM_OPTIONS_MAPPING)
 
     _get_additional_config(main_config)
     _set_default_motion(main_config)
@@ -153,16 +147,8 @@ def set_main(main_config):
     main_config = dict(main_config)
     _set_additional_config(main_config)
 
-    # adapt directives for motion versions < 4.2 and > 4.3 and 5.0
-    if motionctl.is_motion_pre42():
-        adapt_config_directives(main_config, _MOTION_43_TO_41_OPTIONS_MAPPING)
-
-    elif motionctl.is_motion_50():
-        adapt_config_directives(main_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
-        adapt_config_directives(main_config, _MOTION_44_TO_50_OPTIONS_MAPPING)
-
-    elif motionctl.is_motion_post43():
-        adapt_config_directives(main_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
+    # Adapt internal format to Motion 5.0 config
+    adapt_config_directives(main_config, MOTION_50_OPTIONS_MAPPING)
 
     config_file_path = os.path.join(settings.CONF_PATH, _MAIN_CONFIG_FILE_NAME)
 
@@ -367,10 +353,8 @@ def get_camera(camera_id, as_lines=False):
         )
         camera_config['@id'] = camera_id
 
-        # adapt directives for motion versions < 4.2 and > 4.3 and 5.0
-        adapt_config_directives(camera_config, _MOTION_41_TO_43_OPTIONS_MAPPING)
-        adapt_config_directives(camera_config, _MOTION_44_TO_43_OPTIONS_MAPPING)
-        adapt_config_directives(camera_config, _MOTION_50_TO_44_OPTIONS_MAPPING)
+        # Adapt Motion 5.0 config to internal format
+        adapt_config_directives(camera_config, MOTION_50_FROM_OPTIONS_MAPPING)
 
         _get_additional_config(camera_config, camera_id=camera_id)
 
@@ -410,16 +394,8 @@ def set_camera(camera_id, camera_config):
     camera_config = dict(camera_config)
 
     if utils.is_local_motion_camera(camera_config):
-        # adapt directives for motion versions < 4.2 and > 4.3 and 5.0
-        if motionctl.is_motion_pre42():
-            adapt_config_directives(camera_config, _MOTION_43_TO_41_OPTIONS_MAPPING)
-
-        elif motionctl.is_motion_50():
-            adapt_config_directives(camera_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
-            adapt_config_directives(camera_config, _MOTION_44_TO_50_OPTIONS_MAPPING)
-
-        elif motionctl.is_motion_post43():
-            adapt_config_directives(camera_config, _MOTION_43_TO_44_OPTIONS_MAPPING)
+        # Adapt internal format to Motion 5.0 config
+        adapt_config_directives(camera_config, MOTION_50_OPTIONS_MAPPING)
 
         # set the enabled status in main config
         main_config = get_main()

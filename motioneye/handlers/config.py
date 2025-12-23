@@ -192,10 +192,10 @@ class ConfigHandler(BaseHandler):
                 # Convert UI to new Motion config
                 new_motion_config = config.motion_camera_ui_to_dict(ui_config, local_config)
 
-                # Try to apply changes using hot-reload where possible
+                # Try to apply changes using hot-reload where possible (Motion 5.0+)
                 needs_restart = True  # Default to restart for safety
 
-                if motionctl.is_motion_50() and motionctl.running():
+                if motionctl.running():
                     try:
                         result = await motionctl.apply_config_changes(
                             camera_id, old_motion_config, new_motion_config

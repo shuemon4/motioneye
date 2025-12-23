@@ -54,10 +54,8 @@ from motioneye.controls import diskctl, pictl, smbctl, v4l2ctl
 # Import from refactored modules
 from motioneye.config.adaptation import (
     adapt_config_directives,
-    _MOTION_41_TO_43_OPTIONS_MAPPING,
-    _MOTION_43_TO_41_OPTIONS_MAPPING,
-    _MOTION_43_TO_44_OPTIONS_MAPPING,
-    _MOTION_44_TO_43_OPTIONS_MAPPING,
+    MOTION_50_OPTIONS_MAPPING,
+    MOTION_50_FROM_OPTIONS_MAPPING,
 )
 from motioneye.config.serialization import (
     _value_to_python,
