@@ -8,18 +8,33 @@
 4. **Evidence over assumptions** - verify changes work on actual hardware when possible
 5. **Minimize CPU usage** - the Pi has limited CPU, generates heat, and may run on battery; always consider CPU impact when developing code changes
 
+## Requirements
+
+**This fork requires:**
+- **Motion 5.0 or later** - Required for libcamera support and modern API
+- **64-bit OS** - Raspberry Pi OS Bookworm/Trixie (64-bit) or compatible
+- **Raspberry Pi 4 or Pi 5** - Pi 4+ with 64-bit OS only
+
+**Not supported:**
+- Motion versions < 5.0
+- 32-bit operating systems
+- MMAL camera interface (removed)
+- Raspberry Pi models older than Pi 4
+
 ## Important: Platform-Specific Updates
 
 This version of Motion and MotionEye has been updated specifically for:
-- **Raspberry Pi 5**
-- **Pi Camera v3** (IMX708 sensor)
+- **Raspberry Pi 4 and Pi 5**
+- **64-bit Raspberry Pi OS** (Bookworm/Trixie)
+- **Pi Camera v3** (IMX708 sensor) and other libcamera-compatible cameras
 
-These updates were required due to changes in the Raspberry Pi camera library (libcamera). The Pi 5 no longer supports MMAL - it exclusively uses libcamera for camera access.
+These updates were required due to changes in the Raspberry Pi camera library (libcamera). Pi 4+ with modern 64-bit OS no longer supports MMAL - they exclusively use libcamera for CSI camera access.
 
 Key changes made:
-- Motion 5.0 compatibility (stream endpoints, config option mappings)
-- libcamera device detection and configuration
-- Removal of deprecated stream_* options (stream_port, stream_localhost, etc.)
+- **Motion 5.0+ required** - All pre-5.0 compatibility removed
+- **libcamera only** - MMAL support completely removed
+- **64-bit only** - 32-bit architecture support removed
+- Stream endpoints via webcontrol interface (no stream_port, stream_localhost)
 - Updated pyproject.toml to include all subpackages
 
 All plans MUST be documented before execution. 
