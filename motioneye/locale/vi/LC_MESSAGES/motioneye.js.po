@@ -325,9 +325,6 @@ msgid "Loka V4L2-kamerao"
 msgstr ""
 
 #: motioneye/static/js/main.js:3880
-msgid "Loka MMAL-kamerao"
-msgstr ""
-
 #: motioneye/static/js/main.js:3881
 msgid "Reta kamerao"
 msgstr ""
@@ -389,9 +386,6 @@ msgid "Retaj kameraoj (aŭ IP-kameraoj) estas aparatoj, kiuj denaske fluas RTSP/
 msgstr ""
 
 #: motioneye/static/js/main.js:3961
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr ""
-
 #: motioneye/static/js/main.js:3976
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."
 msgstr ""

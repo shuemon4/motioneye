@@ -402,9 +402,6 @@ msgstr "स्थानीय V4L2 कैमरा"
 
 #: motioneye/static/js/main.js:3880
 #, fuzzy
-msgid "Loka MMAL-kamerao"
-msgstr "स्थानीय MMAL कैमरा"
-
 #: motioneye/static/js/main.js:3881
 #, fuzzy
 msgid "Reta kamerao"
@@ -482,9 +479,6 @@ msgstr "नेटवर्क कैमरा (या आईपी कैमर�
 
 #: motioneye/static/js/main.js:3961
 #, fuzzy
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr "स्थानीय एमएमएएल कैमरे ऐसे उपकरण हैं जो सीधे आपके मोशन सिस्टम से जुड़े होते हैं। ये आमतौर पर कार्ड-विशिष्ट कैमरे होते हैं।"
-
 #: motioneye/static/js/main.js:3976
 #, fuzzy
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."

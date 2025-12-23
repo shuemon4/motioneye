@@ -328,9 +328,6 @@ msgid "Loka V4L2-kamerao"
 msgstr "Lokální kamera V4L2"
 
 #: motioneye/static/js/main.js:3880
-msgid "Loka MMAL-kamerao"
-msgstr "Lokální kamera MMAL"
-
 #: motioneye/static/js/main.js:3881
 msgid "Reta kamerao"
 msgstr "Online fotoaparát"
@@ -392,9 +389,6 @@ msgid "Retaj kameraoj (aŭ IP-kameraoj) estas aparatoj, kiuj denaske fluas RTSP/
 msgstr "Webové kamery (nebo IP kamery) jsou zařízení, která nativně proudí videa RTSP/RTMP nebo MJPEG nebo jednoduché obrázky JPEG. Poraďte se s příručkou vašeho zařízení a zjistěte správnou adresu URL RTSP, RTMP, MJPEG nebo JPEG."
 
 #: motioneye/static/js/main.js:3961
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr "Místní kamery MMAL jsou zařízení připojená přímo k vašemu systému MotionEye. Jedná se obvykle o kamery specifické pro karty."
-
 #: motioneye/static/js/main.js:3976
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."
 msgstr "Přidání zařízení jako jednoduché kamery MJPEG místo toho, jak online fotoaparát zlepší fotografii, ale pro ni nebude k dispozici žádná detekce pohybu, snímání obrázků nebo nahrávání filmů. Fotoaparát musí být přístupný vašemu serveru a prohlížeči. Tento typ fotoaparátu neodpovídá internetovým průzkumníka."

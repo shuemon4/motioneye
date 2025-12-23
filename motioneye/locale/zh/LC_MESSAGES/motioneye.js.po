@@ -328,9 +328,6 @@ msgid "Loka V4L2-kamerao"
 msgstr "本地V4L2摄像头"
 
 #: motioneye/static/js/main.js:3880
-msgid "Loka MMAL-kamerao"
-msgstr "本地MMAL摄像头"
-
 #: motioneye/static/js/main.js:3881
 msgid "Reta kamerao"
 msgstr "网路摄影头"
@@ -392,9 +389,6 @@ msgid "Retaj kameraoj (aŭ IP-kameraoj) estas aparatoj, kiuj denaske fluas RTSP/
 msgstr "网络摄像头（或IP摄像头）是指传输原生RTSP / RTMP流或MJPEG视频流或普通MJPEG图像流的设备。请查阅您的设备手册，以找到正确的RTSP，RTMP，MJPEG或JPEG的URL地址。"
 
 #: motioneye/static/js/main.js:3961
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr "本地MMAL摄像头是指直接连接到motionEye系统的设备。这些通常是硬件提供接口兼容的摄像头。"
-
 #: motioneye/static/js/main.js:3976
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."
 msgstr "将设备添加为简单的MJPEG摄像头而不是网络摄像头可以改善摄影效果，但是无法进行运动检测，图像捕获或动画录制。您的服务器和浏览器必须可以访问该相机。这类相机与Internet Explorer不匹配。"

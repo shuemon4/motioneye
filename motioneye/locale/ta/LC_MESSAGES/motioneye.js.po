@@ -327,9 +327,6 @@ msgid "Loka V4L2-kamerao"
 msgstr "உள்ளக வி 4 எல் 2 கேமரா"
 
 #: motioneye/static/js/main.js:3880
-msgid "Loka MMAL-kamerao"
-msgstr "Mmal-camer அல்ல"
-
 #: motioneye/static/js/main.js:3881
 msgid "Reta kamerao"
 msgstr "நிகழ்நிலை கேமரா"
@@ -391,9 +388,6 @@ msgid "Retaj kameraoj (aŭ IP-kameraoj) estas aparatoj, kiuj denaske fluas RTSP/
 msgstr "வலை கேமராக்கள் (அல்லது ஐபி கேமராக்கள்) என்பது RTSP/RTMP அல்லது MJPEG வீடியோக்கள் அல்லது எளிய JPEG படங்களை பூசும் சாதனங்கள். சரியான முகவரி RTSP, RTMP, MJPEG அல்லது JPEG ஐ அறிய உங்கள் சாதனத்தின் கையேட்டைப் பாருங்கள்."
 
 #: motioneye/static/js/main.js:3961
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr "உள்ளக MMAL கேமராக்கள் உங்கள் இயக்க அமைப்புடன் நேரடியாக இணைக்கப்பட்ட சாதனங்கள். இவை பொதுவாக அட்டை சார்ந்த கேமராக்கள்."
-
 #: motioneye/static/js/main.js:3976
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."
 msgstr "நிகழ்நிலை கேமரா புகைப்படத்தை எவ்வாறு மேம்படுத்துகிறது என்பதற்குப் பதிலாக உங்கள் சாதனத்தை எளிய MJPEG கேமராவாகச் சேர்ப்பது, ஆனால் இயக்கக் கண்டறிதல், பட பிடிப்பு அல்லது பதிவு திரைப்படங்கள் எதுவும் கிடைக்காது. உங்கள் சேவையகம் மற்றும் உங்கள் உலாவிக்கு கேமரா அணுகப்பட வேண்டும். இந்த வகை கேமரா இன்டர்நெட் எக்ச்ப்ளோரருடன் பொருந்தவில்லை."

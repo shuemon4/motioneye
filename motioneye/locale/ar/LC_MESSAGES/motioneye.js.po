@@ -405,9 +405,6 @@ msgstr "كاميرا V4L2 محلية"
 
 #: motioneye/static/js/main.js:3880
 #, fuzzy
-msgid "Loka MMAL-kamerao"
-msgstr "كاميرا MMAL محلية"
-
 #: motioneye/static/js/main.js:3881
 #, fuzzy
 msgid "Reta kamerao"
@@ -485,9 +482,6 @@ msgstr "كاميرات الشبكة (أو كاميرات IP) هي الأجهزة
 
 #: motioneye/static/js/main.js:3961
 #, fuzzy
-msgid "Lokaj MMAL-kameraoj estas aparatoj konektitaj rekte al via motionEye-sistemo. Ĉi tiuj estas kutime kart-specifaj kameraoj."
-msgstr "كاميرات MMAL المحلية هي أجهزة متصلة مباشرة بنظام motionEye الخاص بك. عادة ما تكون هذه الكاميرات خاصة بالبطاقة."
-
 #: motioneye/static/js/main.js:3976
 #, fuzzy
 msgid "Aldonante vian aparaton kiel simplan MJPEG-kameraon anstataŭ kiel retan kameraon plibonigos la fotografaĵon, sed neniu moviĝo-detekto, bilda kaptado aŭ registrado de filmoj estos disponebla por ĝi. La kamerao devas esti alirebla por via servilo kaj via retumilo. Ĉi tiu tipo de kamerao ne kongruas kun Internet Explorer."
