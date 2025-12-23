@@ -67,9 +67,9 @@ smb_mount_root /media
 # (enable this to configure the system time zone from the UI)
 #local_time_file /etc/localtime
 
-# enables shutdown and rebooting after changing system settings
-# (such as wifi settings or time zone)
-enable_reboot false
+# enables shutdown and reboot buttons in General Settings
+# (enabled by default for admin users on dedicated hardware)
+enable_reboot true
 
 # timeout in seconds to use when talking to the SMTP server
 smtp_timeout 60

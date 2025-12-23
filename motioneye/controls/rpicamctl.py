@@ -151,6 +151,8 @@ def init_rpicam() -> bool:
     Returns:
         True if rpicam-hello (or libcamera-hello) is available, False otherwise
     """
+    # Clear cache to ensure fresh detection at startup
+    clear_cache()
     cmd = _find_rpicam_tool('hello')
     return cmd is not None
 
@@ -223,7 +225,10 @@ def list_devices() -> list:
 
     cmd = _find_rpicam_tool('hello')
     if not cmd:
-        logging.debug('No libcamera command found (rpicam-hello or libcamera-hello)')
+        logging.warning(
+            'No libcamera command found (rpicam-hello or libcamera-hello) - libcamera cameras will not be detected. '
+            'On Raspberry Pi OS Bookworm, ensure rpicam-apps is installed: sudo apt install rpicam-apps'
+        )
         return []
 
     try:
@@ -232,10 +237,10 @@ def list_devices() -> list:
             timeout=10
         )
     except CalledProcessError as e:
-        logging.debug(f'{cmd} failed: {e}')
+        logging.warning(f'{cmd} failed to enumerate cameras: {e}')
         return []
     except Exception as e:
-        logging.debug(f'{cmd} error: {e}')
+        logging.warning(f'{cmd} error during camera enumeration: {e}')
         return []
 
     cameras = []
@@ -296,7 +301,12 @@ def list_devices() -> list:
         logging.debug(f'Found libcamera device: {device_id} - {display_name}')
 
     if not cameras:
-        logging.debug('No libcamera cameras detected')
+        logging.warning(
+            'No libcamera cameras detected. Troubleshooting: '
+            '1) Check camera is physically connected, '
+            '2) Ensure camera is enabled (run "sudo raspi-config" and enable camera), '
+            '3) Verify with "rpicam-hello --list-cameras" or "libcamera-hello --list-cameras"'
+        )
 
     return cameras
 

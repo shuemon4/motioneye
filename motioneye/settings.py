@@ -106,9 +106,9 @@ WPA_SUPPLICANT_CONF = None
 # (enable this to configure the system time zone from the UI)
 LOCAL_TIME_FILE = None
 
-# enables shutdown and rebooting after changing system settings
-# (such as wifi settings or time zone)
-ENABLE_REBOOT = False
+# enables shutdown and reboot buttons in General Settings
+# (enabled by default for admin users on dedicated hardware)
+ENABLE_REBOOT = True
 
 # enables motionEye version update (not implemented by default)
 ENABLE_UPDATE = False

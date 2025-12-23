@@ -97,6 +97,16 @@ var CAPABILITY_TO_UI_ELEMENT = {
     'AnalogueGain': ['isoSlider']
 };
 
+/* Global helper to hide/show UI elements based on capability support.
+ * Sets _hideNull on parent TR to integrate with existing hide logic. */
+function setElementHidden(shouldHide, elementId) {
+    var elem = $('#' + elementId);
+    var parentRow = elem.parents('tr:eq(0)');
+    if (parentRow.length) {
+        parentRow.each(function() { this._hideNull = shouldHide; });
+    }
+}
+
 /* Applies visibility to UI elements based on Motion's reported camera capabilities.
  * If supportedControls is empty/null, gracefully degrades by showing all controls. */
 function applyCapabilityVisibility(supportedControls) {
@@ -110,7 +120,7 @@ function applyCapabilityVisibility(supportedControls) {
             var elements = CAPABILITY_TO_UI_ELEMENT[capKey];
 
             elements.forEach(function(elementId) {
-                markHideIfNull(!isSupported, elementId);
+                setElementHidden(!isSupported, elementId);
             });
         }
     }

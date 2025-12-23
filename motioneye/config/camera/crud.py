@@ -109,11 +109,16 @@ def add_camera(device_details, get_camera_ids_func, get_camera_func, set_camera_
         if pictl.uses_libcamera():
             camera_config['libcam_device'] = device_details['path']
             camera_config['libcam_buffer_count'] = 4
-            camera_config['width'] = 1920
-            camera_config['height'] = 1080
             # Check if camera supports autofocus (Camera v3)
             if device_details.get('supports_autofocus'):
                 camera_config['@supports_autofocus'] = True
+                # Camera v3 (IMX708) - high resolution
+                camera_config['width'] = 1920
+                camera_config['height'] = 1080
+            else:
+                # Camera v2 (IMX219) and others - conservative resolution
+                camera_config['width'] = 1280
+                camera_config['height'] = 720
         else:
             camera_config['mmalcam_name'] = device_details['path']
             camera_config['width'] = 640

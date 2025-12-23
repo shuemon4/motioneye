@@ -13,41 +13,7 @@ You can contribute to translations on [__Weblate__](https://hosted.weblate.org/p
 
 # Installation
 
-1. Install **Python 3.7 or later** and build dependencies
-
-    _Here the commands for APT-based Linux distributions are given._
-
-    Thanks to pre-compiled wheels from PyPI, installing motionEye usually does not require anything but Python 3 and cURL with the ability to do HTTPS network requests:
-    ```sh
-    sudo apt update
-    sudo apt --no-install-recommends install ca-certificates curl python3
-    ```
-
-    On **ARMv6/ARMv7 (32-bit), RISC-V, and other rare CPU architectures** additional build dependencies may be required to compile the [Pillow](https://pypi.org/project/pillow/) and [PycURL](https://pypi.org/project/pycurl/) modules:
-    ```sh
-    sudo apt --no-install-recommends install python3-dev gcc libjpeg62-turbo-dev libcurl4-openssl-dev libssl-dev
-    ```
-
-2. Install the Python package manager `pip`
-    ```sh
-    curl -sSfO 'https://bootstrap.pypa.io/get-pip.py'
-    sudo python3 get-pip.py
-    rm get-pip.py
-    ```
-
-    **On recent distro versions, like Debian 12/Bookworm, Ubuntu 23.04/Lunar, and later**, the `libpython3.*-stdlib` package ships a file `/usr/lib/python3.*/EXTERNALLY-MANAGED`, which prevents the installation of Python modules outside of `venv` environments.
-    motionEye however has a small number of dependencies with no strict version requirements and hence is very unlikely to break any Python package you might have installed via APT. To bypass this block, add `break-system-packages=true` to the `[global]` section of your `pip.conf`:
-    ```sh
-    grep -q '\[global\]' /etc/pip.conf 2> /dev/null || printf '%b' '[global]\n' | sudo tee -a /etc/pip.conf > /dev/null
-    sudo sed -i '/^\[global\]/a\break-system-packages=true' /etc/pip.conf
-    ```
-
-3. Install and setup **motionEye**
-    ```sh
-    sudo python3 -m pip install --pre motioneye
-    sudo motioneye_init
-    ```
-    _NB: `motioneye_init` currently assumes either an APT- or RPM-based distribution with `systemd` as init system. For a manual setup, config and service files can be found here: <https://github.com/motioneye-project/motioneye/tree/dev/motioneye/extra>_
+See INSTALLATION.md for detailed instructions on how to install MotionEye. 
 
 # Upgrade
 
@@ -66,3 +32,20 @@ http://[your_ip]:8765/
 ```
 
 Use usernamme _admin_ with empty password when prompted for credentials. For security, __please do set up a proper password for the admin user__, at least if you plan to make your motionEye installation accessible from the Internet.
+
+# Configuration
+
+## System Power Controls
+
+Shutdown and Reboot buttons are **enabled by default** in the General Settings section for administrator users. This is designed for dedicated hardware installations (like Raspberry Pi) where system power control is essential for setup and troubleshooting.
+
+If you want to disable these controls (e.g., on a shared server), edit `/etc/motioneye/motioneye.conf`:
+
+```conf
+enable_reboot false
+```
+
+Then restart the service:
+```sh
+sudo systemctl restart motioneye
+```

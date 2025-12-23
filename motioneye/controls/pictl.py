@@ -135,20 +135,30 @@ def get_camera_interface() -> str:
         return _camera_interface_cache
 
     # Import here to avoid circular imports
-    from motioneye.controls import rpicamctl
+    from motioneye.controls import rpicamctl, mmalctl
 
     # First, check if libcamera is available (works on any Pi with Bookworm)
     if rpicamctl.is_rpicam_available():
-        _camera_interface_cache = 'libcamera'
-        logging.info('Camera interface: libcamera (rpicam tools available)')
-        return 'libcamera'
+        # Validate that libcamera actually works by attempting to list devices
+        try:
+            devices = rpicamctl.list_devices()
+            _camera_interface_cache = 'libcamera'
+            logging.info('Camera interface: libcamera (rpicam tools available)')
+            return 'libcamera'
+        except Exception as e:
+            logging.warning(f'libcamera tools found but enumeration failed: {e} - trying MMAL fallback')
 
     # Fall back to MMAL on Raspberry Pi with legacy camera stack
     pi_info = get_pi_model()
     if pi_info:
-        _camera_interface_cache = 'mmal'
-        logging.info('Camera interface: mmal (legacy camera stack)')
-        return 'mmal'
+        # Validate that MMAL actually works
+        try:
+            devices = mmalctl.list_devices()
+            _camera_interface_cache = 'mmal'
+            logging.info('Camera interface: mmal (legacy camera stack)')
+            return 'mmal'
+        except Exception as e:
+            logging.warning(f'MMAL detection failed: {e} - falling back to v4l2')
 
     # Not a Pi or no camera interface available
     _camera_interface_cache = 'v4l2'

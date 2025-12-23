@@ -77,11 +77,23 @@ def _set_default_motion_camera(camera_id, data):
         data.setdefault('height', 288)
 
     elif utils.is_libcamera_device(data):
-        # Pi 5 with libcamera
+        # Libcamera device (Pi 5, Pi 4 on Bookworm)
         data.setdefault('libcam_device', 'auto')
         data.setdefault('libcam_buffer_count', 4)
-        data.setdefault('width', 1920)
-        data.setdefault('height', 1080)
+
+        # Sensor-specific resolution defaults
+        # Camera v3 (IMX708) supports autofocus and has higher resolution
+        # Camera v2 (IMX219) has no autofocus and lower native resolution
+        if data.get('@supports_autofocus'):
+            # Camera v3 (IMX708) - high resolution default
+            data.setdefault('width', 1920)
+            data.setdefault('height', 1080)
+        else:
+            # Camera v2 (IMX219) and others - conservative default
+            # 1640x1232 is native 2x2 binned mode for IMX219
+            data.setdefault('width', 1280)
+            data.setdefault('height', 720)
+
         # Brightness, Contrast, and ISO defaults (hot-reloadable in Motion 5.0+)
         data.setdefault('libcam_brightness', 0.0)  # Neutral brightness
         data.setdefault('libcam_contrast', 1.0)  # Neutral contrast

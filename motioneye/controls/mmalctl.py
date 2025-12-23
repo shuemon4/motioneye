@@ -35,14 +35,28 @@ def list_devices():
         binary = utils.call_subprocess(['which', 'vcgencmd'])
 
     except CalledProcessError:  # not found
-        debug('unable to detect MMAL camera: vcgencmd has not been found')
+        from logging import warning
+        warning(
+            'vcgencmd not found - MMAL camera detection unavailable. '
+            'This is expected on Raspberry Pi OS Bookworm (use libcamera instead). '
+            'On Bullseye, ensure "libraspberrypi-bin" is installed.'
+        )
+        return []
+    except Exception as e:
+        from logging import warning
+        warning(f'Error locating vcgencmd: {e}')
         return []
 
     try:
         support = utils.call_subprocess([binary, 'get_camera'])
 
-    except CalledProcessError:  # not found
-        debug('unable to detect MMAL camera: "vcgencmd get_camera" failed')
+    except CalledProcessError as e:
+        from logging import warning
+        warning(f'vcgencmd get_camera failed: {e} (MMAL camera detection unavailable)')
+        return []
+    except Exception as e:
+        from logging import warning
+        warning(f'Error executing vcgencmd get_camera: {e}')
         return []
 
     if support.startswith('supported=1 detected=1'):
