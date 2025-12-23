@@ -64,29 +64,25 @@ def _detect_architecture() -> str:
     """
     Detect system architecture for mediamtx binary download.
 
-    Uses both platform.machine() and pointer size to handle edge cases
-    like 32-bit userland on 64-bit kernel.
+    Supports 64-bit ARM (Pi 4/5) and x86_64 only.
 
     Returns:
-        Architecture string: 'arm64v8', 'armv7', 'amd64', '386'
+        Architecture string: 'arm64v8', 'amd64'
+
+    Raises:
+        RuntimeError: If architecture is not supported
     """
     machine = platform.machine().lower()
-    bits = struct.calcsize('P') * 8  # Pointer size in bits
 
-    if machine in ('aarch64', 'arm64', 'armv8l'):
-        # 64-bit ARM - but verify userland is also 64-bit
-        return 'arm64v8' if bits == 64 else 'armv7'
-    elif machine.startswith('armv7') or machine.startswith('armv6') or machine == 'armhf':
-        return 'armv7'
+    if machine in ('aarch64', 'arm64'):
+        return 'arm64v8'
     elif machine in ('x86_64', 'amd64'):
         return 'amd64'
-    elif machine in ('i386', 'i686', 'x86'):
-        return '386'
     else:
-        # Unknown - default based on pointer size
-        fallback = 'arm64v8' if bits == 64 else 'armv7'
-        logging.warning(f'Unknown architecture {machine}, defaulting to {fallback}')
-        return fallback
+        raise RuntimeError(
+            f"Unsupported architecture: {machine}. "
+            "This version requires 64-bit ARM (Pi 4/5) or x86_64."
+        )
 
 
 def _get_mediamtx_path() -> str:
