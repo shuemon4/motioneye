@@ -89,7 +89,7 @@ def get_pi_model() -> dict | None:
         'model': model_str if model_str else 'Unknown Raspberry Pi',
         'revision': revision_match.group(1) if revision_match else 'unknown',
         'is_pi5': is_pi5,
-        'camera_interface': 'libcamera' if is_pi5 else 'mmal',
+        'camera_interface': 'libcamera',  # libcamera for all Pi 4+
     }
 
     logging.info(f'Detected Pi model: {_pi_info_cache["model"]}, is_pi5={is_pi5}')
