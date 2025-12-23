@@ -526,15 +526,12 @@ class ConfigHandler(BaseHandler):
 
             return self.finish_json({'cameras': cameras})
 
-        elif proto in ('libcamera', 'mmal'):
+        elif proto == 'libcamera':
             # libcamera is the only CSI camera backend on Pi 4+ / Trixie
-            # 'mmal' is accepted as alias for backwards compatibility
             configured_devices = set()
             for camera_id in config.get_camera_ids():
                 data = config.get_camera(camera_id)
-                if utils.is_mmal_camera(data):
-                    configured_devices.add(data['mmalcam_name'])
-                elif utils.is_libcamera_device(data):
+                if utils.is_libcamera_device(data):
                     configured_devices.add(data['libcam_device'])
 
             cameras = [

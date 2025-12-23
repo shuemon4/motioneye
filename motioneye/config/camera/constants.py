@@ -52,7 +52,6 @@ USED_MOTION_OPTIONS = {
     'movie_quality',
     'movie_passthrough',
     'minimum_motion_frames',
-    'mmalcam_name',
     'netcam_keepalive',
     'netcam_tolerant_check',
     'netcam_url',

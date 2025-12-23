@@ -198,8 +198,7 @@ def is_local_motion_camera(config):
         config.get('videodevice')
         or config.get('video_device')
         or config.get('netcam_url')
-        or config.get('mmalcam_name')
-        or config.get('libcam_device')  # Pi 5 libcamera support
+        or config.get('libcam_device')  # libcamera support (Pi 4+)
     )
 
 
@@ -211,16 +210,6 @@ def is_remote_camera(config):
 def is_v4l2_camera(config):
     """Tells if a camera is a v4l2 device managed by the local motion instance."""
     return bool(config.get('videodevice'))
-
-
-def is_mmal_camera(config):
-    """
-    Check if camera config uses legacy MMAL.
-
-    Note: MMAL is deprecated on Pi 4+ / Trixie. This function is retained
-    for migration of existing configs to libcamera.
-    """
-    return bool(config.get('mmalcam_name'))
 
 
 def is_libcamera_device(config):

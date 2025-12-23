@@ -2578,10 +2578,6 @@ function dict2CameraUi(dict) {
             prettyType = 'Network Camera';
             break;
 
-        case 'mmal':
-            prettyType = 'MMAL Camera (deprecated - migrated to libcamera)';
-            break;
-
         case 'motioneye':
             prettyType = 'Remote motionEye Camera';
             break;

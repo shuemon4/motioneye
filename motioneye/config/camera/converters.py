@@ -386,14 +386,10 @@ def motion_camera_ui_to_dict(
     elif utils.is_libcamera_device(prev_config):
         proto = 'libcamera'
 
-    elif utils.is_mmal_camera(prev_config):
-        # Migrate legacy MMAL configs to libcamera
-        proto = 'libcamera'
-
     else:
         proto = 'netcam'
 
-    if proto in ('v4l2', 'mmal', 'libcamera'):
+    if proto in ('v4l2', 'libcamera'):
         # leave videodevice unchanged
 
         # resolution
@@ -1065,19 +1061,6 @@ def motion_camera_dict_to_ui(
             ui['lens_position'] = float(data.get('@lens_position', data.get('libcam_lens_position', 0.0)))
             ui['supports_autofocus'] = True
             logging.debug(f'Autofocus enabled in UI: mode={ui["autofocus_mode"]}, range={ui["autofocus_range"]}, speed={ui["autofocus_speed"]}, lens={ui["lens_position"]}')
-
-        resolutions = utils.COMMON_RESOLUTIONS
-        resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]
-        ui['available_resolutions'] = [
-            (str(w) + 'x' + str(h)) for (w, h) in resolutions
-        ]
-        ui['resolution'] = str(data['width']) + 'x' + str(data['height'])
-
-        threshold = data['threshold'] * 100.0 / (data['width'] * data['height'])
-
-    elif utils.is_mmal_camera(data):
-        ui['device_url'] = data['mmalcam_name']
-        ui['proto'] = 'mmal'
 
         resolutions = utils.COMMON_RESOLUTIONS
         resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]
