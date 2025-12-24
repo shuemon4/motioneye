@@ -26,9 +26,9 @@ import logging
 
 from tornado.web import HTTPError, RequestHandler
 
-from motioneye import config, prefs, settings, template, utils
+from motioneye import config, passwords, prefs, session, settings, template, utils
 
-__all__ = ('BaseHandler', 'NotFoundHandler', 'ManifestHandler', 'CsrfTokenHandler')
+__all__ = ('BaseHandler', 'NotFoundHandler', 'ManifestHandler', 'CsrfTokenHandler', 'LogoutHandler')
 
 
 class BaseHandler(RequestHandler):
@@ -107,43 +107,50 @@ class BaseHandler(RequestHandler):
     def get_current_user(self):
         main_config = config.get_main()
 
-        username = self.get_argument('_username', None)
-        signature = self.get_argument('_signature', None)
-        login = self.get_argument('_login', None) == 'true'
+        # 1. Check session cookie (preferred for browser clients)
+        session_token = self.get_cookie(session.SESSION_COOKIE_NAME)
+        if session_token:
+            username = session.get_username_from_session(session_token)
+            if username:
+                return username
 
-        # Get timestamp for v2 signature verification
-        timestamp_str = self.get_argument('_timestamp', None)
-        timestamp = int(timestamp_str) if timestamp_str else None
-
+        # 2. HTTP Basic Auth (for API clients)
         admin_username = main_config.get('@admin_username')
         normal_username = main_config.get('@normal_username')
-
         admin_password = main_config.get('@admin_password')
         normal_password = main_config.get('@normal_password')
-
-        admin_hash = hashlib.sha1(
-            main_config['@admin_password'].encode('utf-8')
-        ).hexdigest()
-        normal_hash = hashlib.sha1(
-            main_config['@normal_password'].encode('utf-8')
-        ).hexdigest()
 
         if settings.HTTP_BASIC_AUTH and 'Authorization' in self.request.headers:
             up = utils.parse_basic_header(self.request.headers['Authorization'])
             if up:
-                if up['username'] == admin_username and admin_password in (
-                    up['password'],
-                    hashlib.sha1(up['password'].encode('utf-8')).hexdigest(),
-                ):
-                    return 'admin'
+                if up['username'] == admin_username:
+                    if passwords.verify_password(up['password'], admin_password):
+                        return 'admin'
 
-                if up['username'] == normal_username and normal_password in (
-                    up['password'],
-                    hashlib.sha1(up['password'].encode('utf-8')).hexdigest(),
-                ):
-                    return 'normal'
+                if up['username'] == normal_username:
+                    if not normal_password or passwords.verify_password(
+                        up['password'], normal_password
+                    ):
+                        return 'normal'
 
-        # Verify signature using secure comparison (supports both v1 and v2)
+        # 3. Legacy URL signatures (keep for backward compatibility during migration)
+        username = self.get_argument('_username', None)
+        signature = self.get_argument('_signature', None)
+        login = self.get_argument('_login', None) == 'true'
+        timestamp_str = self.get_argument('_timestamp', None)
+        timestamp = int(timestamp_str) if timestamp_str else None
+
+        admin_hash = (
+            hashlib.sha1(admin_password.encode('utf-8')).hexdigest()
+            if admin_password
+            else ''
+        )
+        normal_hash = (
+            hashlib.sha1(normal_password.encode('utf-8')).hexdigest()
+            if normal_password
+            else ''
+        )
+
         if username == admin_username and (
             utils.verify_signature(
                 signature,
@@ -151,7 +158,7 @@ class BaseHandler(RequestHandler):
                 self.request.uri,
                 self.request.body,
                 admin_password,
-                timestamp
+                timestamp,
             )
             or utils.verify_signature(
                 signature,
@@ -159,12 +166,12 @@ class BaseHandler(RequestHandler):
                 self.request.uri,
                 self.request.body,
                 admin_hash,
-                timestamp
+                timestamp,
             )
         ):
             return 'admin'
 
-        # no authentication required for normal user
+        # No authentication required for normal user if no password set
         if not username and not normal_password:
             return 'normal'
 
@@ -175,7 +182,7 @@ class BaseHandler(RequestHandler):
                 self.request.uri,
                 self.request.body,
                 normal_password,
-                timestamp
+                timestamp,
             )
             or utils.verify_signature(
                 signature,
@@ -183,7 +190,7 @@ class BaseHandler(RequestHandler):
                 self.request.uri,
                 self.request.body,
                 normal_hash,
-                timestamp
+                timestamp,
             )
         ):
             return 'normal'
@@ -272,3 +279,17 @@ class CsrfTokenHandler(BaseHandler):
         self.set_header('Content-Type', 'application/json')
         self.set_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.finish_json({'token': token})
+
+
+class LogoutHandler(BaseHandler):
+    """Handle user logout and session destruction."""
+
+    def post(self):
+        """Destroy user session and clear cookie."""
+        token = self.get_cookie(session.SESSION_COOKIE_NAME)
+        if token:
+            session.destroy_session(token)
+            logging.info('User logged out')
+
+        self.clear_cookie(session.SESSION_COOKIE_NAME)
+        return self.finish_json({'success': True})

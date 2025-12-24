@@ -350,12 +350,40 @@ def verify_signature(
             return False
 
         expected = 'v2:' + compute_signature_v2(method, path, body, key, timestamp)
-        return hmac.compare_digest(signature, expected)
+        match = hmac.compare_digest(signature, expected)
+
+        # Debug logging for signature verification
+        if not match:
+            logging.error(
+                f'v2 signature mismatch:\n'
+                f'  Method: {method}\n'
+                f'  Path: {path}\n'
+                f'  Timestamp: {timestamp}\n'
+                f'  Received: {signature}\n'
+                f'  Expected: {expected}'
+            )
+        else:
+            logging.debug(f'v2 signature verified successfully for {method} {path}')
+
+        return match
 
     else:
         # v1: Legacy SHA1 signature (no timestamp required)
         expected = compute_signature(method, path, body, key)
-        return hmac.compare_digest(signature, expected)
+        match = hmac.compare_digest(signature, expected)
+
+        if not match:
+            logging.warning(
+                f'v1 signature mismatch (consider upgrading to v2):\n'
+                f'  Method: {method}\n'
+                f'  Path: {path}\n'
+                f'  Received: {signature}\n'
+                f'  Expected: {expected}'
+            )
+        else:
+            logging.debug(f'v1 signature verified (legacy mode) for {method} {path}')
+
+        return match
 
 
 # CSRF token storage (in-memory, per-session)

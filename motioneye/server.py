@@ -35,7 +35,7 @@ from tornado.web import Application
 from motioneye import config, settings, template
 from motioneye.controls import smbctl, v4l2ctl, ledctl
 from motioneye.handlers.action import ActionHandler
-from motioneye.handlers.base import CsrfTokenHandler, ManifestHandler, NotFoundHandler
+from motioneye.handlers.base import CsrfTokenHandler, LogoutHandler, ManifestHandler, NotFoundHandler
 from motioneye.handlers.config import ConfigHandler
 from motioneye.handlers.log import LogHandler
 from motioneye.handlers.login import LoginHandler
@@ -238,6 +238,7 @@ handler_mapping = [
     (r'^/power/(?P<op>shutdown|reboot)/?$', PowerHandler),
     (r'^/version/?$', VersionHandler),
     (r'^/login/?$', LoginHandler),
+    (r'^/logout/?$', LogoutHandler),
     (r'^/temperature/?$', TemperatureHandler),
     (r'^.*$', NotFoundHandler),
 ]

@@ -548,7 +548,7 @@ var sha256 = (function () {
     return hash;
 }());
 
-/* HMAC-SHA256 - secure message authentication */
+/* HMAC-SHA256 implementation - for secure v2 signatures */
 var hmacSha256 = (function () {
     function hmac(key, message) {
         var blockSize = 64; /* SHA256 block size in bytes */
@@ -584,6 +584,16 @@ var hmacSha256 = (function () {
     return hmac;
 }());
 
+/**
+ * Encode URI component matching Python's urllib.parse.quote(safe="!'()*~")
+ * This ensures JavaScript and Python produce identical encoded strings for signatures.
+ */
+function encodeURIComponentRFC3986(str) {
+    return encodeURIComponent(str).replace(/[!'()*~]/g, function(c) {
+        return c; // Don't encode these characters to match Python's safe set
+    });
+}
+
 /* CSRF token management */
 var csrfToken = null;
 
@@ -604,9 +614,6 @@ function fetchCsrfToken() {
         }
     });
 }
-
-/* Signature version flag - enables HMAC-SHA256 when server supports it */
-var useSecureSignature = true;
 
 function splitUrl(url) {
     if (!url) {
@@ -653,7 +660,7 @@ function qualifyPath(path) {
     return url.substring(pos);
 }
 
-function computeSignature(method, path, body, timestamp) {
+function computeSignature(method, path, body) {
     path = qualifyPath(path);
 
     var parts = splitUrl(path);
@@ -661,26 +668,52 @@ function computeSignature(method, path, body, timestamp) {
     path = parts.baseUrl;
     path = '/' + path.substring(basePath.length);
 
-    /* sort query arguments alphabetically */
-    query = Object.keys(query).map(function (key) {return {key: key, value: decodeURIComponent(query[key])};});
-    query = query.filter(function (q) {return q.key !== '_signature';});
-    query.sortKey(function (q) {return q.key;});
-    query = query.map(function (q) {return q.key + '=' + encodeURIComponent(q.value);}).join('&');
+    /* Sort query arguments alphabetically, excluding auth parameters */
+    query = Object.keys(query).map(function (key) {
+        return {key: key, value: decodeURIComponent(query[key] || '')};
+    });
+
+    /* Filter out signature, timestamp, and CSRF token */
+    query = query.filter(function (q) {
+        return q.key !== '_signature' &&
+               q.key !== '_timestamp' &&
+               q.key !== '_csrf';
+    });
+
+    /* FIX: Use .sort() not .sortKey() (which doesn't exist) */
+    query.sort(function (a, b) {
+        return a.key.localeCompare(b.key);
+    });
+
+    /* Use RFC3986 encoding to match Python's safe="!'()*~" */
+    query = query.map(function (q) {
+        return q.key + '=' + encodeURIComponentRFC3986(q.value);
+    }).join('&');
+
     path = path + '?' + query;
     path = path.replace(signatureRegExp, '-');
     body = body && body.replace(signatureRegExp, '-');
 
-    if (useSecureSignature) {
-        /* v2: HMAC-SHA256 with timestamp for replay protection */
-        var message = method + ':' + path + ':' + timestamp + ':' + (body || '');
-        return 'v2:' + hmacSha256(passwordHash, message).toLowerCase();
-    } else {
-        /* v1: Legacy SHA1 (backward compatibility) */
-        return sha1(method + ':' + path + ':' + (body || '') + ':' + passwordHash).toLowerCase();
-    }
+    /* Get current timestamp (seconds since epoch) for replay protection */
+    var timestamp = Math.floor(Date.now() / 1000);
+
+    /* v2: HMAC-SHA256 with timestamp for replay protection */
+    var message = method + ':' + path + ':' + timestamp + ':' + (body || '');
+    var signature = 'v2:' + hmacSha256(passwordHash, message).toLowerCase();
+
+    /* Return both signature and timestamp so caller can add timestamp to URL */
+    return {
+        signature: signature,
+        timestamp: timestamp
+    };
 }
 
 function addAuthParams(method, url, body) {
+    /* If using session-based auth, cookies handle authentication - no URL params needed */
+    if (window._sessionAuth) {
+        return url;
+    }
+
     if (!window.username) {
         return url;
     }
@@ -698,22 +731,24 @@ function addAuthParams(method, url, body) {
         window._loginDialogSubmitted = false;
     }
 
-    /* Add timestamp for replay protection (seconds since epoch) */
-    var timestamp = Math.floor(Date.now() / 1000);
-    url += '&_timestamp=' + timestamp;
+    /* Compute v2 signature (returns {signature, timestamp}) */
+    var sigData = computeSignature(method, url, body);
 
-    /* Add CSRF token if available (for state-changing requests) */
-    if (csrfToken && method !== 'GET') {
-        url += '&_csrf=' + csrfToken;
-    }
+    /* Add timestamp first (it's part of what was signed) */
+    url += '&_timestamp=' + sigData.timestamp;
 
-    var signature = computeSignature(method, url, body, timestamp);
-    url += '&_signature=' + signature;
+    /* Add signature last */
+    url += '&_signature=' + sigData.signature;
 
     return url;
 }
 
 function isAdmin() {
+    /* For session auth, username is 'admin' or 'normal' (the role) */
+    if (window._sessionAuth) {
+        return window.username === 'admin';
+    }
+    /* For legacy signature auth, compare against configured admin username */
     return username === adminUsername;
 }
 
@@ -850,10 +885,55 @@ function showErrorMessage(message) {
     showPopupMessage(message, 'error');
 }
 
+/* Session-based authentication */
+function doSessionLogin(username, password, callback) {
+    $.ajax({
+        type: 'POST',
+        url: basePath + 'login',
+        data: {
+            username: username,
+            password: password
+        },
+        success: function(data) {
+            if (data.success) {
+                window.username = data.user;
+                window._sessionAuth = true;
+                if (callback) callback(true, data.user);
+            } else {
+                if (callback) callback(false);
+            }
+        },
+        error: function() {
+            if (callback) callback(false);
+        }
+    });
+}
+
+function doSessionLogout(callback) {
+    $.ajax({
+        type: 'POST',
+        url: basePath + 'logout',
+        success: function() {
+            window.username = null;
+            window._sessionAuth = false;
+            if (callback) callback(true);
+        },
+        error: function() {
+            if (callback) callback(false);
+        }
+    });
+}
+
 function doLogout() {
-    setCookie(USERNAME_COOKIE, '');
-    setCookie(PASSWORD_COOKIE, '');
-    window.location.reload(true);
+    /* Clear session on server */
+    doSessionLogout(function() {
+        /* Clear local state */
+        window.username = null;
+        window._sessionAuth = false;
+        setCookie(USERNAME_COOKIE, '');
+        setCookie(PASSWORD_COOKIE, '');
+        window.location.reload(true);
+    });
 }
 
 function isAuthCookiesSet() {
@@ -2371,7 +2451,7 @@ function cameraUi2Dict() {
         'streaming_resolution': $('#streamingResolutionSlider').val(),
         'streaming_server_resize': $('#streamingServerResizeSwitch')[0].checked,
         'streaming_port': $('#streamingPortEntry').val(),
-        'streaming_direct_mode': $('#streamingDirectModeSwitch')[0].checked,
+        'streaming_direct_mode': $('#streamingDirectModeSwitch')[0] ? $('#streamingDirectModeSwitch')[0].checked : true,
         'streaming_auth_mode': $('#streamingAuthModeSelect').val() || 'disabled', /* compatibility with old motion */
         'streaming_motion': $('#streamingMotion')[0].checked,
 
@@ -2728,7 +2808,11 @@ function dict2CameraUi(dict) {
     $('#streamingResolutionSlider').val(dict['streaming_resolution']); markHideIfNull('streaming_resolution', 'streamingResolutionSlider');
     $('#streamingServerResizeSwitch')[0].checked = dict['streaming_server_resize']; markHideIfNull('streaming_server_resize', 'streamingServerResizeSwitch');
     $('#streamingPortEntry').val(dict['streaming_port']); markHideIfNull('streaming_port', 'streamingPortEntry');
-    $('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false; markHideIfNull('streaming_direct_mode', 'streamingDirectModeSwitch');
+    var streamingDirectModeEl = $('#streamingDirectModeSwitch')[0];
+    if (streamingDirectModeEl) {
+        streamingDirectModeEl.checked = dict['streaming_direct_mode'] !== false;
+    }
+    markHideIfNull('streaming_direct_mode', 'streamingDirectModeSwitch');
     $('#streamingAuthModeSelect').val(dict['streaming_auth_mode']); markHideIfNull('streaming_auth_mode', 'streamingAuthModeSelect');
     $('#streamingMotion')[0].checked = dict['streaming_motion']; markHideIfNull('streaming_motion', 'streamingMotion');
 
@@ -4022,23 +4106,34 @@ function runLoginDialog(retry) {
                 tempFrame.remove();
             }},
             {caption: motionEyeI18n.t('Login'), isDefault: true, click: function () {
-                window.username = usernameEntry.val();
-                window.passwordHash = sha1(passwordEntry.val()).toLowerCase();
-                window._loginDialogSubmitted = true;
+                var enteredUsername = usernameEntry.val();
+                var enteredPassword = passwordEntry.val();
 
-                if (rememberCheck[0].checked) {
-                    setCookie(USERNAME_COOKIE, window.username, /* days = */ 3650);
-                    setCookie(PASSWORD_COOKIE, window.passwordHash, /* days = */ 3650);
-                }
+                /* Try session-based login first */
+                doSessionLogin(enteredUsername, enteredPassword, function(success, userType) {
+                    if (success) {
+                        /* doSessionLogin already sets window.username to userType ('admin' or 'normal') */
+                        /* Update body class for admin styling */
+                        $('body').toggleClass('admin', isAdmin());
+                        hideModalDialog();
+                        tempFrame.remove();
 
-                form.submit();
-                setTimeout(function () {
-                    tempFrame.remove();
-                }, 5000);
+                        if (rememberCheck[0].checked) {
+                            setCookie(USERNAME_COOKIE, enteredUsername, /* days = */ 3650);
+                            /* Don't store password hash anymore - session handles auth */
+                        }
 
-                if (retry) {
-                    retry();
-                }
+                        if (retry) {
+                            retry();
+                        }
+                    } else {
+                        /* Session login failed - show error */
+                        errorTd.css('display', 'table-cell');
+                        errorTd.html('Invalid credentials.');
+                        passwordEntry.val('');
+                        passwordEntry.focus();
+                    }
+                });
             }}
         ]
     };

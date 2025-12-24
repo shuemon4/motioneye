@@ -40,7 +40,7 @@ from errno import EEXIST
 from re import match, sub
 from shlex import split
 
-from motioneye import meyectl, motionctl, settings, utils
+from motioneye import meyectl, motionctl, passwords, settings, utils
 from motioneye.controls import diskctl, smbctl, v4l2ctl
 
 from .constants import USED_MOTION_OPTIONS
@@ -163,17 +163,17 @@ def main_ui_to_dict(ui):
 
     if ui.get('admin_password') is not None:
         if ui['admin_password']:
-            data['@admin_password'] = hashlib.sha1(
-                ui['admin_password'].encode('utf-8')
-            ).hexdigest()
-
+            data['@admin_password'] = passwords.hash_password(ui['admin_password'])
         else:
             data['@admin_password'] = ''
 
         call_hook(ui['admin_username'], ui['admin_password'])
 
     if ui.get('normal_password') is not None:
-        data['@normal_password'] = ui['normal_password']
+        if ui['normal_password']:
+            data['@normal_password'] = passwords.hash_password(ui['normal_password'])
+        else:
+            data['@normal_password'] = ''
 
         call_hook(ui['normal_username'], ui['normal_password'])
 

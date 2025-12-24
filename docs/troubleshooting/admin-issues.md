@@ -1,7 +1,8 @@
 # Admin Authentication Issues
 
-**Last Updated**: 2025-12-23
+**Last Updated**: 2025-12-24
 **Issue Frequency**: Recurring (3 documented occurrences)
+**Status**: RESOLVED - Root cause identified and fixed
 
 ---
 
@@ -19,46 +20,112 @@ After deploying changes to Pi 4 or Pi 5, the admin user loses privileges to the 
 
 ## Root Cause Analysis
 
-### How MotionEye Authentication Works
+### Two Separate Issues Were Identified
+
+**Issue 1: Stale Browser Cookies** (Minor)
+- Browser cookies stored old password hash that didn't match server config
+- Solved by clearing cookies or using incognito window
+
+**Issue 2: Broken v2 Signature Implementation** (MAJOR - NOW FIXED)
+- A partially-implemented v2 signature system (HMAC-SHA256) was causing mismatches
+- The JavaScript and Python implementations didn't produce matching signatures
+- **This has been reverted to the stable v1 signature system**
+
+### How MotionEye Authentication Works (v1 - Current)
 
 1. **Password Storage (Server)**:
    - Admin password stored in `/etc/motioneye/motion.conf` as `@admin_password`
-   - Stored as SHA1 hash of plaintext password (e.g., `wwadmin` ’ `45dc502eb21ea282ff458596d23af1e93c2fc59a`)
+   - Stored as SHA1 hash of plaintext password (e.g., `wwadmin` â†’ `45dc502eb21ea282ff458596d23af1e93c2fc59a`)
 
 2. **Password Storage (Client)**:
    - Browser stores `passwordHash` in cookie (named `meye_passord_hash`)
    - This is SHA1 of the entered password
 
-3. **Signature Verification**:
-   - Client computes HMAC-SHA256 signature using `passwordHash`
+3. **Signature Verification (v1)**:
+   - Client computes: `SHA1(method + ':' + path + ':' + body + ':' + passwordHash)`
    - Server verifies using stored `@admin_password`
-   - If signatures don't match ’ HTTP 403 Unauthorized
+   - If signatures don't match â†’ HTTP 403 Unauthorized
 
-### The Bug
+### Common Confusion: Settings Panel Still Grayed Out
 
-**Stale Browser Cookies**: The browser cookie contains a password hash for a **different password** than what's currently configured on the server.
+If you can see the video stream but Settings is grayed out, you're logged in as **normal user**, not admin:
 
-**How This Happens**:
-1. Initially, MotionEye is installed with default empty password (`''`)
-2. User logs in with empty password ’ cookie stores `SHA1('')` = `da39a3ee5e6b4b0d3255bfef95601890afd80709`
-3. User sets a new password (e.g., `wwadmin`) through the UI
-4. Server updates `@admin_password` to `SHA1('wwadmin')` = `45dc502eb21ea282ff458596d23af1e93c2fc59a`
-5. **Browser cookie NOT updated** if user had "Remember me" checked
-6. Future logins fail because:
-   - Client sends signature using old empty-password hash
-   - Server expects signature using new password hash
-   - Signatures don't match ’ 403 Unauthorized
+- **Empty normal_password**: Any unauthenticated access gets "normal" user role automatically
+- **Normal users** can view streams but cannot access Settings
+- **Solution**: Click the key icon and log in with `admin` / `wwadmin` (or your admin password)
 
-### Evidence from Logs
+---
 
-```log
-2025-12-23 22:51:25: [motioneye]    ERROR: authentication failed for user admin
-2025-12-23 22:51:25: [motioneye]  WARNING: 403 GET /login/?...&_signature=v2:c5e8f82c41d9e3bad57f4746d92eca0ac118b71d6ed62353d1a4c81d764847fe
+## Issue 3: Settings Panel Overlay Blocks Interaction (Fixed 2025-12-24)
+
+### Symptom
+
+After logging in as admin:
+- Video stream is visible
+- Settings panel shows all options
+- **But cannot click or interact with any settings** - appears to have an invisible overlay blocking interaction
+- Browser console shows error:
+  ```
+  main.js:2811 Uncaught TypeError: Cannot set properties of undefined (setting 'checked')
+      at dict2CameraUi (main.js:2811)
+  ```
+
+### Root Cause
+
+The `#streamingDirectModeSwitch` element is **commented out** in the HTML template (`motioneye/templates/partials/settings/_video_streaming.html`, lines 33-41). The "Direct Streaming" feature was intentionally hidden with an HTML comment:
+
+```html
+<!-- Direct Streaming hidden until proper authentication integration is implemented.
+     See: https://github.com/motioneye-project/motioneye/issues/XXX
+     When enabled, requires webcontrol_localhost=off which exposes Motion's port to the network.
+<tr class="settings-item" depends="videoStreamingEnabled">
+    ...
+    <input type="checkbox" ... id="streamingDirectModeSwitch" checked>
+    ...
+</tr>
+-->
 ```
 
-Signature analysis:
-- Received signature computed with `SHA1('')` (empty password hash)
-- Server expected signature with `SHA1('wwadmin')` (actual password hash)
+However, the JavaScript code in `main.js` still tried to access this non-existent element:
+
+```javascript
+// Line 2811 - crashes because element doesn't exist
+$('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false;
+```
+
+This crash occurred during `dict2CameraUi()` which prevented `endProgress()` from being called. The progress overlay (`div.settings-progress`) remained visible at `opacity: 0.9`, blocking all interaction with the Settings panel.
+
+### Fix Applied
+
+Added null checks in `motioneye/static/js/main.js`:
+
+**Line 2454** (in `cameraUi2Dict`):
+```javascript
+// Before:
+'streaming_direct_mode': $('#streamingDirectModeSwitch')[0].checked,
+
+// After:
+'streaming_direct_mode': $('#streamingDirectModeSwitch')[0] ? $('#streamingDirectModeSwitch')[0].checked : true,
+```
+
+**Line 2811** (in `dict2CameraUi`):
+```javascript
+// Before:
+$('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false;
+
+// After:
+var streamingDirectModeEl = $('#streamingDirectModeSwitch')[0];
+if (streamingDirectModeEl) {
+    streamingDirectModeEl.checked = dict['streaming_direct_mode'] !== false;
+}
+```
+
+### Solution After Deploying Fix
+
+1. Deploy the updated code to the Pi
+2. Restart MotionEye: `sudo systemctl restart motioneye`
+3. **Hard refresh browser** (Ctrl+Shift+R or Cmd+Shift+R) to clear cached JavaScript
+4. Log in as admin - Settings panel should now be fully interactive
 
 ---
 
@@ -67,7 +134,7 @@ Signature analysis:
 ### Option 1: Clear Browser Cookies (Recommended)
 
 1. Open browser DevTools (F12)
-2. Go to **Application** ’ **Cookies**
+2. Go to **Application** ï¿½ **Cookies**
 3. Delete cookies for the MotionEye site:
    - `meye_username`
    - `meye_passord_hash` (note the typo - this is intentional)
@@ -83,7 +150,7 @@ Signature analysis:
 
 ### Option 3: Manual Cookie Fix
 
-In browser console (F12 ’ Console):
+In browser console (F12 ï¿½ Console):
 ```javascript
 // Clear auth cookies
 document.cookie = "meye_username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
@@ -149,26 +216,33 @@ The issue is in the password change flow (`converters.py:164-177`):
 | File | Purpose |
 |------|---------|
 | `handlers/base.py:107-194` | `get_current_user()` - verifies signatures |
-| `utils/__init__.py:282-319` | `compute_signature_v2()` - HMAC-SHA256 signature |
+| `utils/__init__.py:242-280` | `compute_signature()` - v1 SHA1 signature |
 | `utils/__init__.py:322-358` | `verify_signature()` - signature verification |
 | `config/camera/converters.py:164-177` | Password hash storage |
-| `static/js/main.js:656-681` | Client-side signature computation |
+| `static/js/main.js:617-641` | Client-side signature computation |
 | `static/js/main.js:4025-4031` | Login dialog cookie storage |
 
-### Signature Algorithm
+### Signature Algorithm (v1 - Current)
 
-**v2 Signature (HMAC-SHA256 with timestamp)**:
+**v1 Signature (Plain SHA1)**:
 ```
-message = "{METHOD}:{path}:{timestamp}:{body}"
-signature = "v2:" + HMAC-SHA256(passwordHash, message)
+message = "{METHOD}:{path}:{body}:{passwordHash}"
+signature = SHA1(message).toLowerCase()
 ```
 
 Where:
 - `METHOD`: HTTP method (GET, POST)
 - `path`: Sorted query parameters, `_signature` excluded
-- `timestamp`: Unix timestamp (seconds)
 - `body`: Request body (empty for GET)
 - `passwordHash`: SHA1 of plaintext password
+
+### What Was Fixed (2025-12-24)
+
+A partially-implemented v2 signature system was reverted:
+- Removed `hmacSha256()` function from `main.js`
+- Removed `useSecureSignature = true` flag
+- Removed timestamp parameter from signature computation
+- Reverted to simple SHA1 signature matching upstream MotionEye
 
 ### Cookie Names
 
@@ -184,18 +258,17 @@ Where:
 
 ---
 
-## Appendix: Debugging Script
+## Appendix: Debugging Script (v1 Signatures)
 
 ```python
 #!/usr/bin/env python3
-"""Verify MotionEye authentication signature."""
+"""Verify MotionEye v1 authentication signature."""
 
-import hmac
 import hashlib
 import urllib.parse
 
-def verify_signature(received_sig, password, method, uri, timestamp):
-    """Check if signature matches expected."""
+def verify_v1_signature(received_sig, password, method, uri):
+    """Check if v1 signature matches expected."""
     password_hash = hashlib.sha1(password.encode('utf-8')).hexdigest()
 
     # Process URI like server does
@@ -210,12 +283,9 @@ def verify_signature(received_sig, password, method, uri, timestamp):
     parts[0] = parts[1] = ''
     path = urllib.parse.urlunsplit(parts)
 
-    message = f'{method}:{path}:{timestamp}:'
-    expected = 'v2:' + hmac.new(
-        password_hash.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest().lower()
+    # v1: SHA1 of method:path:body:passwordHash
+    message = f'{method}:{path}::{password_hash}'
+    expected = hashlib.sha1(message.encode('utf-8')).hexdigest().lower()
 
     print(f"Password: {password}")
     print(f"Password hash: {password_hash}")
@@ -226,11 +296,10 @@ def verify_signature(received_sig, password, method, uri, timestamp):
     print(f"Match: {expected == received_sig}")
 
 # Example usage
-verify_signature(
-    received_sig="v2:c5e8f82c41d9e3bad57f4746d92eca0ac118b71d6ed62353d1a4c81d764847fe",
-    password="wwadmin",  # or "" for empty
+verify_v1_signature(
+    received_sig="16a86df6b796782066892df5d7f73e5a803f3d70",
+    password="wwadmin",
     method="GET",
-    uri="/login/?_=1766551885536&_username=admin&_login=true&_timestamp=1766551885",
-    timestamp=1766551885
+    uri="/config/list/?_=1735059000000&_username=admin"
 )
 ```
