@@ -37,6 +37,38 @@ _ctrl_values_cache = {}
 _DEV_V4L_BY_ID = '/dev/v4l/by-id/'
 _V4L2_TIMEOUT = 10
 
+# System video processing devices that are not cameras
+# These are hardware accelerators for encoding/decoding/ISP
+_NON_CAMERA_DEVICES = {
+    'bcm2835-codec',      # Matches bcm2835-codec-decode, bcm2835-codec-encode, etc.
+    'bcm2835-isp',        # Image signal processor
+    'pispbe',             # Pi 5 ISP backend
+    'rp1-cfe',            # Pi 5 camera frontend interface
+    'rpi-hevc-dec',       # HEVC hardware decoder
+    'unicam',             # Camera interface (not the camera itself)
+}
+
+
+def _is_system_device(name):
+    """
+    Check if device is a system video processor, not a camera.
+
+    Args:
+        name: Device name from v4l2-ctl --list-devices
+
+    Returns:
+        True if device is a hardware accelerator (decoder/encoder/ISP)
+        False if device could be an actual camera
+    """
+    if not name:
+        return True
+
+    name_lower = name.lower()
+    for prefix in _NON_CAMERA_DEVICES:
+        if name_lower.startswith(prefix):
+            return True
+    return False
+
 
 def find_v4l2_ctl():
     try:
@@ -62,13 +94,27 @@ def list_devices():
 
     name = None
     devices = []
+    seen_names = set()  # Track camera names to prevent duplicates
     output = utils.make_str(output)
+
     for line in output.split('\n'):
         if line.startswith('\t'):
             device = line.strip()
             persistent_device = find_persistent_device(device)
-            devices.append((device, persistent_device, name))
 
+            # Skip system devices (hardware accelerators, not cameras)
+            if _is_system_device(name):
+                logging.debug(f'skipping system device {name}: {device}')
+                continue
+
+            # Skip duplicate camera names (keep first device only)
+            if name in seen_names:
+                logging.debug(f'skipping duplicate camera {name}: {device}')
+                continue
+
+            # This is a valid camera device
+            devices.append((device, persistent_device, name))
+            seen_names.add(name)
             logging.debug(f'found device {name}: {device}, {persistent_device}')
 
         else:
