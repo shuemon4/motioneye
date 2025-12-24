@@ -46,7 +46,6 @@ from motioneye.handlers.picture import PictureHandler
 from motioneye.handlers.power import PowerHandler
 from motioneye.handlers.prefs import PrefsHandler
 from motioneye.handlers.relay_event import RelayEventHandler
-from motioneye.handlers.status import StatusHandler
 from motioneye.handlers.stream import StreamHandler
 from motioneye.handlers.temperature import TemperatureHandler
 from motioneye.handlers.update import UpdateHandler
@@ -203,7 +202,6 @@ handler_mapping = [
         ConfigHandler,
     ),
     (r'^/config/(?P<op>add|list|backup|restore)/?$', ConfigHandler),
-    (r'^/status/(?P<camera_id>\d+)/?$', StatusHandler),
     (r'^/mjpg/stream/?$', StreamHandler),
     (r'^/picture/(?P<camera_id>\d+)/(?P<op>current|list|frame)/?$', PictureHandler),
     (

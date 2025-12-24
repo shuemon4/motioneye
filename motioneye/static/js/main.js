@@ -163,40 +163,6 @@ function scheduleRefresh() {
     }
 }
 
-/* Direct mode status polling - polls status endpoint for motion detection */
-var directModeStatusInterval = null;
-
-function pollDirectModeStatus() {
-    if (!pageVisible) return;
-
-    var cameraFrames = getCameraFrames();
-    cameraFrames.each(function() {
-        if (!this.directMode) return;
-
-        var cameraId = this.id.substring(6);
-        var frame = $(this);
-
-        $.getJSON(basePath + 'status/' + cameraId, function(data) {
-            if (data.motion_detected) {
-                frame.addClass('motion-detected');
-            } else {
-                frame.removeClass('motion-detected');
-            }
-            if (data.capture_fps !== undefined) {
-                frame.find('span.camera-fps').html(data.capture_fps.toFixed(1) + ' fps');
-            }
-        }).fail(function() {
-            /* Status endpoint failed, remove motion indicator */
-            frame.removeClass('motion-detected');
-        });
-    });
-}
-
-function startDirectModeStatusPolling() {
-    if (directModeStatusInterval) return;
-    directModeStatusInterval = setInterval(pollDirectModeStatus, 1000);
-}
-
 
     /* Object utilities */
 
@@ -2451,7 +2417,6 @@ function cameraUi2Dict() {
         'streaming_resolution': $('#streamingResolutionSlider').val(),
         'streaming_server_resize': $('#streamingServerResizeSwitch')[0].checked,
         'streaming_port': $('#streamingPortEntry').val(),
-        'streaming_direct_mode': $('#streamingDirectModeSwitch')[0] ? $('#streamingDirectModeSwitch')[0].checked : true,
         'streaming_auth_mode': $('#streamingAuthModeSelect').val() || 'disabled', /* compatibility with old motion */
         'streaming_motion': $('#streamingMotion')[0].checked,
 
@@ -2808,11 +2773,6 @@ function dict2CameraUi(dict) {
     $('#streamingResolutionSlider').val(dict['streaming_resolution']); markHideIfNull('streaming_resolution', 'streamingResolutionSlider');
     $('#streamingServerResizeSwitch')[0].checked = dict['streaming_server_resize']; markHideIfNull('streaming_server_resize', 'streamingServerResizeSwitch');
     $('#streamingPortEntry').val(dict['streaming_port']); markHideIfNull('streaming_port', 'streamingPortEntry');
-    var streamingDirectModeEl = $('#streamingDirectModeSwitch')[0];
-    if (streamingDirectModeEl) {
-        streamingDirectModeEl.checked = dict['streaming_direct_mode'] !== false;
-    }
-    markHideIfNull('streaming_direct_mode', 'streamingDirectModeSwitch');
     $('#streamingAuthModeSelect').val(dict['streaming_auth_mode']); markHideIfNull('streaming_auth_mode', 'streamingAuthModeSelect');
     $('#streamingMotion')[0].checked = dict['streaming_motion']; markHideIfNull('streaming_motion', 'streamingMotion');
 
@@ -5934,16 +5894,7 @@ function refreshCameraFrames() {
         if (!this.img) {
             this.img = $(this).find('img.camera')[0];
 
-            /* Check for Direct Streaming mode (connects directly to Motion's MJPEG stream) */
-            if (this.config['streaming_direct_mode'] && this.config['streaming_port'] && this.config['proto'] != 'mjpeg') {
-                var directUrl = 'http://' + window.location.hostname + ':' +
-                                this.config['streaming_port'] + '/1/mjpg';
-                directUrl += '?_=' + new Date().getTime();
-                this.img.src = directUrl;
-                this.directMode = true;
-                startDirectModeStatusPolling(); /* Start polling for motion detection status */
-            }
-            else if (this.config['proto'] == 'mjpeg') {
+            if (this.config['proto'] == 'mjpeg') {
                 var url = this.config['url'].replace('127.0.0.1', window.location.host.split(':')[0]);
                 url += (url.indexOf('?') > 0 ? '&' : '?') + '_=' + new Date().getTime();
 
@@ -5955,8 +5906,8 @@ function refreshCameraFrames() {
             }
         }
 
-        /* Skip manual refresh for direct mode and simple mjpeg cameras */
-        if (this.directMode || this.config['proto'] == 'mjpeg') {
+        /* Skip manual refresh for simple mjpeg cameras */
+        if (this.config['proto'] == 'mjpeg') {
             return;
         }
 

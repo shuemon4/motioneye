@@ -72,53 +72,21 @@ After logging in as admin:
 
 ### Root Cause
 
-The `#streamingDirectModeSwitch` element is **commented out** in the HTML template (`motioneye/templates/partials/settings/_video_streaming.html`, lines 33-41). The "Direct Streaming" feature was intentionally hidden with an HTML comment:
-
-```html
-<!-- Direct Streaming hidden until proper authentication integration is implemented.
-     See: https://github.com/motioneye-project/motioneye/issues/XXX
-     When enabled, requires webcontrol_localhost=off which exposes Motion's port to the network.
-<tr class="settings-item" depends="videoStreamingEnabled">
-    ...
-    <input type="checkbox" ... id="streamingDirectModeSwitch" checked>
-    ...
-</tr>
--->
-```
-
-However, the JavaScript code in `main.js` still tried to access this non-existent element:
-
-```javascript
-// Line 2811 - crashes because element doesn't exist
-$('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false;
-```
-
-This crash occurred during `dict2CameraUi()` which prevented `endProgress()` from being called. The progress overlay (`div.settings-progress`) remained visible at `opacity: 0.9`, blocking all interaction with the Settings panel.
+The `#streamingDirectModeSwitch` element was commented out in the HTML template but JavaScript code still tried to access it, causing a crash that left the progress overlay blocking interaction.
 
 ### Fix Applied
 
-Added null checks in `motioneye/static/js/main.js`:
+The entire `streaming_direct_mode` feature was **removed** as dead code. It was:
+- A UI option to bypass MotionEye and connect directly to Motion's MJPEG stream
+- Intentionally hidden due to security concerns (exposed unauthenticated Motion port)
+- Non-functional since the UI toggle was commented out
 
-**Line 2454** (in `cameraUi2Dict`):
-```javascript
-// Before:
-'streaming_direct_mode': $('#streamingDirectModeSwitch')[0].checked,
-
-// After:
-'streaming_direct_mode': $('#streamingDirectModeSwitch')[0] ? $('#streamingDirectModeSwitch')[0].checked : true,
-```
-
-**Line 2811** (in `dict2CameraUi`):
-```javascript
-// Before:
-$('#streamingDirectModeSwitch')[0].checked = dict['streaming_direct_mode'] !== false;
-
-// After:
-var streamingDirectModeEl = $('#streamingDirectModeSwitch')[0];
-if (streamingDirectModeEl) {
-    streamingDirectModeEl.checked = dict['streaming_direct_mode'] !== false;
-}
-```
+**Files cleaned up:**
+- Deleted `motioneye/handlers/status.py`
+- Removed StatusHandler from `motioneye/server.py`
+- Removed `streaming_direct_mode` from `motioneye/config/camera/converters.py`
+- Removed all related JavaScript from `motioneye/static/js/main.js`
+- Removed commented HTML from `motioneye/templates/partials/settings/_video_streaming.html`
 
 ### Solution After Deploying Fix
 

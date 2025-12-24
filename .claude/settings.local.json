@@ -26,7 +26,8 @@
       "Bash(chmod:*)",
       "Bash(shasum:*)",
       "Bash(ping:*)",
-      "Bash(md5:*)"
+      "Bash(md5:*)",
+      "Bash(sha1sum:*)"
     ],
     "deny": [],
     "ask": []
