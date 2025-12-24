@@ -466,6 +466,65 @@ def validate_motion_version():
         )
 
 
+def detect_platform():
+    """
+    Detect if running on Raspberry Pi and which model.
+
+    Returns:
+        str: Platform identifier
+            - 'pi5': Raspberry Pi 5
+            - 'pi4': Raspberry Pi 4
+            - 'pi': Generic Raspberry Pi (older models)
+            - 'arm_unknown': ARM architecture but not confirmed Pi
+            - 'generic': x86_64 or other architecture
+    """
+    # Layer 1: Device tree (most reliable for Pi)
+    try:
+        with open('/proc/device-tree/model', 'r') as f:
+            model = f.read().strip('\x00')
+            if 'Raspberry Pi' in model:
+                if 'Pi 5' in model:
+                    return 'pi5'
+                elif 'Pi 4' in model:
+                    return 'pi4'
+                return 'pi'
+    except (FileNotFoundError, IOError):
+        pass
+
+    # Layer 2: /proc/cpuinfo (fallback)
+    try:
+        with open('/proc/cpuinfo', 'r') as f:
+            for line in f:
+                if 'Model' in line and 'Raspberry Pi' in line:
+                    if 'Pi 5' in line:
+                        return 'pi5'
+                    elif 'Pi 4' in line:
+                        return 'pi4'
+                    return 'pi'
+    except (FileNotFoundError, IOError):
+        pass
+
+    # Layer 3: Architecture hints
+    import platform
+
+    machine = platform.machine()
+    if machine in ('aarch64', 'armv7l', 'armv8'):
+        return 'arm_unknown'
+
+    return 'generic'
+
+
+def is_raspberry_pi():
+    """
+    Check if running on Raspberry Pi hardware.
+
+    Returns:
+        bool: True if confirmed Raspberry Pi, False otherwise
+    """
+    platform_type = detect_platform()
+    return platform_type in ('pi5', 'pi4', 'pi')
+
+
 def has_h264_v4l2m2m_support():
     binary, version, codecs = mediafiles.find_ffmpeg()
     if not binary:
@@ -474,66 +533,6 @@ def has_h264_v4l2m2m_support():
     # TODO also check for motion codec parameter support
 
     return 'h264_v4l2m2m' in codecs.get('h264', {}).get('encoders', set())
-
-
-def has_h264_nvenc_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'h264_nvenc' in codecs.get('h264', {}).get('encoders', set())
-
-
-def has_h264_nvmpi_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'h264_nvmpi' in codecs.get('h264', {}).get('encoders', set())
-
-
-def has_hevc_nvmpi_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'hevc_nvmpi' in codecs.get('hevc', {}).get('encoders', set())
-
-
-def has_hevc_nvenc_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'hevc_nvenc' in codecs.get('hevc', {}).get('encoders', set())
-
-
-def has_h264_qsv_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'h264_qsv' in codecs.get('h264', {}).get('encoders', set())
-
-
-def has_hevc_qsv_support():
-    binary, version, codecs = mediafiles.find_ffmpeg()
-    if not binary:
-        return False
-
-    # TODO also check for motion codec parameter support
-
-    return 'hevc_qsv' in codecs.get('hevc', {}).get('encoders', set())
 
 
 def has_h264_nvenc_support():

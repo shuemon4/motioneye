@@ -22,11 +22,8 @@ Handles configuration directive mapping for Motion 5.0+ compatibility.
 """
 
 
-# Motion 4.4 to 5.0 option mappings
-def webcontrol_interface_to_50(v, data):
-    """Convert integer webcontrol_interface to Motion 5.0 string."""
-    mapping = {0: 'off', 1: 'default', 2: 'user'}
-    return {'webcontrol_interface': mapping.get(int(v), 'default')}
+# Motion 5.0 uses string values directly - no conversion needed
+# Valid values: "default", "auto"
 
 
 def camera_name_to_device_name(v, data):
@@ -69,7 +66,7 @@ def migrate_legacy_movie_container(v, data):
 
 
 MOTION_50_OPTIONS_MAPPING = {
-    'webcontrol_interface': webcontrol_interface_to_50,
+    # webcontrol_interface: No conversion needed - Motion 5.0 uses strings ("default", "auto")
     'camera_name': camera_name_to_device_name,
     'movie_codec': movie_codec_to_container,
     'movie_container': migrate_legacy_movie_container,  # Migrate legacy values
@@ -82,12 +79,7 @@ MOTION_50_OPTIONS_MAPPING = {
 
 
 # Motion 5.0 reverse mappings (for reading Motion 5.0 configs)
-def webcontrol_interface_from_50(v, data):
-    """Convert Motion 5.0 string webcontrol_interface to integer."""
-    mapping = {'off': 0, 'default': 1, 'user': 2, 'simple': 1}
-    if isinstance(v, int):
-        return {'webcontrol_interface': v}
-    return {'webcontrol_interface': mapping.get(str(v).lower(), 1)}
+# webcontrol_interface: No conversion needed - stored as string ("default", "auto")
 
 
 def device_name_to_camera_name(v, data):
@@ -101,7 +93,7 @@ def movie_container_to_codec(v, data):
 
 
 MOTION_50_FROM_OPTIONS_MAPPING = {
-    'webcontrol_interface': webcontrol_interface_from_50,
+    # webcontrol_interface: No conversion needed - stored as string
     'device_name': device_name_to_camera_name,
     'movie_container': movie_container_to_codec,
 }

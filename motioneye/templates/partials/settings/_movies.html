@@ -19,38 +19,58 @@
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie format">Movie format</span></td>
         <td class="settings-item-value">
             <select class="styled movies camera-config" id="movieFormatSelect">
-                <option value="mp4">H.264 (.mp4)</option>
-                <option value="mkv">Matroska Video (.mkv)</option>
-                <option value="mov">QuickTime (.mov)</option>
-                <option value="webm">WebM VP8 (.webm)</option>
-                {% if has_h264_nvenc_support %}
-                <option value="mp4:h264_nvenc">H.264/NVENC (.mp4)</option>
+                {% if is_raspberry_pi and has_h264_v4l2m2m_support %}
+                <optgroup label="H.264 (Hardware - Recommended for Pi)">
+                    <option value="mp4:h264_v4l2m2m">H.264/V4L2M2M (.mp4)</option>
+                    <option value="mkv:h264_v4l2m2m">H.264/V4L2M2M (.mkv)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_h264_nvmpi_support %}
-                <option value="mp4:h264_nvmpi">H.264/NVMPI (.mp4)</option>
+                {% if has_h264_nvenc_support and not is_raspberry_pi %}
+                <optgroup label="H.264 (NVIDIA Hardware)">
+                    <option value="mp4:h264_nvenc">H.264/NVENC (.mp4)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_h264_qsv_support %}
-                <option value="mp4:h264_qsv">H.264/QSV (.mp4)</option>
+                {% if has_h264_qsv_support and not is_raspberry_pi %}
+                <optgroup label="H.264 (Intel QuickSync)">
+                    <option value="mp4:h264_qsv">H.264/QSV (.mp4)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_h264_v4l2m2m_support %}
-                <option value="mp4:h264_v4l2m2m">H.264/V4L2M2M (.mp4)</option>
+                {% if has_h264_nvmpi_support and not is_raspberry_pi %}
+                <optgroup label="H.264 (Jetson Hardware)">
+                    <option value="mp4:h264_nvmpi">H.264/NVMPI (.mp4)</option>
+                </optgroup>
                 {% endif %}
-                <option value="hevc">HEVC (.mp4)</option>
-                {% if has_hevc_nvenc_support %}
-                <option value="mp4:hevc_nvenc">HEVC/NVENC (.mp4)</option>
+                {% if not is_raspberry_pi or not has_h264_v4l2m2m_support %}
+                <optgroup label="H.264 (Software)">
+                    <option value="mp4">H.264 (.mp4)</option>
+                    <option value="mkv">H.264 (.mkv)</option>
+                    <option value="mov">H.264 (.mov)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_hevc_nvmpi_support %}
-                <option value="mp4:hevc_nvmpi">HEVC/NVMPI (.mp4)</option>
+                {% if has_hevc_nvenc_support and not is_raspberry_pi %}
+                <optgroup label="HEVC/H.265 (NVIDIA Hardware)">
+                    <option value="mp4:hevc_nvenc">HEVC/NVENC (.mp4)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_hevc_qsv_support %}
-                <option value="mp4:hevc_qsv">HEVC/QSV (.mp4)</option>
+                {% if has_hevc_nvmpi_support and not is_raspberry_pi %}
+                <optgroup label="HEVC/H.265 (Jetson Hardware)">
+                    <option value="mp4:hevc_nvmpi">HEVC/NVMPI (.mp4)</option>
+                </optgroup>
                 {% endif %}
-                {% if has_h264_v4l2m2m_support %}
-                <option value="mkv:h264_v4l2m2m">Matroska Video/V4L2M2M (.mkv)</option>
+                {% if has_hevc_qsv_support and not is_raspberry_pi %}
+                <optgroup label="HEVC/H.265 (Intel QuickSync)">
+                    <option value="mp4:hevc_qsv">HEVC/QSV (.mp4)</option>
+                </optgroup>
                 {% endif %}
+                <optgroup label="HEVC/H.265 (Software)">
+                    <option value="hevc">HEVC (.mp4)</option>
+                </optgroup>
+                <optgroup label="VP8">
+                    <option value="webm">VP8 (.webm)</option>
+                </optgroup>
             </select>
         </td>
-        <td><span class="help-mark" data-i18n-title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player." title="sets the movie file format; not all formats are guaranteed to work on all systems; if in doubt, test each format and select the one that works best with your video player.">?</span></td>
+        <td><span class="help-mark" data-i18n-title="Sets the movie file format and encoder. Hardware-accelerated options (V4L2M2M, NVENC, QSV) provide better performance with lower CPU usage. Software encoders offer maximum compatibility but higher CPU usage. Recommended: Use hardware encoding when available." title="Sets the movie file format and encoder. Hardware-accelerated options (V4L2M2M, NVENC, QSV) provide better performance with lower CPU usage. Software encoders offer maximum compatibility but higher CPU usage. Recommended: Use hardware encoding when available.">?</span></td>
     </tr>
     <tr class="settings-item" min="0" max="100" snap="0" ticksnum="5" decimals="0" unit="%">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Movie Quality">Movie Quality</span></td>

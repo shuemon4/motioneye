@@ -2785,7 +2785,7 @@ function dict2CameraUi(dict) {
     $('#movieFormatSelect').val(dict['movie_format']); markHideIfNull('movie_format', 'movieFormatSelect');
     $('#recordingModeSelect').val(dict['recording_mode']); markHideIfNull('recording_mode', 'recordingModeSelect');
     $('#maxMovieLengthEntry').val(dict['max_movie_length']); markHideIfNull('max_movie_length', 'maxMovieLengthEntry');
-    $('#moviePassthroughSwitch')[0].checked = dict['movie_passthrough']; markHideIfNull('movie_passthrough', 'moviePassthroughSwitch');
+    $('#moviePassthroughSwitch')[0].checked = dict['movie_passthrough']; markHideIfNull(dict['proto'] !== 'netcam', 'moviePassthroughSwitch');
     $('#preserveMoviesSelect').val(dict['preserve_movies']);
     if ($('#preserveMoviesSelect').val() == null) {
         $('#preserveMoviesSelect').val('-1');

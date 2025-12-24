@@ -21,7 +21,12 @@
       "Bash(rsync:*)",
       "WebSearch",
       "Bash(curl:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(sshpass:*)",
+      "Bash(chmod:*)",
+      "Bash(shasum:*)",
+      "Bash(ping:*)",
+      "Bash(md5:*)"
     ],
     "deny": [],
     "ask": []

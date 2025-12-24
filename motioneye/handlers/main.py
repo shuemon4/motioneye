@@ -59,6 +59,8 @@ class MainHandler(BaseHandler):
             has_hevc_nvmpi_support=motionctl.has_hevc_nvmpi_support(),
             has_h264_qsv_support=motionctl.has_h264_qsv_support(),
             has_hevc_qsv_support=motionctl.has_hevc_qsv_support(),
+            is_raspberry_pi=motionctl.is_raspberry_pi(),
+            platform_type=motionctl.detect_platform(),
             has_motion=bool(motionctl.find_motion()[0]),
             mask_width=utils.MASK_WIDTH,
         )

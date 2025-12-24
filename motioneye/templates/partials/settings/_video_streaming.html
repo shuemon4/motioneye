@@ -30,11 +30,15 @@
         <td class="settings-item-value"><input type="text" class="styled streaming camera-config" id="streamingPortEntry"></td>
         <td><span class="help-mark" data-i18n-title="sets the TCP port on which the webcam streaming server listens" title="sets the TCP port on which the webcam streaming server listens">?</span></td>
     </tr>
+    <!-- Direct Streaming hidden until proper authentication integration is implemented.
+         See: https://github.com/motioneye-project/motioneye/issues/XXX
+         When enabled, requires webcontrol_localhost=off which exposes Motion's port to the network.
     <tr class="settings-item" depends="videoStreamingEnabled">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Direct Streaming">Direct Streaming</span></td>
         <td class="settings-item-value"><input type="checkbox" class="styled streaming camera-config" id="streamingDirectModeSwitch" checked></td>
         <td><span class="help-mark" data-i18n-title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues." title="Connect directly to Motion stream. Reduces CPU usage but disables server-side image resize. Disable if you experience connection issues.">?</span></td>
     </tr>
+    -->
     <tr class="settings-item" depends="videoStreamingEnabled">
         <td class="settings-item-label"><span class="settings-item-label" data-i18n="Authentication mode">Authentication mode</span></td>
         <td class="settings-item-value">
