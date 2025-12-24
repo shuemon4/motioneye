@@ -11,15 +11,15 @@ MotionEye is a web interface for the Motion surveillance daemon. This document c
 Before installing MotionEye, ensure your system meets these requirements:
 
 ### System Requirements
-- **OS**: Linux with systemd (Debian/Ubuntu or Fedora/RHEL)
-- **Python**: 3.7 or later
-- **Architecture**: amd64, ARMv7 (32-bit), ARMv8/aarch64 (64-bit), or other architectures
-- **Disk Space**: ~100 MB for MotionEye + space for video storage
-- **RAM**: 256 MB minimum (1+ GB recommended for 4K streams)
+- **OS**: 64-bit Linux with systemd (Debian Bookworm/Trixie, Ubuntu 22.04+, or Fedora/RHEL)
+- **Python**: 3.10 or later (3.13 on Trixie)
+- **Architecture**: amd64 or aarch64 (64-bit ARM) only
+- **Disk Space**: ~200 MB for MotionEye + dependencies + space for video storage
+- **RAM**: 512 MB minimum (1+ GB recommended for streaming)
 
 ### Motion Daemon
-- **Required**: Motion 5.0 or later (for CSRF protection and security)
-- **Status**: Should be installed before or alongside MotionEye
+- **Required**: Motion 5.0 or later (libcamera support, CSRF protection)
+- **Note**: Motion must be installed before MotionEye
 
 ### Network
 - **Connectivity**: System must have Internet access during installation
@@ -31,48 +31,46 @@ Before installing MotionEye, ensure your system meets these requirements:
 
 ### Step 1: Install Python and Build Dependencies
 
-#### Debian/Ubuntu (APT-based)
+#### Debian Trixie (Raspberry Pi OS)
 
-**Minimum installation** (when wheels are pre-compiled):
+For Raspberry Pi 4/5 running Trixie (Debian 13):
 
 ```bash
 sudo apt update
-sudo apt install --no-install-recommends ca-certificates curl python3
+sudo apt install -y python3-pip python3-dev
 ```
 
-**For ARMv6/ARMv7 (32-bit), RISC-V, or other rare architectures**, additional build dependencies are required:
+**Note**: Trixie includes Python 3.13. Some packages (jinja2, babel) are pre-installed as system dependencies.
+
+#### Debian Bookworm
 
 ```bash
-sudo apt install --no-install-recommends \
-  python3-dev gcc libjpeg62-turbo-dev \
-  libcurl4-openssl-dev libssl-dev
+sudo apt update
+sudo apt install --no-install-recommends ca-certificates curl python3 python3-pip
 ```
-
-This is necessary to compile Pillow (image processing) and PycURL (HTTP client) from source.
 
 #### Fedora/RHEL-based Systems
 
 ```bash
 sudo dnf groupinstall "Development Tools"
-sudo dnf install python3 python3-devel \
+sudo dnf install python3 python3-devel python3-pip \
   openssl-devel libjpeg-turbo-devel libcurl-devel
 ```
 
-### Step 2: Install Python Package Manager (pip)
+### Step 2: Handle PEP 668 (Modern Debian/Ubuntu)
 
-#### Debian/Ubuntu 22.04 and Earlier
+Modern Debian/Ubuntu versions (Bookworm, Trixie, 23.04+) use PEP 668 to prevent pip from installing packages outside virtual environments.
+
+**Option A: Use --break-system-packages flag** (recommended for dedicated systems like Raspberry Pi)
+
+This is the simplest approach for single-purpose systems:
 
 ```bash
-curl -sSfO 'https://bootstrap.pypa.io/get-pip.py'
-sudo python3 get-pip.py
-rm get-pip.py
+# All pip install commands require this flag
+sudo pip3 install --break-system-packages <package>
 ```
 
-#### Debian/Ubuntu 23.04+ / Bookworm+ (with PEP-668 Protection)
-
-Modern Debian/Ubuntu versions use PEP 668 to prevent pip from installing outside virtual environments. MotionEye has minimal dependencies with flexible version requirements and is compatible with system packages.
-
-**Option A: Enable pip for system-wide installation** (recommended for single-purpose systems)
+**Option B: Configure pip globally** (avoid typing the flag each time)
 
 ```bash
 # Ensure [global] section exists
@@ -83,7 +81,7 @@ grep -q '\[global\]' /etc/pip.conf 2> /dev/null || \
 sudo sed -i '/^\[global\]/a\break-system-packages=true' /etc/pip.conf
 ```
 
-**Option B: Install in a virtual environment**
+**Option C: Install in a virtual environment**
 
 ```bash
 python3 -m venv ~/motioneye-env
@@ -95,35 +93,93 @@ Note: If using a virtual environment, activate it before running `motioneye_init
 
 ### Step 3: Install MotionEye
 
-#### Automatic Setup (Recommended)
+#### Option A: Automatic Setup (Recommended)
 
 The `motioneye_init` script performs all necessary setup:
 
 ```bash
-sudo python3 -m pip install --pre motioneye
+sudo pip3 install --break-system-packages motioneye
 sudo motioneye_init
 ```
 
 **What motioneye_init does**:
-1. Creates the `motion` system user
-2. Sets up configuration directories (`/etc/motioneye`)
-3. Creates log and data directories with proper permissions
-4. Installs systemd service file
-5. Enables and starts the MotionEye service
+1. Creates the `motion` system user and group
+2. Sets up configuration directories (`/etc/motioneye`, `/var/log/motioneye`, `/var/lib/motioneye`)
+3. Sets correct ownership (`motion:motion`) on all directories
+4. Installs and enables the systemd service
+5. Starts the MotionEye service
 
 **Requirements for automatic setup**:
 - APT- or RPM-based distribution
 - systemd as init system
 - sudo access
 
-#### Manual Setup (For Unsupported Distributions)
+#### Option B: Manual Setup (Quick Start)
 
-If your system is not supported by `motioneye_init`, follow these steps:
+For development or testing, you can skip `motioneye_init` and configure manually:
+
+**1. Install MotionEye system-wide:**
+
+```bash
+# From PyPI
+sudo pip3 install --break-system-packages motioneye
+
+# Or from source (clone/rsync first)
+cd ~/motioneye
+sudo pip3 install --break-system-packages .
+```
+
+**Important**: Use `sudo pip3 install` for system-wide access. User-level installation (`pip3 install` without sudo) installs to `~/.local/` which is not accessible to root or the systemd service.
+
+**2. Create minimal configuration:**
+
+```bash
+sudo mkdir -p /etc/motioneye
+sudo tee /etc/motioneye/motioneye.conf > /dev/null << 'CONFIG'
+port 8765
+listen 0.0.0.0
+CONFIG
+```
+
+**Note**: Do NOT specify `motion_binary` in the config - MotionEye autodetects it via `which motion`.
+
+**3. Fix permissions (CRITICAL):**
+
+```bash
+# Create motion user/group if missing
+sudo groupadd -r motion 2>/dev/null || true
+sudo useradd -r -g motion -G video -s /usr/sbin/nologin motion 2>/dev/null || true
+
+# Set correct ownership
+sudo chown -R motion:motion /etc/motioneye
+```
+
+**4. Start MotionEye:**
+
+```bash
+# Manual start (for testing)
+sudo meyectl startserver -c /etc/motioneye/motioneye.conf -l &
+
+# Or via systemd (if service file exists)
+sudo systemctl start motioneye
+```
+
+**5. Verify installation:**
+
+```bash
+curl http://localhost:8765/
+sudo ss -tlnp | grep 8765
+```
+
+#### Option C: Full Manual Setup (For Unsupported Distributions)
+
+For systems not supported by `motioneye_init`:
 
 **1. Create system user:**
 
 ```bash
-sudo useradd -r -s /bin/false -d /var/lib/motioneye motion
+sudo groupadd -r motion
+sudo useradd -r -g motion -G video -s /usr/sbin/nologin -d /var/lib/motioneye motion
 ```
 
 **2. Create directory structure:**
@@ -143,28 +199,23 @@ sudo chmod 755 /var/log/motioneye
 sudo mkdir -p /var/lib/motioneye
 sudo chown motion:motion /var/lib/motioneye
 sudo chmod 755 /var/lib/motioneye
-
-# Runtime files
-sudo mkdir -p /run/motioneye
-sudo chown motion:motion /run/motioneye
-sudo chmod 755 /run/motioneye
 ```
 
 **3. Configure MotionEye:**
 
 ```bash
-# Copy sample configuration
-sudo cp /path/to/motioneye/extra/motioneye.conf.sample /etc/motioneye/motioneye.conf
+# Create minimal config
+sudo tee /etc/motioneye/motioneye.conf > /dev/null << 'CONFIG'
+port 8765
+listen 0.0.0.0
+CONFIG
 sudo chown motion:motion /etc/motioneye/motioneye.conf
 sudo chmod 640 /etc/motioneye/motioneye.conf
 ```
 
-Edit `/etc/motioneye/motioneye.conf` as needed (see [Configuration](#configuration) section).
-
 **4. Install systemd service:**
 
 ```bash
-# For systemd systems
 sudo cp /path/to/motioneye/extra/motioneye.systemd /etc/systemd/system/motioneye.service
 sudo systemctl daemon-reload
 sudo systemctl enable motioneye
@@ -226,71 +277,93 @@ For Internet-facing installations, enable authentication:
 
 ## Installation Scenarios
 
-### Scenario 1: Fresh Raspberry Pi Installation
+### Scenario 1: Raspberry Pi 5 with Trixie (Recommended)
 
-For a new Raspberry Pi with Bookworm:
-
-```bash
-# 1. Update system
-sudo apt update && sudo apt upgrade -y
-
-# 2. Install Motion daemon
-# (Follow Motion installation instructions for Pi 5 or Pi 4)
-
-# 3. Install MotionEye dependencies
-sudo apt install --no-install-recommends \
-  ca-certificates curl python3
-
-# 4. Install MotionEye
-curl -sSfO 'https://bootstrap.pypa.io/get-pip.py'
-sudo python3 get-pip.py
-rm get-pip.py
-
-sudo python3 -m pip install --pre motioneye
-sudo motioneye_init
-
-# 5. Start MotionEye
-sudo systemctl start motioneye
-sudo systemctl enable motioneye
-```
-
-Access at: `http://[pi_ip]:8765`
-
-### Scenario 2: Pi 5 with Camera Module 3
-
-For Raspberry Pi 5 with the new libcamera stack:
+Tested on: Raspberry Pi 5 with Camera Module 3 (IMX708), Debian Trixie 64-bit.
 
 ```bash
-# Install libcamera support
-sudo apt install libcamera-dev libcamera-tools \
-  libjpeg-dev libavformat-dev libavcodec-dev
+# 1. Update system and install pip
+sudo apt update
+sudo apt install -y python3-pip python3-dev
 
-# Install and configure Motion 5.0+ (libcamera version)
-# See Motion installation guide
+# 2. Install Python dependencies
+sudo pip3 install --break-system-packages tornado pillow pycurl boto3
 
-# Then install MotionEye as above
-sudo python3 -m pip install --pre motioneye
+# 3. Install MotionEye (from PyPI or source)
+sudo pip3 install --break-system-packages motioneye
+
+# 4. Initialize (creates user, directories, service)
 sudo motioneye_init
+
+# 5. Verify
+sudo systemctl status motioneye
+curl http://localhost:8765/
 ```
 
-**Important**: Pi 5 requires Motion 5.0+ with libcamera support. Older MMAL-based Motion versions won't work.
+**Installation Time**: ~60 seconds
+**Memory Usage**: ~91 MB (MotionEye only)
+**Access URL**: `http://[pi_ip]:8765`
 
-### Scenario 3: Armv7 32-bit System (Pi 3/4 with 32-bit OS)
+### Scenario 2: Raspberry Pi 4 with Trixie
+
+Tested on: Raspberry Pi 4 with Camera Module 2 (IMX219), Debian Trixie 64-bit.
 
 ```bash
-# Install build dependencies for wheel compilation
-sudo apt install python3-dev gcc libjpeg62-turbo-dev \
-  libcurl4-openssl-dev libssl-dev
+# 1. Update system and install pip
+sudo apt update
+sudo apt install -y python3-pip python3-dev
 
-# Install pip
-curl -sSfO 'https://bootstrap.pypa.io/get-pip.py'
-sudo python3 get-pip.py
-rm get-pip.py
+# 2. Install Python dependencies (some already present)
+# jinja2 and babel are typically pre-installed
+sudo pip3 install --break-system-packages tornado pillow pycurl boto3
 
-# Install MotionEye (will compile Pillow and PycURL)
-sudo python3 -m pip install --pre motioneye
+# 3. Install MotionEye system-wide
+sudo pip3 install --break-system-packages motioneye
+
+# 4. Initialize
 sudo motioneye_init
+
+# 5. Verify
+sudo systemctl status motioneye
+curl http://localhost:8765/
 ```
+
+**Installation Time**: ~90 seconds
+**Memory Usage**: ~90 MB (MotionEye), ~75 MB (Motion), ~50 MB (mediamtx)
+**Access URL**: `http://[pi_ip]:8765`
+
+### Scenario 3: Development/Testing (Manual Quick Start)
+
+For development without `motioneye_init`:
+
+```bash
+# 1. Transfer source code
+rsync -avz --exclude='.git' --exclude='__pycache__' \
+  /path/to/motioneye/ user@pi:~/motioneye/
+
+# 2. Install dependencies and package
+ssh user@pi
+sudo apt install -y python3-pip python3-dev
+sudo pip3 install --break-system-packages tornado pillow pycurl boto3
+cd ~/motioneye && sudo pip3 install --break-system-packages .
+
+# 3. Create minimal config
+sudo mkdir -p /etc/motioneye
+sudo tee /etc/motioneye/motioneye.conf > /dev/null << 'CONFIG'
+port 8765
+listen 0.0.0.0
+CONFIG
+
+# 4. Fix permissions
+sudo groupadd -r motion 2>/dev/null || true
+sudo useradd -r -g motion -G video -s /usr/sbin/nologin motion 2>/dev/null || true
+sudo chown -R motion:motion /etc/motioneye
+
+# 5. Start manually
+sudo meyectl startserver -c /etc/motioneye/motioneye.conf -l &
+```
+
+**Note**: Use `meyectl startserver` syntax (command first, then options).
 
 ---
 
@@ -351,6 +424,60 @@ sudo journalctl -u motioneye -n 50
 
 ### Common Issues
 
+#### Service Fails After Reboot (Most Common)
+
+**Error**: `CRITICAL: config directory "/etc/motioneye" does not exist or is not writable`
+
+**Cause**: The `/etc/motioneye` directory was created with `root:root` ownership, but the systemd service runs as the `motion` user.
+
+**Fix**:
+```bash
+sudo chown -R motion:motion /etc/motioneye
+sudo systemctl restart motioneye
+```
+
+**Prevention**: Always run `sudo motioneye_init` or manually set permissions after creating config directories.
+
+#### meyectl: Command Not Found
+
+**Cause**: MotionEye was installed to user site-packages (`~/.local/`) instead of system-wide.
+
+**Fix**:
+```bash
+# Reinstall system-wide
+sudo pip3 install --break-system-packages motioneye
+```
+
+**Verification**:
+```bash
+which meyectl  # Should show /usr/local/bin/meyectl
+```
+
+#### PEP 668: Externally Managed Environment
+
+**Error**: `error: externally-managed-environment`
+
+**Cause**: Modern Debian/Ubuntu enforces PEP 668, preventing pip installs to system Python.
+
+**Fix**: Add `--break-system-packages` flag:
+```bash
+sudo pip3 install --break-system-packages motioneye
+```
+
+#### Invalid Configuration Option Warnings
+
+**Warning**: `WARNING:root:unknown configuration option: motion_binary`
+
+**Cause**: Specifying options that MotionEye doesn't recognize or auto-detects.
+
+**Fix**: Use minimal config - MotionEye auto-detects Motion via `which motion`:
+```bash
+sudo tee /etc/motioneye/motioneye.conf > /dev/null << 'CONFIG'
+port 8765
+listen 0.0.0.0
+CONFIG
+```
+
 #### MotionEye Won't Start
 
 ```bash
@@ -361,8 +488,8 @@ sudo journalctl -u motioneye -n 100
 # Verify config file exists
 ls -l /etc/motioneye/motioneye.conf
 
-# Check permissions
-ls -l /var/log/motioneye /var/lib/motioneye
+# Check permissions (must be motion:motion)
+stat /etc/motioneye
 ```
 
 #### Can't Connect to Web Interface
@@ -387,7 +514,7 @@ sudo firewall-cmd --list-all  # firewalld
 ```bash
 # Verify Motion is installed
 which motion
-motion -h | grep Version
+motion --version
 
 # Check Motion is running
 sudo systemctl status motion
@@ -397,6 +524,16 @@ ps aux | grep motion
 ```
 
 For more troubleshooting, see [Motion API Troubleshooting](docs/troubleshooting/motion-api-errors.md).
+
+### Quick Reference: Common Fixes
+
+| Issue | Error | Fix | Time |
+|-------|-------|-----|------|
+| Service fails after reboot | Config directory not writable | `sudo chown -R motion:motion /etc/motioneye` | 5s |
+| meyectl not found | Command not found | `sudo pip3 install --break-system-packages .` | 30s |
+| Port already in use | Address already in use | Change port in config or kill existing process | 5s |
+| Config not recognized | Unknown configuration option | Use minimal config (port, listen only) | 2s |
+| PEP 668 error | Externally managed environment | Add `--break-system-packages` flag | 1s |
 
 ---
 
@@ -544,20 +681,40 @@ For systems with limited resources:
 
 ### Raspberry Pi
 
-**Pi 5** (Recommended for new setups):
+**This fork requires 64-bit OS and Pi 4 or newer.** 32-bit support has been removed.
+
+**Pi 5** (Recommended):
+- Kernel: 6.12.47+rpt-rpi-2712
 - CPU: Cortex-A76 @ 2.4 GHz (excellent performance)
-- Camera: Use Camera Module 3 (v3) with libcamera
+- Camera: Camera Module 3 (v3) with libcamera - IMX708 sensor
 - Motion: Requires Motion 5.0+ with libcamera support
+- OS: Debian Trixie 64-bit (tested)
+- Memory: ~91 MB for MotionEye
 
-**Pi 4** (Still viable):
+**Pi 4** (Supported):
+- Kernel: 6.12.47+rpt-rpi-v8
 - CPU: Cortex-A72 @ 1.5 GHz
-- Camera: Camera Module 3 (v3) works via libcamera, or v2 with older Motion
-- Motion: Motion 4.x (MMAL) or 5.0+ (libcamera)
+- Camera: Camera Module 2 (v2) or v3 via libcamera - IMX219 or IMX708 sensor
+- Motion: Motion 5.0+ with libcamera support (MMAL removed)
+- OS: Debian Trixie 64-bit (tested)
+- Memory: ~90 MB (MotionEye), ~75 MB (Motion), ~50 MB (mediamtx)
 
-**Pi 3 and Earlier** (Limited support):
-- CPU: ARMv7 32-bit, slower performance
-- Camera: Camera Module v2 or compatible USB cameras
-- Motion: Motion 4.x only (MMAL not available in 5.0)
+**Pi 3 and Earlier**: Not supported (32-bit only, no libcamera)
+
+### Python Package Versions (Trixie)
+
+Verified working package versions on Debian Trixie (December 2025):
+
+| Package | Version | Source |
+|---------|---------|--------|
+| tornado | 6.5.4 | pip3 wheel |
+| jinja2 | (system) | apt (pre-installed) |
+| pillow | 11.1.0-12.0.0 | pip3 wheel |
+| pycurl | 7.45.7 | pip3 wheel |
+| babel | (system) | apt (pre-installed) |
+| boto3 | 1.42.15 | pip3 wheel |
+
+**Note**: pycurl is not available via apt on Trixie - must use pip3.
 
 ### Docker
 
@@ -566,6 +723,37 @@ A Docker image is available in the `docker/` directory:
 ```bash
 docker-compose -f docker/docker-compose.yml up -d
 ```
+
+---
+
+## Key Lessons Learned
+
+Based on real-world installation testing on Pi 4 and Pi 5 (December 2025):
+
+### Installation Strategy
+
+1. **System-wide pip install**: Always use `sudo pip3 install` for MotionEye. User-level installation to `~/.local/` is not accessible to root or systemd services.
+
+2. **PEP 668 compliance**: Trixie/Bookworm require `--break-system-packages` flag for system-wide pip installs. This is safe for single-purpose systems like Raspberry Pi.
+
+3. **Minimal config works best**: MotionEye auto-detects Motion via `which motion`. Don't specify `motion_binary` in config.
+
+4. **Permissions are critical**: The most common post-reboot failure is permissions. Always run `sudo chown -R motion:motion /etc/motioneye` after manual setup.
+
+5. **meyectl syntax**: Command comes before options: `meyectl startserver -c config.conf` (not `meyectl -c config.conf startserver`).
+
+### Dependency Strategy
+
+1. **apt first**: Install what's available from apt (faster, pre-compiled)
+2. **pip3 for missing**: Use pip3 for packages not in apt (pycurl on Trixie)
+3. **Pre-built wheels**: Most packages have aarch64 wheels - no compilation needed
+4. **Verify imports**: Test each package after installation to catch issues early
+
+### Service Management
+
+- `motioneye_init` handles user/group creation, directories, permissions, and systemd
+- Manual setup requires careful attention to permissions
+- Always verify with `curl http://localhost:8765/` after starting
 
 ---
 
@@ -580,3 +768,5 @@ MotionEye is licensed under the GNU General Public License v3.0 or later. See [L
 - [Motion Integration Guide](docs/MotionEye-Integration-Guide.md)
 - [Motion API Troubleshooting](docs/troubleshooting/motion-api-errors.md)
 - [Motion Project](https://motion-project.github.io/)
+- [Pi 4 Installation Notes](docs/installation/pi4-motioneye-installation-notes-20251223-1220.md) - Detailed step-by-step with issues encountered
+- [Pi 5 Installation Notes](docs/installation/pi5-notes.md) - Streamlined installation on Pi 5

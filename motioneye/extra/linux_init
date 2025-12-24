@@ -67,6 +67,17 @@ if systemctl -q is-active motion 2> /dev/null || systemctl -q is-enabled motion 
   systemctl disable --now motion
 fi
 
+# Ensure motion user and group exist
+# The motion package normally creates these, but if Motion was built from source they may not exist
+if ! getent group motion > /dev/null 2>&1; then
+  echo 'INFO: Creating motion group'
+  groupadd -r motion
+fi
+if ! getent passwd motion > /dev/null 2>&1; then
+  echo 'INFO: Creating motion user'
+  useradd -r -g motion -G video -s /usr/sbin/nologin -d /nonexistent motion
+fi
+
 # Pre-create config and data dirs and install configuration files
 if [[ -f '/etc/motioneye/motioneye.conf' ]]
 then
@@ -76,7 +87,13 @@ else
   [[ -d '/etc/motioneye' ]] || mkdir /etc/motioneye
   cp extra/motioneye.conf.sample /etc/motioneye/motioneye.conf
 fi
-chown -R motion:motion /etc/motioneye
+
+# Create log and media directories with proper ownership
+[[ -d '/var/log/motioneye' ]] || mkdir -p /var/log/motioneye
+[[ -d '/var/lib/motioneye' ]] || mkdir -p /var/lib/motioneye
+
+# Set ownership on all motioneye directories
+chown -R motion:motion /etc/motioneye /var/log/motioneye /var/lib/motioneye
 
 (( SKIP_SYSTEMD )) && exit 0
 

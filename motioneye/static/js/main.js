@@ -5842,7 +5842,7 @@ function refreshCameraFrames() {
             /* Check for Direct Streaming mode (connects directly to Motion's MJPEG stream) */
             if (this.config['streaming_direct_mode'] && this.config['streaming_port'] && this.config['proto'] != 'mjpeg') {
                 var directUrl = 'http://' + window.location.hostname + ':' +
-                                this.config['streaming_port'] + '/1/mjpg/stream';
+                                this.config['streaming_port'] + '/1/mjpg';
                 directUrl += '?_=' + new Date().getTime();
                 this.img.src = directUrl;
                 this.directMode = true;
