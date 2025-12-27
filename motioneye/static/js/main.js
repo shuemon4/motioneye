@@ -6056,6 +6056,10 @@ function initHotReloadSliders() {
     // AWB checkbox and select hot-reload handlers
     $('#awbEnableSwitch').on('change', function() {
         applyHotReloadParameter($(this));
+        // When AWB is toggled, ensure WB mode visibility is updated
+        if (typeof initWbModeFromValues === 'function') {
+            initWbModeFromValues();
+        }
     });
 
     $('#awbModeSelect').on('change', function() {
