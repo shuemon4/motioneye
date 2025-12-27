@@ -59,6 +59,11 @@ _SENSOR_NAMES = {
 # Sensors that support autofocus (base name matching)
 _AUTOFOCUS_SENSORS = {'imx708'}
 
+# Sensor variants that lack AWB calibration (NoIR = No InfraRed filter)
+# These cameras see infrared light which makes AWB calibration impossible
+# ColourTemperature and AwbLocked controls will not work on these sensors
+_NOIR_SUFFIXES = ('_noir', '_wide_noir')
+
 
 def _get_base_sensor_name(sensor: str) -> str:
     """
@@ -278,7 +283,8 @@ def list_devices() -> list:
         # Determine sensor properties using base name (handles imx708_wide_noir etc.)
         base_sensor = _get_base_sensor_name(sensor)
         base_sensor_lower = base_sensor.lower()
-        supports_autofocus = base_sensor_lower in _AUTOFOCUS_SENSORS
+        has_autofocus = base_sensor_lower in _AUTOFOCUS_SENSORS
+        is_noir = is_noir_sensor(sensor)
 
         # Create display name using base sensor for lookup
         friendly_name = _SENSOR_NAMES.get(base_sensor_lower, sensor.upper())
@@ -293,7 +299,8 @@ def list_devices() -> list:
             'sensor': sensor,
             'max_resolution': max_res,
             'path': path,
-            'supports_autofocus': supports_autofocus,
+            'supports_autofocus': has_autofocus,
+            'is_noir': is_noir,
             'index': int(index),
         }
 
@@ -355,6 +362,27 @@ def supports_autofocus(sensor: str) -> bool:
     """
     base_sensor = _get_base_sensor_name(sensor)
     return base_sensor.lower() in _AUTOFOCUS_SENSORS
+
+
+def is_noir_sensor(sensor: str) -> bool:
+    """
+    Check if a sensor is a NoIR (No InfraRed filter) variant.
+
+    NoIR cameras lack AWB calibration data because they see infrared light
+    which makes color temperature calibration impossible. On these cameras:
+    - ColourTemperature control will NOT work
+    - AwbLocked control will NOT work
+    - ColourGains (manual red/blue) WILL work
+    - AwbMode presets WILL work (with limited effect)
+
+    Args:
+        sensor: Sensor model like 'imx708' or 'imx708_wide_noir'
+
+    Returns:
+        True if sensor is a NoIR variant
+    """
+    sensor_lower = sensor.lower()
+    return any(sensor_lower.endswith(suffix) for suffix in _NOIR_SUFFIXES)
 
 
 def get_camera_modes(index: int) -> list:

@@ -107,9 +107,21 @@ function setElementHidden(shouldHide, elementId) {
     }
 }
 
+/* Controls that don't work on NoIR cameras due to lack of AWB calibration.
+ * These should remain hidden even if Motion reports them as "supported". */
+var NOIR_UNSUPPORTED_CONTROLS = ['ColourTemperature', 'AwbEnable'];
+/* Elements that don't work on NoIR cameras:
+ * - colourTempSlider: ColourTemperature control requires AWB calibration
+ * - awbLockedSwitch: AwbLocked requires AWB calibration
+ * - wbModeTemp: Manual Mode toggle is pointless when Temperature doesn't work
+ * Note: awbModeSelect WORKS on NoIR if tuning file has mode definitions */
+var NOIR_UNSUPPORTED_ELEMENTS = ['colourTempSlider', 'awbLockedSwitch', 'wbModeTemp'];
+
 /* Applies visibility to UI elements based on Motion's reported camera capabilities.
- * If supportedControls is empty/null, gracefully degrades by showing all controls. */
-function applyCapabilityVisibility(supportedControls) {
+ * If supportedControls is empty/null, gracefully degrades by showing all controls.
+ * @param supportedControls - Object mapping capability names to booleans
+ * @param isNoIR - True if camera is a NoIR variant (no AWB calibration) */
+function applyCapabilityVisibility(supportedControls, isNoIR) {
     if (!supportedControls || Object.keys(supportedControls).length === 0) {
         return; /* No capability info, show all (graceful degradation) */
     }
@@ -120,7 +132,14 @@ function applyCapabilityVisibility(supportedControls) {
             var elements = CAPABILITY_TO_UI_ELEMENT[capKey];
 
             elements.forEach(function(elementId) {
-                setElementHidden(!isSupported, elementId);
+                var shouldHide = !isSupported;
+
+                /* NoIR cameras: force-hide specific elements even if Motion reports them as supported */
+                if (isNoIR && NOIR_UNSUPPORTED_ELEMENTS.indexOf(elementId) >= 0) {
+                    shouldHide = true;
+                }
+
+                setElementHidden(shouldHide, elementId);
             });
         }
     }
@@ -2343,6 +2362,7 @@ function cameraUi2Dict() {
         'colour_gain_r': parseFloat($('#colourGainRSlider').val()) || 0.0,
         'colour_gain_b': parseFloat($('#colourGainBSlider').val()) || 0.0,
         'supports_autofocus': $('#autofocusModeSelect').parents('tr:eq(0)')[0] && !$('#autofocusModeSelect').parents('tr:eq(0)')[0]._hideNull,
+        'is_noir': $('#colourTempSlider').parents('tr:eq(0)')[0] && $('#colourTempSlider').parents('tr:eq(0)')[0]._hideNull && $('#awbEnableSwitch').parents('tr:eq(0)')[0] && !$('#awbEnableSwitch').parents('tr:eq(0)')[0]._hideNull,
         'autofocus_mode': parseInt($('#autofocusModeSelect').val()) || 2,
         'autofocus_range': parseInt($('#autofocusRangeSelect').val()) || 0,
         'autofocus_speed': parseInt($('#autofocusSpeedSelect').val()) || 0,
@@ -2662,12 +2682,18 @@ function dict2CameraUi(dict) {
     $('#contrastSlider').val(dict['contrast'] != null ? dict['contrast'] : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'contrastSlider');
     $('#isoSlider').val(dict['iso'] != null ? (dict['iso'] / 100).toFixed(1) : 1.0); markHideIfNull(dict['proto'] !== 'libcamera', 'isoSlider');  // Convert ISO to gain
     // AWB Controls
-    $('#awbEnableSwitch').prop('checked', dict['awb_enable'] != null ? dict['awb_enable'] : true); markHideIfNull(dict['proto'] !== 'libcamera', 'awbEnableSwitch');
-    $('#awbModeSelect').val(dict['awb_mode'] != null ? dict['awb_mode'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'awbModeSelect');
-    $('#awbLockedSwitch').prop('checked', dict['awb_locked'] != null ? dict['awb_locked'] : false); markHideIfNull(dict['proto'] !== 'libcamera', 'awbLockedSwitch');
-    $('#colourTempSlider').val(dict['colour_temp'] != null ? dict['colour_temp'] : 0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourTempSlider');
-    $('#colourGainRSlider').val(dict['colour_gain_r'] != null ? dict['colour_gain_r'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainRSlider');
-    $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(dict['proto'] !== 'libcamera', 'colourGainBSlider');
+    // NoIR cameras (no IR filter) lack AWB calibration - ColourTemperature and AwbLocked won't work
+    var isNoIR = dict['is_noir'] === true;
+    var isNotLibcamera = dict['proto'] !== 'libcamera';
+    $('#awbEnableSwitch').prop('checked', dict['awb_enable'] != null ? dict['awb_enable'] : true); markHideIfNull(isNotLibcamera, 'awbEnableSwitch');
+    // AWB Mode presets work on NoIR if tuning file has mode definitions (updated tuning file)
+    $('#awbModeSelect').val(dict['awb_mode'] != null ? dict['awb_mode'] : 0); markHideIfNull(isNotLibcamera, 'awbModeSelect');
+    $('#awbLockedSwitch').prop('checked', dict['awb_locked'] != null ? dict['awb_locked'] : false); markHideIfNull(isNotLibcamera || isNoIR, 'awbLockedSwitch');
+    $('#colourTempSlider').val(dict['colour_temp'] != null ? dict['colour_temp'] : 0); markHideIfNull(isNotLibcamera || isNoIR, 'colourTempSlider');
+    // Hide Manual Mode toggle for NoIR cameras - Temperature mode doesn't work, so toggle is pointless
+    markHideIfNull(isNotLibcamera || isNoIR, 'wbModeTemp');
+    $('#colourGainRSlider').val(dict['colour_gain_r'] != null ? dict['colour_gain_r'] : 0.0); markHideIfNull(isNotLibcamera, 'colourGainRSlider');
+    $('#colourGainBSlider').val(dict['colour_gain_b'] != null ? dict['colour_gain_b'] : 0.0); markHideIfNull(isNotLibcamera, 'colourGainBSlider');
     /* Autofocus Controls - use runtime capabilities if available, fall back to static detection */
     var caps = dict['supported_controls'] || {};
     var supportsAF = caps['AfMode'] !== undefined ? caps['AfMode'] : dict['supports_autofocus'];
@@ -2995,7 +3021,8 @@ function dict2CameraUi(dict) {
     }
 
     // Apply capability-based visibility (Phase 2.1, 2.2)
-    applyCapabilityVisibility(dict['supported_controls']);
+    // Pass isNoIR flag to ensure NoIR-unsupported controls stay hidden
+    applyCapabilityVisibility(dict['supported_controls'], dict['is_noir'] === true);
 }
 
 

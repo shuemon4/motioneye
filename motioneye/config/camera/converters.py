@@ -465,6 +465,11 @@ def motion_camera_ui_to_dict(
                 data['libcam_af_speed'] = af_speed
                 data['libcam_lens_position'] = lens_pos
 
+            # Store NoIR flag for UI persistence (detected in dict_to_ui)
+            # NoIR cameras lack AWB calibration - ColourTemperature won't work
+            if ui.get('is_noir'):
+                data['@is_noir'] = True
+
     else:  # assuming netcam
         if match(
             r'^rtsp|^rtmp', data.get('netcam_url', prev_config.get('netcam_url', ''))
@@ -1030,27 +1035,27 @@ def motion_camera_dict_to_ui(
         ui['colour_gain_r'] = float(data.get('@colour_gain_r', data.get('libcam_colour_gain_r', 0.0)))
         ui['colour_gain_b'] = float(data.get('@colour_gain_b', data.get('libcam_colour_gain_b', 0.0)))
 
+        # Get camera properties for feature detection (autofocus, NoIR, etc.)
+        from motioneye.controls import rpicamctl
+        device_id = data.get('libcam_device', 'camera0')
+
+        # Handle "auto" device selection - use first available camera
+        if device_id == 'auto':
+            devices = rpicamctl.list_devices()
+            if devices:
+                device_id = devices[0][0]  # Use first camera's ID
+                logging.debug(f'Auto-detected camera: {device_id}')
+
+        logging.debug(f'Getting camera properties for device: {device_id}')
+        props = rpicamctl.get_camera_properties(device_id)
+        logging.debug(f'Camera properties: {props}')
+
         # Autofocus controls for Camera v3 (imx708)
         # Check stored flag first, then detect dynamically for existing cameras
         supports_af = data.get('@supports_autofocus')
-        if supports_af is None:
-            # Detect autofocus support dynamically from libcamera device
-            from motioneye.controls import rpicamctl
-            device_id = data.get('libcam_device', 'camera0')
-
-            # Handle "auto" device selection - use first available camera
-            if device_id == 'auto':
-                devices = rpicamctl.list_devices()
-                if devices:
-                    device_id = devices[0][0]  # Use first camera's ID
-                    logging.debug(f'Auto-detected camera: {device_id}')
-
-            logging.debug(f'Checking autofocus support for device: {device_id}')
-            props = rpicamctl.get_camera_properties(device_id)
-            logging.debug(f'Camera properties: {props}')
-            if props:
-                supports_af = props.get('supports_autofocus', False)
-                logging.debug(f'Autofocus support from properties: {supports_af}')
+        if supports_af is None and props:
+            supports_af = props.get('supports_autofocus', False)
+            logging.debug(f'Autofocus support from properties: {supports_af}')
 
         if supports_af:
             ui['autofocus_mode'] = int(data.get('@af_mode', data.get('libcam_af_mode', 2)))
@@ -1059,6 +1064,15 @@ def motion_camera_dict_to_ui(
             ui['lens_position'] = float(data.get('@lens_position', data.get('libcam_lens_position', 0.0)))
             ui['supports_autofocus'] = True
             logging.debug(f'Autofocus enabled in UI: mode={ui["autofocus_mode"]}, range={ui["autofocus_range"]}, speed={ui["autofocus_speed"]}, lens={ui["lens_position"]}')
+
+        # NoIR detection - these cameras lack AWB calibration data
+        # ColourTemperature and AwbLocked controls will not work on NoIR sensors
+        is_noir = data.get('@is_noir')
+        if is_noir is None and props:
+            is_noir = props.get('is_noir', False)
+        if is_noir:
+            ui['is_noir'] = True
+            logging.debug(f'NoIR camera detected - ColourTemperature and AwbLocked controls will be hidden')
 
         resolutions = utils.COMMON_RESOLUTIONS
         resolutions = [r for r in resolutions if motionctl.resolution_is_valid(*r)]
